@@ -1,0 +1,11 @@
+simpy
+numpy
+lxml
+pyyaml
+pandas
+scipy
+tk
+Pillow
+matplotlib
+ipywidgets>=7.0.0 
+customtkinter

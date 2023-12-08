@@ -1,0 +1,45 @@
+sim_time: "3600*24*200"
+
+project_data:
+  yearly_volume: 864000 
+
+supermarket: #Raw Input Dynamics
+  capacity: "100"
+  initial: "100"
+  refill-time: "120"
+  refill-threshold: "20" #safety-stock
+  refill-Nparts: "100"
+
+buffers: # Intermediate buffers dynamics 
+  capacity: "10"  # Capacity buffers of all machines
+  initial: "0"
+
+shopstock: #Final Output Dynamics
+  capacity: "inf"
+  initial: "0"
+  depletion-time: "0" 
+
+breakdowns: #Exponential distribution
+  enabled: true 
+  mttf: "3600*8" # Mean time to failure
+  mttr: "3600" #Mean Time to Repair  (à mettre sur le diag en vert)
+  probabiliy: 0.1  # Probability of breakdown
+
+hazard_delays: #Weibull
+  enabled: true
+  distribution: "weibull"
+  probability: 0.1 # Probability of hazard stop
+
+learnig_model: #TBD # Manual tasks tends to be executed much faster with overall time
+  enabled: true
+  learnig_rate: 0.1
+
+fatigue_model: 
+  enabled: false
+  distribution: "exponential"  #exponential or periodic 
+  max-fatigue-rate: 0.1 # 0 = disable the fatique model, 1 means the manual time gets doubled.
+  tau-fatigue: "3600*3" # The operator efficiency drops to 63% of max after tau value 
+
+quality:
+  enabled: true
+  ratio: 0.95 #95% of good parts

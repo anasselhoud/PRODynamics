@@ -1,0 +1,42 @@
+{
+    "Machines": {
+        "M1":{
+            "CT": 20,
+            "MT": 20,
+            "WC": 20,
+            "Link": "M3",
+            "Buffer-Capacity": 100,
+            "MTTF": "3600*24",
+            "MTTR": 3600
+        },
+        "M2":{
+            "CT": 20,
+            "MT": 20,
+            "WC": 20,
+            "Link": "M3",
+            "Buffer-Capacity": 100,
+            "MTTF": "3600*24",
+            "MTTR": 3600
+        },
+        "M3":{
+            "CT": 20,
+            "MT": 20,
+            "WC": 20,
+            "Link": "M4",
+            "Buffer-Capacity": 100,
+            "MTTF": "3600*24",
+            "MTTR": 3600
+        },
+        "M4":{
+            "CT": 20,
+            "MT": 20,
+            "WC": 20,
+            "Link": "END",
+            "Buffer-Capacity": 100,
+            "MTTF": "3600*24",
+            "MTTR": 3600
+        }
+    
+    }
+  }
+  
