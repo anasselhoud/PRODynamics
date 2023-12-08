@@ -526,8 +526,8 @@ class App(customtkinter.CTk):
                 m.buffer_btn= [buffer_btn, buffer_capacity,buffer_level,machine_idle, machine_downtime]
             except: 
                 pass
-                
-           
+            
+        
         
         thread = threading.Thread(target=run, args={self.manuf_line,})
         thread.start()

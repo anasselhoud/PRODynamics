@@ -220,15 +220,19 @@ class ManufLine:
 
         self.list_machines = []
         next_machine = None
-        
+
+
+       
+        notfirst_list = [list_machines_config[i][4] for i in range(len(list_machines_config))]
+        print("NOT FIRST", notfirst_list)
+
         for i in range(len(list_machines_config)):
             assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
             first, last = False, False
             if i == len(list_machines_config) - 1 :
                 last = True
-            if i == 0 or i == 1:
+            if list_machines_config[i][0] not in notfirst_list:
                 first = True    
-
 
             try: 
                 mttf = eval(list_machines_config[i][6])
@@ -245,19 +249,23 @@ class ManufLine:
             if machine.first:
                 self.first_machine = machine
             self.list_machines.append(machine)
-
+        
+        index_next = []
         self.set_CT_machines([ct[3] for ct in list_machines_config])
         l = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
-            try: 
-                index = l.index(list_machines_config[i][4])
-                machine.next_machine = self.list_machines[index]
-                self.list_machines[index].buffer_in = simpy.Container(self.env, capacity=float(machine.buffer_capacity), init=0)
-                machine.buffer_out = self.list_machines[index].buffer_in
-         
-                print("capacity == " + str(machine.buffer_capacity) + " --- " + str(machine.buffer_out.capacity))
+            try:
+                if l.index(list_machines_config[i][4]) not in index_next:
+                    index_next.append(l.index(list_machines_config[i][4]))
+                    machine.next_machine = self.list_machines[index_next[-1]]
+                    self.list_machines[index_next[-1]].buffer_in = machine.buffer_out
+                else:
+                    machine.next_machine = self.list_machines[l.index(list_machines_config[i][4])]
+                    machine.buffer_out = machine.next_machine.buffer_in
+
+                print("capacity == " + str(machine.ID) + " --- " + str(machine.buffer_out))
             except:
-                pass 
+                pass
 
 class Machine:
     def __init__(self, manuf_line, env, machine_id, assigned_tasks, config, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, hazard_delays=False):
@@ -490,10 +498,11 @@ def draw_buffers(app, assembly_line):
                 m.buffer_btn[1].configure(text=f"Capacity = {m.buffer_out.capacity}")
                 m.buffer_btn[2].configure(text=f"Level = {m.buffer_out.level}")
                 m.buffer_btn[3].configure( text="Waiting/Idle Time = %.2f" % idle_time)
-                m.buffer_btn[4].configure(text="Total Downtime = %.2f" % float(m.MTTR)*m.n_breakdowns)
+                m.buffer_btn[4].configure(text="Total Downtime = %.2f" % float(m.MTTR*float(m.n_breakdowns)))
             except:
                 pass
         else:
+    
             if m.buffer_out.level < m.buffer_out.capacity * 0.2:
                 m.buffer_btn[0].configure(fg_color="green")
             elif m.buffer_out.level < m.buffer_out.capacity * 0.8:
