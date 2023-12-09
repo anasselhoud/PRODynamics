@@ -227,8 +227,11 @@ class SettingWindow(customtkinter.CTkToplevel):
         if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
             # Read Excel file using pandas
             try:
-                config_data = pd.read_excel(file_path)
+                config_data = pd.read_excel(file_path, sheet_name="Line Data")
                 print("Excel file uploaded and read successfully.")
+                print(config_data.values.tolist())
+                self.machine_data[1:] = config_data.values.tolist()
+                self.table_machines.update_values(self.machine_data)
                 return config_data
             except Exception as e:
                 print(f"Error reading Excel file: {e}")
@@ -268,7 +271,7 @@ class App(customtkinter.CTk):
         super().__init__()
 
         # configure window
-        self.title("LineDynamics") 
+        self.title("PRODynamics") 
         self.geometry(f"{1920}x{1080}") #1280x720
         #mainicon = tk.PhotoImage(file="./assets/icons/mainicon.png")
         self.iconbitmap("./assets/icons/mainicon.ico")
@@ -286,7 +289,7 @@ class App(customtkinter.CTk):
         self.sidebar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, rowspan=5, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure((4), weight=1)
-        self.logo_label = customtkinter.CTkLabel(self.sidebar_frame, text="LineDynamics", font=customtkinter.CTkFont(size=20, weight="bold"))
+        self.logo_label = customtkinter.CTkLabel(self.sidebar_frame, text="PRODynamics", font=customtkinter.CTkFont(size=20, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
         setting_img =  tk.PhotoImage(file="./assets/icons/setng_icon.png")
         self.settings_btn = customtkinter.CTkButton(self.sidebar_frame, text="Settings", font=('Arial', 15), command=self.open_setting_window, image=setting_img, compound="left")
@@ -701,8 +704,8 @@ if __name__ == "__main__":
     df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
     tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
     config_file = 'config.yaml'
-    task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 4, 4, 4 ]
-    assembly_line = ManufLine(env, 4, tasks, [[1], [2], [3, 4]], task_assignement, config_file=config_file)
+    task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
+    assembly_line = ManufLine(env, 3, tasks, [[1], [2], [3]], task_assignement, config_file=config_file)
     #assembly_line.set_CT_machines([20, 20, 20, 20])
 
     ## Compile with OEE diagram modifs + parallel machines + robots transport 

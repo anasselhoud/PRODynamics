@@ -122,7 +122,7 @@ class ManufLine:
         print(f"Current simulation time at the start: {self.env.now}")
         self.generate()
         for m in self.list_machines:
-            self.process = self.env.process(m.machine_process())
+            m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
         self.env.process(self.refill_market())
         self.env.run(until=self.sim_time)
@@ -152,8 +152,7 @@ class ManufLine:
                 yield self.env.timeout(machine.time_to_failure())
                 if not machine.broken:
                     machine.n_breakdowns += 1
-                    print("Machine " + machine.ID + " Broken :) ")
-                    self.process.interrupt()    
+                    machine.process.interrupt()    
     
     def set_CT_machines(self, CTs):
 
@@ -284,6 +283,7 @@ class Machine:
         self.config = config
         self.buffer_btn = None
         self.buffer_capacity = buffer_capacity
+        self.process = None
         if first:
             self.buffer_in = manuf_line.supermarket_in
             self.buffer_out = simpy.Container(env, capacity=float(buffer_capacity), init=0)
@@ -387,21 +387,25 @@ class Machine:
                         yield self.env.timeout(1)
                     self.finished_times.append(finish_time)
                     self.loaded = False
+                    self.entry_times.append(self.env.now)
                     yield self.buffer_out.put(1)
+                    self.exit_times.append(self.env.now)
                     done_in = 0
+                    self.parts_done = self.parts_done +1
+            
+                    self.parts_done_shift = self.parts_done_shift+1
+                    yield self.env.timeout(0)
                 except simpy.Interrupt:
                     self.broken = True
                     done_in -= self.env.now - start
+                    print(self.ID + " - Machine Broken :( - Buffer state = " + str(self.buffer_out.level) + "  " + str(self.broken) + " " + str(self.n_breakdowns))
                     try:
                         yield self.env.timeout(self.MTTR) #Time to repair
                     except: 
-                         pass
+                          pass
                     self.broken = False
            
-            self.parts_done = self.parts_done +1
             
-            self.parts_done_shift = self.parts_done_shift+1
-            yield self.env.timeout(0)
                 
 
 
