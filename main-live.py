@@ -214,14 +214,18 @@ class SettingWindow(customtkinter.CTkToplevel):
     
     def upload_config(self):
         # Ask the user to select a file
-        file_path = filedialog.askopenfilename(
-            title="Select a file",
-            filetypes=[("Excel files", "*.xlsx;*.xls"), ("JSON files", "*.json"), ("All files", "*.*")]
-        )
+        
+        if os.path.exists("./LineData.xlsx"):
+            file_path = "./LineData.xlsx"
+        else:
+            file_path = filedialog.askopenfilename(
+                title="Select a file",
+                filetypes=[("Excel files", "*.xlsx;*.xls"), ("JSON files", "*.json"), ("All files", "*.*")]
+            )
 
-        if not file_path:
-            print("No file selected. Exiting.")
-            return None
+            if not file_path:
+                print("No file selected. Exiting.")
+                return None
 
         # Check the file extension to determine the file type
         if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
@@ -369,15 +373,15 @@ class App(customtkinter.CTk):
         self.save_btn.grid(row=0, column=7, padx=20, pady=10)
 
         # Viz CT Frame
-        self.viz_ct_frame = customtkinter.CTkFrame(self)
-        self.viz_ct_frame.grid(row=1, column=1, rowspan=2, padx=(10, 5), pady=(10, 0), sticky="nsew")
+        self.viz_ct_frame = customtkinter.CTkFrame(self, width=450)
+        self.viz_ct_frame.grid(row=1, column=1, rowspan=3, columnspan=2, padx=(10, 5), pady=(10, 0), sticky="nsew")
         # self.viz_ct_frame1 = customtkinter.CTkFrame(self)
         # self.viz_ct_frame1.grid(row=2, column=1, padx=(10, 5), pady=(10, 0), sticky="nsew")
 
         # Buffer states Frame
 
         self.buffer_state_frame = customtkinter.CTkScrollableFrame(self, label_text="Inventory State", label_font=('Arial', 15))
-        self.buffer_state_frame.grid(row=1, column=2, columnspan=2, padx=(10, 10), pady=(10, 0), sticky="nsew")
+        self.buffer_state_frame.grid(row=1, column=3, columnspan=2, padx=(10, 10), pady=(10, 0), sticky="nsew")
         #self.buffer_state_frame.grid_columnconfigure(0, weight=1)
         self.buffer_state_btn = []
         self.buffer_capacities = []
@@ -398,7 +402,7 @@ class App(customtkinter.CTk):
         #self.buffer_state_frame2.grid(row=2, column=2, padx=(5, 5), pady=(10, 0), sticky="nsew")
 
         self.tabview = customtkinter.CTkTabview(self, width=250)
-        self.tabview.grid(row=2, column=2, padx=(10, 10), pady=(10, 0), sticky="nsew")
+        self.tabview.grid(row=3, column=3, padx=(10, 10), pady=(10, 0), sticky="nsew")
         self.tabview.add("Costs")
         self.tabview.add("Tab 2")
         self.tabview.add("Tab 3")
@@ -419,8 +423,8 @@ class App(customtkinter.CTk):
 
         # Footer App Main
 
-        self.main_footer = customtkinter.CTkFrame(self, height=300)
-        self.main_footer.grid(row=3, column=1, columnspan=3, padx=(10, 10), pady=(10, 0), sticky="nsew")
+        self.main_footer = customtkinter.CTkFrame(self, height=300, width=250)
+        self.main_footer.grid(row=2, column=3, padx=(10, 10), pady=(10, 0), sticky="nsew")
        
 
         # set default values
@@ -567,11 +571,13 @@ def clock(env, assembly_line, app):
     shift_ct = []
     global_ct = []
     sim_time = []
+    oee_list = []
     constant_x_values = []
     d_sim_time = deque(maxlen=250)
     d_shift_ct = deque(maxlen=250)
     d_global_ct = deque(maxlen=250)
     d_constant_x_values = deque(maxlen=250)
+    d_oee_list = deque(maxlen=250)
     global last_breakdown 
     last_breakdown = 0
     
@@ -604,21 +610,21 @@ def clock(env, assembly_line, app):
             app.shift_ct_label.configure(text='%.2f s' % shift_cycle_time)
             cycle_time = elapsed_seconds / assembly_line.list_machines[-1].parts_done
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
-            oee = 100*assembly_line.sim_time/(assembly_line.yearly_volume_obj*cycle_time)
+            oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
             app.oee_label.configure(text='%.2f' % oee)
             
             if elapsed_seconds > 500: #avoid warm-up
                 draw_buffers(app, assembly_line)
                 
                 if new_breakdown != None:
-                    update_plot_CT((shift_cycle_time, env.now), (cycle_time, env.now), new_breakdown)
+                    update_plot_CT((shift_cycle_time, env.now), (cycle_time, env.now), oee, new_breakdown)
                     new_breakdown = None
                 else:
-                    update_plot_CT((shift_cycle_time, env.now), (cycle_time, env.now))
+                    update_plot_CT((shift_cycle_time, env.now), (cycle_time, env.now), oee)
                
     
 
-    def update_plot_CT(new_y, new_y2, new_breakdown=None):
+    def update_plot_CT(new_y, new_y2, oee_val, new_breakdown=None):
     
         warm_up_period = 1000
         warm_up_passsed = False
@@ -627,9 +633,11 @@ def clock(env, assembly_line, app):
         shift_ct.append(new_y[0])
         global_ct.append(new_y2[0])
         sim_time.append(new_y[1])
+        oee_list.append(oee_val)
         d_sim_time.append(new_y[1])
         d_shift_ct.append(new_y[0])
         d_global_ct.append(new_y2[0])
+        d_oee_list.append(oee_val)
         index_warm_up = find_closest_index(d_sim_time, warm_up_period)
         axs[0].clear()
         axs[1].clear()
@@ -640,6 +648,7 @@ def clock(env, assembly_line, app):
         # Plot the data
         axs[0].plot(list(d_sim_time), list(d_shift_ct), label='Shift Cycle Time')
         axs[1].plot(list(d_sim_time), list(d_global_ct), color='orange', label='Global Cycle Time')
+        axs[2].plot(list(d_sim_time), list(d_oee_list), color='green', label='Overall Equipment Effectiveness (OEE/TRS)')
 
         #fig.text(0.5, 0.5, 'Duration (s)', ha='center', va='center', color=fg_color)
         
@@ -653,6 +662,7 @@ def clock(env, assembly_line, app):
                 ax.set_xlim(warm_up_period, max(list(d_sim_time)))
             axs[0].set_ylim(0.5*min(shift_ct[index_warm_up:]), 1.5*max(shift_ct[index_warm_up:]))
             axs[1].set_ylim(0.5*min(global_ct[index_warm_up:]), 1.5*max(global_ct[index_warm_up:]))
+            axs[2].set_ylim(-10, 110)
             warm_up_passsed = True
 
         if  len(d_sim_time) == d_sim_time.maxlen:
@@ -660,6 +670,7 @@ def clock(env, assembly_line, app):
                 ax.set_xlim(min(list(d_sim_time)), max(list(d_sim_time)))
             axs[0].set_ylim(0.5*min(list(d_shift_ct)), 1.5*max(list(d_shift_ct)))
             axs[1].set_ylim(0.5*min(list(d_global_ct)), 1.5*max(list(d_global_ct)))
+            axs[2].set_ylim(-10, 110)
         
             
 
@@ -667,9 +678,9 @@ def clock(env, assembly_line, app):
 
         axs[0].set_ylabel('Shift Cycle Time (s)', color=fg_color)
         axs[0].set_title('Shift Cycle Time (s)', color=fg_color)
-        axs[1].set_ylabel('Global Cycle Time (s)', color=fg_color)
-        axs[1].set_title('Avg. Annual Cycle Time(s)', color=fg_color)
-        axs[1].set_xlabel('Duration (s)', color=fg_color)
+        axs[1].set_title('Avg. Annual Cycle Time (s)', color=fg_color)
+        axs[1].set_title('Overall Equipment Effectiveness (%)', color=fg_color)
+        axs[2].set_xlabel('Duration (s)', color=fg_color)
         for ax in axs:
             ax.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
             ax.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
@@ -682,6 +693,7 @@ def clock(env, assembly_line, app):
     def clock_generator():
         while True:
             global timeout
+            print(timeout)
             yield env.timeout(timeout)
             update_display()
 
@@ -690,12 +702,12 @@ def clock(env, assembly_line, app):
 
 def increase_timeout():
     global timeout
-    timeout = timeout + 10
+    timeout = timeout + 100
 
 def decrease_timeout():
     global timeout
-    if timeout > 10:
-        timeout = timeout - 10
+    if timeout > 100:
+        timeout = timeout - 100
     if timeout < 10:
         timeout = 1
 
@@ -715,7 +727,7 @@ if __name__ == "__main__":
     env.process(clock(env, assembly_line, app))
     #app.open_setting_window()
     ctk.set_appearance_mode("dark")
-    fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(8, 6), sharex=True, facecolor="#282C34")
+    fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(8, 6), sharex=True, facecolor="#282C34")
     fig.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
     fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
     axs[0].set_ylabel('Shift Cycle Time (s)', color=fg_color)
@@ -741,8 +753,8 @@ if __name__ == "__main__":
     ax_m.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
     canvas_fig_m = FigureCanvasTkAgg(fig_m, master=app.main_footer)
     canvas_fig_widget_m = canvas_fig_m.get_tk_widget()
-    canvas_fig_widget_m.grid(row=0, column=0, padx=(10, 10), pady=(10, 0), sticky="nsew")
-    
+    #canvas_fig_widget_m.grid(row=0, column=0, padx=(10, 10), pady=(10, 0), sticky="nsew")
+    canvas_fig_widget_m.pack(expand=True, fill=tk.BOTH)
     # window = ctk.CTk()
     # window.geometry("1280x720")
     # canvas = tk.Canvas(window, width=320, height=100, bg="#3D59AB")
