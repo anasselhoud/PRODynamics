@@ -716,8 +716,8 @@ if __name__ == "__main__":
     df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
     tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
     config_file = 'config.yaml'
-    task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
-    assembly_line = ManufLine(env, 3, tasks, [[1], [2], [3]], task_assignement, config_file=config_file)
+    #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
+    assembly_line = ManufLine(env, tasks, config_file=config_file)
     #assembly_line.set_CT_machines([20, 20, 20, 20])
 
     ## Compile with OEE diagram modifs + parallel machines + robots transport 
