@@ -592,12 +592,12 @@ def clock(env, assembly_line, app):
         elapsed_time_str = format_time(elapsed_seconds)
         app.sim_time_label.configure(text=elapsed_time_str)
         app.partsdone_label.configure(text='%d' % assembly_line.list_machines[-1].parts_done)
-        
+        print("Parts DOONE +++ ==== ", assembly_line.shop_stock_out.level)
         new_breakdown = None
         global last_breakdown
         
         for m in assembly_line.list_machines:
-            
+            #print(" INPUT - ", assembly_line.supermarket_in.level)
             if (m.broken and env.now-last_breakdown>float(assembly_line.breakdowns["mttr"])) or (m.broken and last_breakdown<2):
                 new_breakdown = env.now
                 last_breakdown = new_breakdown
@@ -693,7 +693,6 @@ def clock(env, assembly_line, app):
     def clock_generator():
         while True:
             global timeout
-            print(timeout)
             yield env.timeout(timeout)
             update_display()
 

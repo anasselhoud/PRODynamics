@@ -40,7 +40,6 @@ class ManufLine:
         self.tasks_assignement = tasks_assignement
         self.operators_assignement = operators_assignement
         self.robot = None
-        
 
         
         self.list_machines = []
@@ -117,7 +116,9 @@ class ManufLine:
             order_process.append(m)
         order_process.append(self.shop_stock_out)
         self.env.process(self.refill_market())
-        self.env.process(self.robot.robot_process(order_process, [10 for _ in range(len(order_process))]))
+        if self.robot is not None:
+            print("Robot Included")
+            self.env.process(self.robot.robot_process(order_process, [10 for _ in range(len(order_process))]))
         self.env.run(until=self.sim_time)
         print(f"Current simulation time at the end: {self.env.now}")
 
@@ -212,7 +213,7 @@ class ManufLine:
 
 
         self.list_machines = []
-        self.robot = Robot(self)
+        self.robot = Robot(self, self.env)
         notfirst_list = [list_machines_config[i][4] for i in range(len(list_machines_config))]
     
 
@@ -425,57 +426,59 @@ class Robot:
     """
     Transport Robot between machines
     """
-    def __init__(self, manuf_line, maxlimit=1):
+    def __init__(self, manuf_line, env, maxlimit=1):
         #self.assigned_machines = assigned_machines
-        self.env = manuf_line.env
-        self.buffer = simpy.Container(self.env, capacity=float(maxlimit), init=0)
+        
         self.tt = 0
         self.free = True
-        #self.manuf_line = manuf_line
+        self.manuf_line = manuf_line
+        self.env = env
+        self.buffer = simpy.Container(self.env, capacity=float(maxlimit), init=0)
 
     def transport(self, from_entity, to_entity, time):
-        
+        print("here here --- HHHHHHHHH")
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
-            yield self.buffer.put(1)
+            print("entered 1111 = " + from_entity.ID + " - " + to_entity.ID)
             yield from_entity.buffer_out.get(1)
+            yield self.buffer.put(1)
             yield self.env.timeout(time)
             yield self.buffer.get(1)
             yield to_entity.buffer_in.put(1)
+            yield self.env.timeout(0)  
 
-        elif not isinstance(from_entity, Machine):
-            yield self.buffer.put(1)
+        if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
+            # yield self.buffer.put(1)
+            print("entered 2222 = " + str(from_entity)+ " - " + to_entity.ID)
             yield from_entity.get(1)
+            yield self.buffer.put(1)
             yield self.env.timeout(time)
             yield self.buffer.get(1)
             yield to_entity.buffer_in.put(1)
-        else:
-            yield self.buffer.put(1)
+            yield self.env.timeout(0)  
+
+        if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
+            print("entered 3333 = " + from_entity.ID + " - " + str(to_entity))
             yield from_entity.buffer_out.get(1)
+            yield self.buffer.put(1)
             yield self.env.timeout(time)
             yield self.buffer.get(1)
             yield to_entity.put(1)
+            yield self.env.timeout(0)  
 
     #entities_order = ["Start", "M1", "M2", "M3", "M4", "End"]
     def robot_process(self, entities_order, times):
-
         """
         entities_order = [input_entity, machine1, machine2, machine3, output_entity]
         times = [10, 10, 10, 10, 10]
         """
         while True:
-            for i in [1, len(entities_order) - 2]:  
-                m_in = entities_order[i - 1]
-                m_out = entities_order[i + 1]
-                self.transport(m_in, m_out, times[i])
-
-                yield self.env.timeout(1)  
-
-
-
-
-        
-        
-
+            for i in range(len(entities_order)): 
+                
+                m_in = entities_order[i]
+                m_out = entities_order[i+1]
+                yield from self.transport(m_in, m_out, times[i])
+                #print("here 1")
+                
 
 
 
