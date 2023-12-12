@@ -173,7 +173,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         # m_ct = customtkinter.CTkEntry(master=dialog)
         # m_ct.grid(row=4, column=0)
         inputs = dialog.get_input()
-        print(inputs)
+        
         if inputs != []:
             temp = []
             for v in inputs:
@@ -403,23 +403,21 @@ class App(customtkinter.CTk):
 
         self.tabview = customtkinter.CTkTabview(self, width=250)
         self.tabview.grid(row=3, column=3, padx=(10, 10), pady=(10, 0), sticky="nsew")
-        self.tabview.add("Costs")
+        self.tabview.add("Robot")
         self.tabview.add("Tab 2")
         self.tabview.add("Tab 3")
-        self.tabview.tab("Costs").grid_columnconfigure(0, weight=1)  # configure grid of individual tabs
+        self.tabview.tab("Robot").grid_columnconfigure(0, weight=1)  # configure grid of individual tabs
         self.tabview.tab("Tab 2").grid_columnconfigure(0, weight=1)
 
-        self.optionmenu_1 = customtkinter.CTkOptionMenu(self.tabview.tab("Costs"), dynamic_resizing=False,
-                                                        values=["Value 1", "Value 2", "Value Long Long Long"])
-        self.optionmenu_1.grid(row=0, column=0, padx=20, pady=(20, 10))
-        self.combobox_1 = customtkinter.CTkComboBox(self.tabview.tab("Costs"),
-                                                    values=["Value 1", "Value 2", "Value Long....."])
-        self.combobox_1.grid(row=1, column=0, padx=20, pady=(10, 10))
-        self.string_input_button = customtkinter.CTkButton(self.tabview.tab("Costs"), text="Open CTkInputDialog",
-                                                           command=self.open_input_dialog_event)
-        self.string_input_button.grid(row=2, column=0, padx=20, pady=(10, 10))
-        self.label_tab_2 = customtkinter.CTkLabel(self.tabview.tab("Tab 2"), text="CTkLabel on Tab 2")
-        self.label_tab_2.grid(row=0, column=0, padx=20, pady=20)
+        self.robot_waiting_time_btn = customtkinter.CTkButton(self.tabview.tab("Robot"), text="Waiting Rate", width = 150, fg_color="grey", text_color_disabled= "white", state="disabled" )
+        self.robot_waiting_time_btn.grid(row=0, column=0, padx=20, pady=(20, 10))
+        self.robot_waiting_time = customtkinter.CTkLabel(self.tabview.tab("Robot"), text="N/A",  font=('Arial bold', 16))
+        self.robot_waiting_time.grid(row=1, column=0, padx=20, pady=(10, 10))
+        # self.string_input_button = customtkinter.CTkButton(self.tabview.tab("Robot"), text="Open CTkInputDialog",
+        #                                                    command=self.open_input_dialog_event)
+        # self.string_input_button.grid(row=2, column=0, padx=20, pady=(10, 10))
+        # self.label_tab_2 = customtkinter.CTkLabel(self.tabview.tab("Tab 2"), text="CTkLabel on Tab 2")
+        # self.label_tab_2.grid(row=0, column=0, padx=20, pady=20)
 
         # Footer App Main
 
@@ -435,7 +433,7 @@ class App(customtkinter.CTk):
 
     def open_input_dialog_event(self):
         dialog = customtkinter.CTkInputDialog(text="Type in a number:", title="CTkInputDialog")
-        print("CTkInputDialog:", dialog.get_input())
+    
 
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -591,27 +589,26 @@ def clock(env, assembly_line, app):
         elapsed_seconds_shift = elapsed_seconds % (3600 * 8)
         elapsed_time_str = format_time(elapsed_seconds)
         app.sim_time_label.configure(text=elapsed_time_str)
-        app.partsdone_label.configure(text='%d' % assembly_line.list_machines[-1].parts_done)
-        print("Parts DOONE +++ ==== ", assembly_line.shop_stock_out.level)
+        app.partsdone_label.configure(text='%d' % assembly_line.shop_stock_out.level)
+        
         new_breakdown = None
         global last_breakdown
-        
         for m in assembly_line.list_machines:
-            #print(" INPUT - ", assembly_line.supermarket_in.level)
             if (m.broken and env.now-last_breakdown>float(assembly_line.breakdowns["mttr"])) or (m.broken and last_breakdown<2):
                 new_breakdown = env.now
                 last_breakdown = new_breakdown
 
-        if elapsed_seconds > 0 and assembly_line.list_machines[-1].buffer_out.level > 0  and all([machine.parts_done_shift > 0 for machine in assembly_line.list_machines]):
+        if elapsed_seconds > 0 and assembly_line.shop_stock_out.level > 0  and all([machine.parts_done_shift > 0 for machine in assembly_line.list_machines]):
             if elapsed_seconds_shift == 0:
                 elapsed_seconds_shift = 1000
             shift_cycle_time = np.max([elapsed_seconds_shift / (assembly_line.list_machines[-1].parts_done_shift) for i in range(len(assembly_line.list_machines))])
-                
+            waiting_rate = 100*assembly_line.robot.waiting_time/env.now
             app.shift_ct_label.configure(text='%.2f s' % shift_cycle_time)
-            cycle_time = elapsed_seconds / assembly_line.list_machines[-1].parts_done
+            cycle_time = elapsed_seconds / assembly_line.shop_stock_out.level
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
             oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
             app.oee_label.configure(text='%.2f' % oee)
+            app.robot_waiting_time.configure(text='{:.1f}%'.format(waiting_rate))
             
             if elapsed_seconds > 500: #avoid warm-up
                 draw_buffers(app, assembly_line)
