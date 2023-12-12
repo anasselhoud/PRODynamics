@@ -676,7 +676,7 @@ def clock(env, assembly_line, app):
         axs[0].set_ylabel('Shift Cycle Time (s)', color=fg_color)
         axs[0].set_title('Shift Cycle Time (s)', color=fg_color)
         axs[1].set_title('Avg. Annual Cycle Time (s)', color=fg_color)
-        axs[1].set_title('Overall Equipment Effectiveness (%)', color=fg_color)
+        axs[2].set_title('Overall Equipment Effectiveness (%)', color=fg_color)
         axs[2].set_xlabel('Duration (s)', color=fg_color)
         for ax in axs:
             ax.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')

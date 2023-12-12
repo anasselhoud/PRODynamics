@@ -120,10 +120,18 @@ class ManufLine:
         self.env.process(self.refill_market())
         if self.robot is not None:
             print("Robot Included")
-            self.env.process(self.robot.robot_process(order_process, [10 for _ in range(len(order_process))]))
-            print(order_process)
+            self.env.process(self.robot.robot_process(order_process))
+        # for i in range(len(order_process)-1):
+        #     from_entity = order_process[i]
+        #     to_entity = order_process[i+1]
+        #     time = 10
+            
+        #     self.env.process(self.robot.transport(from_entity, to_entity, time))
+
         self.env.run(until=self.sim_time)
         print(f"Current simulation time at the end: {self.env.now}")
+
+       
 
     def reset_shift(self):
         print("Reset started")
@@ -220,6 +228,7 @@ class ManufLine:
         if all([not np.isnan(list_machines_config[i][9])  for i in range(len(list_machines_config))]):
             self.robot = Robot(self, self.env)
             self.robot.order = [list_machines_config[i][10]  for i in range(len(list_machines_config))]
+            self.robot.transport_times = [int(list_machines_config[i][9])  for i in range(len(list_machines_config))]
 
         
         notfirst_list = [list_machines_config[i][4] for i in range(len(list_machines_config))]
@@ -261,7 +270,7 @@ class ManufLine:
             self.list_machines.append(machine)
         
         index_next = []
-        self.set_CT_machines([ct[3] for ct in list_machines_config])
+        self.set_CT_machines([ct[1] for ct in list_machines_config])
         l = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
         
@@ -280,7 +289,7 @@ class ManufLine:
                     pass
             else:
                 print("robot exists --- !")
-                #TODO: Find a way to include this when using a robot
+                
                 try:
                     if l.index(list_machines_config[i][4]) not in index_next:
                         index_next.append(l.index(list_machines_config[i][4]))
@@ -470,6 +479,7 @@ class Robot:
         self.env = env
         self.buffer = simpy.Container(self.env, capacity=float(maxlimit), init=0)
         self.waiting_time = 0
+        self.transport_times = []
 
     def transport(self, from_entity, to_entity, time):
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
@@ -509,7 +519,7 @@ class Robot:
             yield self.env.timeout(0)
 
     #entities_order = ["Start", "M1", "M2", "M3", "M4", "End"]
-    def robot_process(self, entities_order, times):
+    def robot_process(self, entities_order):
         """
         entities_order = [input_entity, machine1, machine2, machine3, output_entity]
         times = [10, 10, 10, 10, 10] len(entities_order)
@@ -521,7 +531,10 @@ class Robot:
                 
                 from_entity = entities_order[i]
                 to_entity = entities_order[i+1]
-                time = times[i]
+                try:
+                    time = self.transport_times[i]
+                except:
+                    time = 10
                 
                
                 yield from self.transport(from_entity, to_entity, time)
