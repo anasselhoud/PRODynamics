@@ -141,17 +141,25 @@ class ManufLine:
             print("Reseting Shift")
             self.num_cycles = self.num_cycles +1
             for i, machine in enumerate(self.list_machines):
-                if machine.first:
-                    machine.buffer_out.items = []
-                if machine.last:
-                    machine.buffer_in.items = []
-                    machine.buffer_out.items = []
-
-                if not machine.first and not machine.last:
-                    machine.buffer_in.items = []
-                    machine.buffer_out.items = []
-
                 machine.parts_done_shift = 1
+
+                if self.robot is  None:
+                    if machine.first:
+                        machine.buffer_in.items = []
+                        machine.buffer_out.items = []
+                    if machine.last:
+                        machine.buffer_in.items = []
+                        machine.buffer_out.items = []
+
+                    if not machine.first and not machine.last:
+                        machine.buffer_in.items = []
+                        machine.buffer_out.items = []
+                # else:
+                #     machine.buffer_in.items = []
+                #     machine.buffer_out.items = []
+
+######### TODO: take in memory last action before reset shift or empty the line and start from beginning ########
+                
             print("Reset finished")
             
 
@@ -532,8 +540,10 @@ class Robot:
             # Policy 1 => Follow everytime the same order, if not feasible pass to next 
             for  i, m in enumerate([m for m in self.manuf_line.list_machines if m.first]):
                 if m.buffer_in.level < m.buffer_in.capacity:
+                    print("here 5")
                     yield from self.transport(m.previous_machine, m, self.in_transport_times[i])
                 else:
+                    print("here 6")
                     yield from self.transport(m, m.next_machine, self.out_transport_times[i])
 
 
@@ -543,13 +553,17 @@ class Robot:
 
                 try:
                     if to_entity.buffer_in.level < to_entity.buffer_in.capacity :
+                        print("here 1")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     else:
+                        print("here 2")
                         yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
                 except:
                     if to_entity.level < to_entity.capacity :
+                        print("here 3")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     else:
+                        print("here 4")
                         yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
             
 
