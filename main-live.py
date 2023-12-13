@@ -146,7 +146,6 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.switch = customtkinter.CTkSwitch(self.tabview_footer.tab("Breakdowns"), text="Enabled",
                                  variable=self.switch_var, onvalue="on", offvalue="off")
         
-    
         self.switch.grid(row=1, column=0, padx=20, pady=20)
         # self.choices_breakdowns = ["All Machines"]
         # self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
@@ -265,6 +264,10 @@ class SettingWindow(customtkinter.CTkToplevel):
 
     def save_setting(self):
         self.manuf_line.create_machines(self.machine_data[1:])
+        if self.switch_var.get() == "on":
+            self.manuf_line.breakdowns_switch = True
+        else:
+             self.manuf_line.breakdowns_switch = False
         try:
             self.manuf_line.sim_time = eval(str(self.sim_time_input.get()))
             self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
@@ -620,7 +623,11 @@ def clock(env, assembly_line, app):
                 elapsed_seconds_shift = 1000
 
             shift_cycle_time = np.max([elapsed_seconds_shift / (assembly_line.list_machines[-1].parts_done_shift) for i in range(len(assembly_line.list_machines))])
-            waiting_rate = 100*assembly_line.robot.waiting_time/env.now
+            
+            if assembly_line.robot is not None:
+                waiting_rate = 100*assembly_line.robot.waiting_time/env.now
+                app.robot_waiting_time.configure(text='{:.1f}%'.format(waiting_rate))
+
             app.shift_ct_label.configure(text='%.2f s' % shift_cycle_time)
             cycle_time = elapsed_seconds / assembly_line.shop_stock_out.level
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
@@ -628,7 +635,7 @@ def clock(env, assembly_line, app):
 
             oee = 100*((assembly_line.sim_time/assembly_line.yearly_volume_obj)/cycle_time)
             app.oee_label.configure(text='%.2f' % oee)
-            app.robot_waiting_time.configure(text='{:.1f}%'.format(waiting_rate))
+            
             
             if elapsed_seconds > 500: #avoid warm-up
                 draw_buffers(app, assembly_line)

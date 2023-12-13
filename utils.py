@@ -29,6 +29,7 @@ class ManufLine:
         self.config = config
         self.sim_time = eval(self.config['sim_time'])
         self.breakdowns = self.config['breakdowns']
+        self.breakdowns_switch = True
         self.first_machine = None
         self.supermarket_in = simpy.Container(env, capacity=float(config["supermarket"]["capacity"]), init=float(config["supermarket"]["initial"]))
         self.shop_stock_out = simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"]))
@@ -156,7 +157,7 @@ class ManufLine:
 
     def break_down(self, machine):
         """Break the machine every now and then."""
-        if self.breakdowns["enabled"]:
+        if self.breakdowns_switch:
             while True:
                 yield self.env.timeout(machine.time_to_failure())
                 if not machine.broken:
