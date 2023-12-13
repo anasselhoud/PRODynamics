@@ -52,11 +52,15 @@ class SettingWindow(customtkinter.CTkToplevel):
         # Simulation Data Frame
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
-        self.sim_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Simulation Time (s)", width=200)
-        self.sim_time_input.grid(row=0,column=0, padx=(10,10), pady=(10,10))
 
-        self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Yearly Volume", width=200)
-        self.yearly_volume_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
+        self.sim_time_label = customtkinter.CTkLabel(self.frame, text="Simulation Time (s)")
+        self.sim_time_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
+        self.sim_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Simulation Time (s)", width=200)
+        self.sim_time_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
+        self.yearly_volume_label = customtkinter.CTkLabel(self.frame, text="Expected Produced Volume")
+        self.yearly_volume_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
+        self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Produced Volume", width=200)
+        self.yearly_volume_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
 
         self.save_setting_btn = customtkinter.CTkButton(self.frame, text="Save", font=('Arial bold', 16), fg_color="Green", command=self.save_setting)
         self.save_setting_btn.grid(row=4, column=0, padx=20, pady=10)
@@ -126,15 +130,15 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.tabview_footer.add("Delays")
         self.tabview_footer.add("Manual Models")
 
-        self.label_break2 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Failure")
-        self.label_break2.grid(row=0, column=1, padx=20, pady=20)
-        self.mttf_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTF")
-        self.mttf_label.grid(row=1, column=1, padx=20, pady=20)
+        # self.label_break2 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Failure")
+        # self.label_break2.grid(row=0, column=1, padx=20, pady=20)
+        # self.mttf_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTF")
+        # self.mttf_label.grid(row=1, column=1, padx=20, pady=20)
 
-        self.label_break3 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Repair")
-        self.label_break3.grid(row=0, column=2, padx=20, pady=20)
-        self.mttr_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTR")
-        self.mttr_label.grid(row=1, column=2, padx=20, pady=20)
+        # self.label_break3 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Repair")
+        # self.label_break3.grid(row=0, column=2, padx=20, pady=20)
+        # self.mttr_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTR")
+        # self.mttr_label.grid(row=1, column=2, padx=20, pady=20)
 
         self.switch_var = customtkinter.StringVar(value="on")
         self.label_break1 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Machine Breakdown")
@@ -144,13 +148,13 @@ class SettingWindow(customtkinter.CTkToplevel):
         
     
         self.switch.grid(row=1, column=0, padx=20, pady=20)
-        self.choices_breakdowns = ["All Machines"]
-        self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
-        self.label_break4 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="To-be Broken Machines")
-        self.label_break4.grid(row=0, column=3, padx=20, pady=20)
-        self.choices_breakdowns_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Breakdowns"), dynamic_resizing=False,
-                                                        values=self.choices_breakdowns)
-        self.choices_breakdowns_menu.grid(row=1, column=3, padx=20, pady=20)
+        # self.choices_breakdowns = ["All Machines"]
+        # self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
+        # self.label_break4 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="To-be Broken Machines")
+        # self.label_break4.grid(row=0, column=3, padx=20, pady=20)
+        # self.choices_breakdowns_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Breakdowns"), dynamic_resizing=False,
+        #                                                 values=self.choices_breakdowns)
+        # self.choices_breakdowns_menu.grid(row=1, column=3, padx=20, pady=20)
 
         self.switch_delays_var = customtkinter.StringVar(value="on")
         self.label_delays1 = customtkinter.CTkLabel(self.tabview_footer.tab("Delays"), text="Hazardous delays")
@@ -165,6 +169,11 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.choices_delays_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Delays"), dynamic_resizing=False,
                                                         values=self.choices_delay_dist)
         self.choices_delays_menu.grid(row=1, column=3, padx=20, pady=20)
+
+        ## Default
+
+        self.sim_time_input.insert(0, "3600*24*200")
+        self.yearly_volume_input.insert(0, "100000")
 
 
     
@@ -256,6 +265,12 @@ class SettingWindow(customtkinter.CTkToplevel):
 
     def save_setting(self):
         self.manuf_line.create_machines(self.machine_data[1:])
+        try:
+            self.manuf_line.sim_time = eval(str(self.sim_time_input.get()))
+            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+        except:
+            self.manuf_line.sim_time = int(self.sim_time_input.get())
+            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
         self.destroy()
         
 
@@ -594,6 +609,8 @@ def clock(env, assembly_line, app):
         new_breakdown = None
         global last_breakdown
         for m in assembly_line.list_machines:
+            # print("Input = " + m.ID + " --- " +  str(m.previous_machine))
+            # print("Output = " + m.ID + " --- " +  str(m.next_machine))
             if (m.broken and env.now-last_breakdown>float(assembly_line.breakdowns["mttr"])) or (m.broken and last_breakdown<2):
                 new_breakdown = env.now
                 last_breakdown = new_breakdown
@@ -601,12 +618,15 @@ def clock(env, assembly_line, app):
         if elapsed_seconds > 0 and assembly_line.shop_stock_out.level > 0  and all([machine.parts_done_shift > 0 for machine in assembly_line.list_machines]):
             if elapsed_seconds_shift == 0:
                 elapsed_seconds_shift = 1000
+
             shift_cycle_time = np.max([elapsed_seconds_shift / (assembly_line.list_machines[-1].parts_done_shift) for i in range(len(assembly_line.list_machines))])
             waiting_rate = 100*assembly_line.robot.waiting_time/env.now
             app.shift_ct_label.configure(text='%.2f s' % shift_cycle_time)
             cycle_time = elapsed_seconds / assembly_line.shop_stock_out.level
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
-            oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
+            #oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
+
+            oee = 100*((assembly_line.sim_time/assembly_line.yearly_volume_obj)/cycle_time)
             app.oee_label.configure(text='%.2f' % oee)
             app.robot_waiting_time.configure(text='{:.1f}%'.format(waiting_rate))
             

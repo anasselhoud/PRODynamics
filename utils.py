@@ -109,14 +109,14 @@ class ManufLine:
     def run(self):
         print(f"Current simulation time at the start: {self.env.now}")
         self.generate()
-        order_process = [None for _ in range(len(self.list_machines)+2)]
-        order_process[0] = self.supermarket_in
+        order_process = [None for _ in range(len(self.list_machines))]
+        #order_process[0] = self.supermarket_in
         for i, m in enumerate(self.list_machines):
             m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
             if self.robot is not None:
-                order_process[self.robot.order[i]] = m
-        order_process[-1] = self.shop_stock_out
+                order_process[self.robot.order[i]-1] = m
+        #order_process[-1] = self.shop_stock_out
         self.env.process(self.refill_market())
         if self.robot is not None:
             print("Robot Included")
@@ -127,29 +127,33 @@ class ManufLine:
         #     time = 10
             
         #     self.env.process(self.robot.transport(from_entity, to_entity, time))
-
+        self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         print(f"Current simulation time at the end: {self.env.now}")
 
        
 
     def reset_shift(self):
-        print("Reset started")
-        for i, machine in enumerate(self.list_machines):
-            if machine.first:
-                machine.buffer_out.items = []
-            if machine.last:
-                machine.buffer_in.items = []
-                machine.buffer_out.items = []
+        while True:
+            #if self.env.now // (3600 * 8) == self.num_cycles +1:
+            yield self.env.timeout(3600 * 8)
+            print("Reseting Shift")
+            self.num_cycles = self.num_cycles +1
+            for i, machine in enumerate(self.list_machines):
+                if machine.first:
+                    machine.buffer_out.items = []
+                if machine.last:
+                    machine.buffer_in.items = []
+                    machine.buffer_out.items = []
 
-            if not machine.first and not machine.last:
-                machine.buffer_in.items = []
-                machine.buffer_out.items = []
+                if not machine.first and not machine.last:
+                    machine.buffer_in.items = []
+                    machine.buffer_out.items = []
 
-        machine.parts_done_shift = 1
-        print('Machine ' + machine.ID + ' - Parts shift now = ', machine.parts_done_shift)
-        print("Reset finished")
-    
+                machine.parts_done_shift = 1
+            print("Reset finished")
+            
+
     def break_down(self, machine):
         """Break the machine every now and then."""
         if self.breakdowns["enabled"]:
@@ -227,9 +231,9 @@ class ManufLine:
 
         if all([not np.isnan(list_machines_config[i][9])  for i in range(len(list_machines_config))]):
             self.robot = Robot(self, self.env)
-            self.robot.order = [list_machines_config[i][10]  for i in range(len(list_machines_config))]
-            self.robot.transport_times = [int(list_machines_config[i][9])  for i in range(len(list_machines_config))]
-
+            self.robot.order = [list_machines_config[i][11]  for i in range(len(list_machines_config))]
+            self.robot.out_transport_times = [list_machines_config[i][9]  for i in range(len(list_machines_config))]
+            self.robot.in_transport_times = [list_machines_config[i][10] for i in range(len(list_machines_config))]
         
         notfirst_list = [list_machines_config[i][4] for i in range(len(list_machines_config))]
     
@@ -273,7 +277,10 @@ class ManufLine:
         self.set_CT_machines([ct[1] for ct in list_machines_config])
         l = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
-        
+            if machine.first:
+                machine.previous_machine = self.supermarket_in
+            if machine.last:
+                machine.next_machine = self.shop_stock_out
             if self.robot is None:
                 try:
                     if l.index(list_machines_config[i][4]) not in index_next:
@@ -294,16 +301,8 @@ class ManufLine:
                     if l.index(list_machines_config[i][4]) not in index_next:
                         index_next.append(l.index(list_machines_config[i][4]))
                         machine.next_machine = self.list_machines[index_next[-1]]
-                        if machine.first:
-                            machine.previous_machine = self.supermarket_in
-                        if machine.last:
-                            machine.next_machine = self.shop_stock_out
                     else:
                         machine.next_machine = self.list_machines[l.index(list_machines_config[i][4])]
-                        if machine.first:
-                            machine.previous_machine = self.supermarket_in
-                        if machine.last:
-                            machine.next_machine = self.shop_stock_out
                     
                 except:
                     pass
@@ -405,14 +404,14 @@ class Machine:
         bias_scale = 1  # scale parameter
         
         while True: 
+            # Reseting every shift
             
-            # Reseting every shift   
-            if self.env.now // (3600 * 8) == self.manuf_line.num_cycles +1:
-                print("Reseting Shift Enter")
-                self.manuf_line.num_cycles = self.manuf_line.num_cycles +1
-                print("N of cycle = ", self.manuf_line.num_cycles)
-                self.manuf_line.reset_shift()
-                print("Reseting Shift out")
+            # if self.env.now // (3600 * 8) == self.manuf_line.num_cycles +1:
+            #     print("Reseting Shift Enter")
+            #     self.manuf_line.num_cycles = self.manuf_line.num_cycles +1
+            #     print("N of cycle = ", self.manuf_line.num_cycles)
+            #     self.manuf_line.reset_shift()
+            #     print("Reseting Shift out")
 
 
             if any([m.ct != 0 for m in self.manuf_line.list_machines]):
@@ -479,10 +478,12 @@ class Robot:
         self.env = env
         self.buffer = simpy.Container(self.env, capacity=float(maxlimit), init=0)
         self.waiting_time = 0
-        self.transport_times = []
+        self.out_transport_times = []
+        self.in_transport_times = []
 
     def transport(self, from_entity, to_entity, time):
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
+            print("Transporting from " + from_entity.ID + " to " + to_entity.ID)
             entry = self.env.now
             yield from_entity.buffer_out.get(1)
             self.waiting_time += self.env.now-entry
@@ -495,6 +496,7 @@ class Robot:
             yield self.env.timeout(0)
 
         if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
+            print("Transporting from " + str(from_entity) + " to " + to_entity.ID)
             entry = self.env.now
             yield from_entity.get(1)
             self.waiting_time += self.env.now-entry
@@ -507,6 +509,7 @@ class Robot:
             yield self.env.timeout(0)  
 
         if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
+            print("Transporting from " + from_entity.ID + " to " + str(to_entity))
             entry = self.env.now
             yield from_entity.buffer_out.get(1)
             self.waiting_time += self.env.now-entry
@@ -525,32 +528,32 @@ class Robot:
         times = [10, 10, 10, 10, 10] len(entities_order)
         """
         while True:
-            
-            # Policy 1 => Follow everytime the same order 
-            for i in range(len(entities_order)-1):
-                
+            # Policy 1 => Follow everytime the same order, if not feasible pass to next 
+            for  i, m in enumerate([m for m in self.manuf_line.list_machines if m.first]):
+                if m.buffer_in.level < m.buffer_in.capacity:
+                    yield from self.transport(m.previous_machine, m, self.in_transport_times[i])
+                else:
+                    yield from self.transport(m, m.next_machine, self.out_transport_times[i])
+
+
+            for i in range(len(entities_order)):
                 from_entity = entities_order[i]
-                to_entity = entities_order[i+1]
+                to_entity = from_entity.next_machine
+
                 try:
-                    time = self.transport_times[i]
+                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity :
+                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    else:
+                        yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
                 except:
-                    time = 10
-                
-               
-                yield from self.transport(from_entity, to_entity, time)
+                    if to_entity.level < to_entity.capacity :
+                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    else:
+                        yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
+            
 
-            # for i in range(len(entities_order)):
-
-            #     from_entity = entities_order[i].previous_machine
-            #     to_entity = entities_order[i]
-            #     time = times[i]
-
-            #     yield from self.transport(from_entity, to_entity, time)
             
             
-                
-
-
 
 class Task:
     def __init__(self, ID, machine_time, manual_time):
@@ -663,7 +666,6 @@ def draw_buffers(app, assembly_line):
             m.buffer_btn[1].configure(text=f"Capacity = {m.buffer_out.capacity}")
             m.buffer_btn[2].configure(text=f"Level = {m.buffer_out.level}")
             m.buffer_btn[3].configure( text="Waiting/Idle Time = %.2f" % m.waiting_time)
-            print("Compare waiting time = " + str(m.waiting_time) + " //// " + str(idle_time))
             m.buffer_btn[4].configure(text="Total Downtime = %.2f" % float(float(assembly_line.breakdowns['mttr'])*m.n_breakdowns))
         uptime_m = 100*(1-(float(float(m.MTTR)*m.n_breakdowns)+m.waiting_time)/assembly_line.env.now)
         machine_util.append(max(0, uptime_m))
