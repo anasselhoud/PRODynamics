@@ -110,11 +110,38 @@ class SettingWindow(customtkinter.CTkToplevel):
         # self.delete_buffer.grid(row = 0, column=1, padx=(0, 10), pady=(0,10))    
 
         #self.buffers_data = [["Buffer","Capacity","Initial"]]
-        self.frame_stock_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Stock"), height=150, width=600)
-        self.frame_stock_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
+        # self.frame_stock_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Stock"), height=150, width=600)
+        # self.frame_stock_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
         # self.table_buffers = CTkTable(self.frame_buffer_list, row=8, column=3, values=self.buffers_data, header_color="deepskyblue4")
-        self.tabview.tab("Stock").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
-        self.tabview.tab("Stock").grid_rowconfigure((1), weight=1)
+        # self.tabview.tab("Stock").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
+        # self.tabview.tab("Stock").grid_rowconfigure((1), weight=1)
+
+        self.stock_capacity_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Input Sock Capacity")
+        self.stock_capacity_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
+        self.stock_capacity_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Input Stock Capacity", width=200)
+        self.stock_capacity_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
+
+        self.initial_stock_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Initial Input Stock")
+        self.initial_stock_label.grid(row=0,column=1, padx=(10,10), pady=(10,10))
+        self.initial_stock_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Initial Input Stock", width=200)
+        self.initial_stock_input.grid(row=1,column=1, padx=(10,10), pady=(10,10))
+
+        self.refill_time_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Refill Time (s)")
+        self.refill_time_label.grid(row=0,column=2, padx=(10,10), pady=(10,10))
+        self.refill_time_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Time (s)", width=200)
+        self.refill_time_input.grid(row=1,column=2, padx=(10,10), pady=(10,10))
+
+        self.safety_stock_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Safey Stock")
+        self.safety_stock_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
+        self.safety_stock_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Safey Stock", width=200)
+        self.safety_stock_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
+
+        self.refill_size_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Refill Size")
+        self.refill_size_label.grid(row=2,column=1, padx=(10,10), pady=(10,10))
+        self.refill_size_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Size", width=200)
+        self.refill_size_input.grid(row=3,column=1, padx=(10,10), pady=(10,10))
+
+
         # #table.grid(row=0, column=0)
         # self.table_buffers.pack(expand=True)
         
@@ -173,6 +200,12 @@ class SettingWindow(customtkinter.CTkToplevel):
 
         self.sim_time_input.insert(0, "3600*24*200")
         self.yearly_volume_input.insert(0, "100000")
+        self.stock_capacity_input.insert(0, "100")
+        self.initial_stock_input.insert(0, "100")
+        self.safety_stock_input.insert(0, "20")
+        self.refill_time_input.insert(0, "120")
+        self.refill_size_input.insert(0, "100")
+
 
 
     
@@ -240,10 +273,28 @@ class SettingWindow(customtkinter.CTkToplevel):
             # Read Excel file using pandas
             try:
                 config_data = pd.read_excel(file_path, sheet_name="Line Data")
+                config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
                 print("Excel file uploaded and read successfully.")
-                print(config_data.values.tolist())
+                config_data_gloabl = config_line_globa_data.values.tolist()
+                print(config_data_gloabl)
                 self.machine_data[1:] = config_data.values.tolist()
                 self.table_machines.update_values(self.machine_data)
+                self.sim_time_input.delete(0, END)
+                self.sim_time_input.insert(0, str(config_data_gloabl[0][2]))
+                self.yearly_volume_input.delete(0, END)
+                self.yearly_volume_input.insert(0, str(config_data_gloabl[1][2]))
+
+                self.stock_capacity_input.delete(0, END)
+                self.stock_capacity_input.insert(0, str(config_data_gloabl[2][2]))
+
+                self.initial_stock_input.delete(0, END)
+                self.initial_stock_input.insert(0, str(config_data_gloabl[3][2]))
+                self.refill_time_input.delete(0, END)
+                self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
+                self.safety_stock_input.delete(0, END)
+                self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
+                self.refill_size_input.delete(0, END)
+                self.refill_size_input.insert(0, str(config_data_gloabl[6][2]))
                 return config_data
             except Exception as e:
                 print(f"Error reading Excel file: {e}")
@@ -263,11 +314,23 @@ class SettingWindow(customtkinter.CTkToplevel):
             return None
 
     def save_setting(self):
-        self.manuf_line.create_machines(self.machine_data[1:])
+        
         if self.switch_var.get() == "on":
             self.manuf_line.breakdowns_switch = True
         else:
-             self.manuf_line.breakdowns_switch = False
+            self.manuf_line.breakdowns_switch = False
+
+        self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
+        self.manuf_line.stock_initial = float(self.initial_stock_input.get())
+        self.manuf_line.refill_time = float(self.refill_time_input.get())
+        self.manuf_line.safety_stock = float(self.safety_stock_input.get())
+        self.manuf_line.refill_size = float(self.refill_size_input.get())
+
+        self.manuf_line.supermarket_in = simpy.Container(env, capacity=self.manuf_line.stock_capacity, init=self.manuf_line.stock_initial)
+        self.manuf_line.shop_stock_out = simpy.Container(env, capacity=float(self.manuf_line.config["shopstock"]["capacity"]), init=float(self.manuf_line.config["shopstock"]["initial"]))
+        
+        self.manuf_line.create_machines(self.machine_data[1:])
+        
         try:
             self.manuf_line.sim_time = eval(str(self.sim_time_input.get()))
             self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))

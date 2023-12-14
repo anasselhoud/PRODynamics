@@ -31,7 +31,13 @@ class ManufLine:
         self.breakdowns = self.config['breakdowns']
         self.breakdowns_switch = True
         self.first_machine = None
-        self.supermarket_in = simpy.Container(env, capacity=float(config["supermarket"]["capacity"]), init=float(config["supermarket"]["initial"]))
+        self.stock_capacity = float(config["supermarket"]["capacity"])
+        self.stock_initial = float(config["supermarket"]["initial"])
+        self.safety_stock = 0
+        self.refill_time = 0
+        self.refill_size = 1
+
+        self.supermarket_in = simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial)
         self.shop_stock_out = simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"]))
 
         self.num_cycles = 0
@@ -65,6 +71,9 @@ class ManufLine:
         #     previous_machine = machine
         #     self.list_machines.append(machine)    
 
+    # def set_up_input_output():
+    #     self.supermarket_in.capacity = self.manuf_line.stock_capacity
+    #     self.supermarket_in.init = self.manuf_line.stock_initial
 
     def get_index_of_item(self, list_of_lists, item):
         for index, sublist in enumerate(list_of_lists):
@@ -176,6 +185,7 @@ class ManufLine:
             while True:
                 yield self.env.timeout(machine.time_to_failure())
                 if not machine.broken:
+                    print("Machine " + machine.ID + " - Broken")
                     machine.n_breakdowns += 1
                     machine.process.interrupt()    
     
@@ -191,13 +201,13 @@ class ManufLine:
         
         while True:
             yield self.env.timeout(1)
-            if self.supermarket_in.level < float(self.config["supermarket"]["refill-threshold"]):
+            if self.supermarket_in.level < self.safety_stock:
                 print("Start Refilling raw supermarket - Stock")
                 time_refill_start= self.env.now
                 try:
-                    yield self.env.timeout(int(self.config["supermarket"]["refill-time"]))
+                    yield self.env.timeout(int(self.refill_time))
                     print("Time to refill = ", self.env.now-time_refill_start)
-                    self.supermarket_in.put(self.supermarket_in.capacity-self.supermarket_in.level)
+                    self.supermarket_in.put(self.refill_size)
                     self.supermarket_n_refills =self.supermarket_n_refills + 1
                 except: 
                     print("Stock Refilling Interruped by machine breakdown")
@@ -564,10 +574,14 @@ class Robot:
                 to_entity = from_entity.next_machine
                 print("here we are   " , from_entity.ID)
                 try:#and from_entity.buffer_out.level > 0 and from_entity.buffer_out.level == 0 and not from_entity.first
-                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity  :
+                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity :
+                        print("entered first")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
-                    if to_entity.buffer_in.level >= to_entity.buffer_in.capacity:
-                         yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
+                    if to_entity.buffer_in.level >= to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
+                        print("entered second")
+                        yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
+                        print("entered third")
+                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     # else:
                     #     yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
                     
