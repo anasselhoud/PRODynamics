@@ -52,11 +52,15 @@ class SettingWindow(customtkinter.CTkToplevel):
         # Simulation Data Frame
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
-        self.sim_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Simulation Time (s)", width=200)
-        self.sim_time_input.grid(row=0,column=0, padx=(10,10), pady=(10,10))
 
-        self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Yearly Volume", width=200)
-        self.yearly_volume_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
+        self.sim_time_label = customtkinter.CTkLabel(self.frame, text="Simulation Time (s)")
+        self.sim_time_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
+        self.sim_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Simulation Time (s)", width=200)
+        self.sim_time_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
+        self.yearly_volume_label = customtkinter.CTkLabel(self.frame, text="Expected Produced Volume")
+        self.yearly_volume_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
+        self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Produced Volume", width=200)
+        self.yearly_volume_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
 
         self.save_setting_btn = customtkinter.CTkButton(self.frame, text="Save", font=('Arial bold', 16), fg_color="Green", command=self.save_setting)
         self.save_setting_btn.grid(row=4, column=0, padx=20, pady=10)
@@ -106,11 +110,38 @@ class SettingWindow(customtkinter.CTkToplevel):
         # self.delete_buffer.grid(row = 0, column=1, padx=(0, 10), pady=(0,10))    
 
         #self.buffers_data = [["Buffer","Capacity","Initial"]]
-        self.frame_stock_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Stock"), height=150, width=600)
-        self.frame_stock_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
+        # self.frame_stock_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Stock"), height=150, width=600)
+        # self.frame_stock_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
         # self.table_buffers = CTkTable(self.frame_buffer_list, row=8, column=3, values=self.buffers_data, header_color="deepskyblue4")
-        self.tabview.tab("Stock").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
-        self.tabview.tab("Stock").grid_rowconfigure((1), weight=1)
+        # self.tabview.tab("Stock").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
+        # self.tabview.tab("Stock").grid_rowconfigure((1), weight=1)
+
+        self.stock_capacity_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Input Sock Capacity")
+        self.stock_capacity_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
+        self.stock_capacity_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Input Stock Capacity", width=200)
+        self.stock_capacity_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
+
+        self.initial_stock_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Initial Input Stock")
+        self.initial_stock_label.grid(row=0,column=1, padx=(10,10), pady=(10,10))
+        self.initial_stock_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Initial Input Stock", width=200)
+        self.initial_stock_input.grid(row=1,column=1, padx=(10,10), pady=(10,10))
+
+        self.refill_time_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Refill Time (s)")
+        self.refill_time_label.grid(row=0,column=2, padx=(10,10), pady=(10,10))
+        self.refill_time_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Time (s)", width=200)
+        self.refill_time_input.grid(row=1,column=2, padx=(10,10), pady=(10,10))
+
+        self.safety_stock_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Safey Stock")
+        self.safety_stock_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
+        self.safety_stock_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Safey Stock", width=200)
+        self.safety_stock_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
+
+        self.refill_size_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Refill Size")
+        self.refill_size_label.grid(row=2,column=1, padx=(10,10), pady=(10,10))
+        self.refill_size_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Size", width=200)
+        self.refill_size_input.grid(row=3,column=1, padx=(10,10), pady=(10,10))
+
+
         # #table.grid(row=0, column=0)
         # self.table_buffers.pack(expand=True)
         
@@ -126,15 +157,15 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.tabview_footer.add("Delays")
         self.tabview_footer.add("Manual Models")
 
-        self.label_break2 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Failure")
-        self.label_break2.grid(row=0, column=1, padx=20, pady=20)
-        self.mttf_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTF")
-        self.mttf_label.grid(row=1, column=1, padx=20, pady=20)
+        # self.label_break2 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Failure")
+        # self.label_break2.grid(row=0, column=1, padx=20, pady=20)
+        # self.mttf_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTF")
+        # self.mttf_label.grid(row=1, column=1, padx=20, pady=20)
 
-        self.label_break3 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Repair")
-        self.label_break3.grid(row=0, column=2, padx=20, pady=20)
-        self.mttr_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTR")
-        self.mttr_label.grid(row=1, column=2, padx=20, pady=20)
+        # self.label_break3 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Repair")
+        # self.label_break3.grid(row=0, column=2, padx=20, pady=20)
+        # self.mttr_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTR")
+        # self.mttr_label.grid(row=1, column=2, padx=20, pady=20)
 
         self.switch_var = customtkinter.StringVar(value="on")
         self.label_break1 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Machine Breakdown")
@@ -142,15 +173,14 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.switch = customtkinter.CTkSwitch(self.tabview_footer.tab("Breakdowns"), text="Enabled",
                                  variable=self.switch_var, onvalue="on", offvalue="off")
         
-    
         self.switch.grid(row=1, column=0, padx=20, pady=20)
-        self.choices_breakdowns = ["All Machines"]
-        self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
-        self.label_break4 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="To-be Broken Machines")
-        self.label_break4.grid(row=0, column=3, padx=20, pady=20)
-        self.choices_breakdowns_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Breakdowns"), dynamic_resizing=False,
-                                                        values=self.choices_breakdowns)
-        self.choices_breakdowns_menu.grid(row=1, column=3, padx=20, pady=20)
+        # self.choices_breakdowns = ["All Machines"]
+        # self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
+        # self.label_break4 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="To-be Broken Machines")
+        # self.label_break4.grid(row=0, column=3, padx=20, pady=20)
+        # self.choices_breakdowns_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Breakdowns"), dynamic_resizing=False,
+        #                                                 values=self.choices_breakdowns)
+        # self.choices_breakdowns_menu.grid(row=1, column=3, padx=20, pady=20)
 
         self.switch_delays_var = customtkinter.StringVar(value="on")
         self.label_delays1 = customtkinter.CTkLabel(self.tabview_footer.tab("Delays"), text="Hazardous delays")
@@ -166,6 +196,17 @@ class SettingWindow(customtkinter.CTkToplevel):
                                                         values=self.choices_delay_dist)
         self.choices_delays_menu.grid(row=1, column=3, padx=20, pady=20)
 
+        ## Default
+
+        self.sim_time_input.insert(0, "3600*24*200")
+        self.yearly_volume_input.insert(0, "100000")
+        self.stock_capacity_input.insert(0, "100")
+        self.initial_stock_input.insert(0, "100")
+        self.safety_stock_input.insert(0, "20")
+        self.refill_time_input.insert(0, "120")
+        self.refill_size_input.insert(0, "100")
+
+
 
     
     def add_func(self, current_list , current_table, inputs_labels = ["Machine", ["MT", "WC"], ["CT", "Link"], "Buffer Capacity", ["MTTF", "MTTR"]]):
@@ -173,7 +214,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         # m_ct = customtkinter.CTkEntry(master=dialog)
         # m_ct.grid(row=4, column=0)
         inputs = dialog.get_input()
-        print(inputs)
+        
         if inputs != []:
             temp = []
             for v in inputs:
@@ -232,10 +273,28 @@ class SettingWindow(customtkinter.CTkToplevel):
             # Read Excel file using pandas
             try:
                 config_data = pd.read_excel(file_path, sheet_name="Line Data")
+                config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
                 print("Excel file uploaded and read successfully.")
-                print(config_data.values.tolist())
+                config_data_gloabl = config_line_globa_data.values.tolist()
+                print(config_data_gloabl)
                 self.machine_data[1:] = config_data.values.tolist()
                 self.table_machines.update_values(self.machine_data)
+                self.sim_time_input.delete(0, END)
+                self.sim_time_input.insert(0, str(config_data_gloabl[0][2]))
+                self.yearly_volume_input.delete(0, END)
+                self.yearly_volume_input.insert(0, str(config_data_gloabl[1][2]))
+
+                self.stock_capacity_input.delete(0, END)
+                self.stock_capacity_input.insert(0, str(config_data_gloabl[2][2]))
+
+                self.initial_stock_input.delete(0, END)
+                self.initial_stock_input.insert(0, str(config_data_gloabl[3][2]))
+                self.refill_time_input.delete(0, END)
+                self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
+                self.safety_stock_input.delete(0, END)
+                self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
+                self.refill_size_input.delete(0, END)
+                self.refill_size_input.insert(0, str(config_data_gloabl[6][2]))
                 return config_data
             except Exception as e:
                 print(f"Error reading Excel file: {e}")
@@ -255,7 +314,29 @@ class SettingWindow(customtkinter.CTkToplevel):
             return None
 
     def save_setting(self):
+        
+        if self.switch_var.get() == "on":
+            self.manuf_line.breakdowns_switch = True
+        else:
+            self.manuf_line.breakdowns_switch = False
+
+        self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
+        self.manuf_line.stock_initial = float(self.initial_stock_input.get())
+        self.manuf_line.refill_time = float(self.refill_time_input.get())
+        self.manuf_line.safety_stock = float(self.safety_stock_input.get())
+        self.manuf_line.refill_size = float(self.refill_size_input.get())
+
+        self.manuf_line.supermarket_in = simpy.Container(env, capacity=self.manuf_line.stock_capacity, init=self.manuf_line.stock_initial)
+        self.manuf_line.shop_stock_out = simpy.Container(env, capacity=float(self.manuf_line.config["shopstock"]["capacity"]), init=float(self.manuf_line.config["shopstock"]["initial"]))
+        
         self.manuf_line.create_machines(self.machine_data[1:])
+        
+        try:
+            self.manuf_line.sim_time = eval(str(self.sim_time_input.get()))
+            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+        except:
+            self.manuf_line.sim_time = int(self.sim_time_input.get())
+            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
         self.destroy()
         
 
@@ -278,7 +359,7 @@ class App(customtkinter.CTk):
         self.title("PRODynamics") 
         self.geometry(f"{1920}x{1080}") #1280x720
         #mainicon = tk.PhotoImage(file="./assets/icons/mainicon.png")
-        self.iconbitmap("./assets/icons/mainicon.ico")
+        self.iconbitmap("./assets/icons/mainicon2.ico")
         self.appearence_mode = "Dark"
         self.toplevel_window = None
         # configure grid layout (4x4)
@@ -403,23 +484,21 @@ class App(customtkinter.CTk):
 
         self.tabview = customtkinter.CTkTabview(self, width=250)
         self.tabview.grid(row=3, column=3, padx=(10, 10), pady=(10, 0), sticky="nsew")
-        self.tabview.add("Costs")
+        self.tabview.add("Robot")
         self.tabview.add("Tab 2")
         self.tabview.add("Tab 3")
-        self.tabview.tab("Costs").grid_columnconfigure(0, weight=1)  # configure grid of individual tabs
+        self.tabview.tab("Robot").grid_columnconfigure(0, weight=1)  # configure grid of individual tabs
         self.tabview.tab("Tab 2").grid_columnconfigure(0, weight=1)
 
-        self.optionmenu_1 = customtkinter.CTkOptionMenu(self.tabview.tab("Costs"), dynamic_resizing=False,
-                                                        values=["Value 1", "Value 2", "Value Long Long Long"])
-        self.optionmenu_1.grid(row=0, column=0, padx=20, pady=(20, 10))
-        self.combobox_1 = customtkinter.CTkComboBox(self.tabview.tab("Costs"),
-                                                    values=["Value 1", "Value 2", "Value Long....."])
-        self.combobox_1.grid(row=1, column=0, padx=20, pady=(10, 10))
-        self.string_input_button = customtkinter.CTkButton(self.tabview.tab("Costs"), text="Open CTkInputDialog",
-                                                           command=self.open_input_dialog_event)
-        self.string_input_button.grid(row=2, column=0, padx=20, pady=(10, 10))
-        self.label_tab_2 = customtkinter.CTkLabel(self.tabview.tab("Tab 2"), text="CTkLabel on Tab 2")
-        self.label_tab_2.grid(row=0, column=0, padx=20, pady=20)
+        self.robot_waiting_time_btn = customtkinter.CTkButton(self.tabview.tab("Robot"), text="Waiting Rate", width = 150, fg_color="grey", text_color_disabled= "white", state="disabled" )
+        self.robot_waiting_time_btn.grid(row=0, column=0, padx=20, pady=(20, 10))
+        self.robot_waiting_time = customtkinter.CTkLabel(self.tabview.tab("Robot"), text="N/A",  font=('Arial bold', 16))
+        self.robot_waiting_time.grid(row=1, column=0, padx=20, pady=(10, 10))
+        # self.string_input_button = customtkinter.CTkButton(self.tabview.tab("Robot"), text="Open CTkInputDialog",
+        #                                                    command=self.open_input_dialog_event)
+        # self.string_input_button.grid(row=2, column=0, padx=20, pady=(10, 10))
+        # self.label_tab_2 = customtkinter.CTkLabel(self.tabview.tab("Tab 2"), text="CTkLabel on Tab 2")
+        # self.label_tab_2.grid(row=0, column=0, padx=20, pady=20)
 
         # Footer App Main
 
@@ -435,7 +514,7 @@ class App(customtkinter.CTk):
 
     def open_input_dialog_event(self):
         dialog = customtkinter.CTkInputDialog(text="Type in a number:", title="CTkInputDialog")
-        print("CTkInputDialog:", dialog.get_input())
+    
 
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -591,27 +670,35 @@ def clock(env, assembly_line, app):
         elapsed_seconds_shift = elapsed_seconds % (3600 * 8)
         elapsed_time_str = format_time(elapsed_seconds)
         app.sim_time_label.configure(text=elapsed_time_str)
-        app.partsdone_label.configure(text='%d' % assembly_line.list_machines[-1].parts_done)
+        app.partsdone_label.configure(text='%d' % assembly_line.shop_stock_out.level)
         
         new_breakdown = None
         global last_breakdown
-        
         for m in assembly_line.list_machines:
-            
+            # print("Input = " + m.ID + " --- " +  str(m.previous_machine))
+            # print("Output = " + m.ID + " --- " +  str(m.next_machine))
             if (m.broken and env.now-last_breakdown>float(assembly_line.breakdowns["mttr"])) or (m.broken and last_breakdown<2):
                 new_breakdown = env.now
                 last_breakdown = new_breakdown
 
-        if elapsed_seconds > 0 and assembly_line.list_machines[-1].buffer_out.level > 0  and all([machine.parts_done_shift > 0 for machine in assembly_line.list_machines]):
+        if elapsed_seconds > 0 and assembly_line.shop_stock_out.level > 0  and all([machine.parts_done_shift > 0 for machine in assembly_line.list_machines]):
             if elapsed_seconds_shift == 0:
                 elapsed_seconds_shift = 1000
+
             shift_cycle_time = np.max([elapsed_seconds_shift / (assembly_line.list_machines[-1].parts_done_shift) for i in range(len(assembly_line.list_machines))])
-                
+            
+            if assembly_line.robot is not None:
+                waiting_rate = 100*assembly_line.robot.waiting_time/env.now
+                app.robot_waiting_time.configure(text='{:.1f}%'.format(waiting_rate))
+
             app.shift_ct_label.configure(text='%.2f s' % shift_cycle_time)
-            cycle_time = elapsed_seconds / assembly_line.list_machines[-1].parts_done
+            cycle_time = elapsed_seconds / assembly_line.shop_stock_out.level
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
-            oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
+            #oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
+
+            oee = 100*((assembly_line.sim_time/assembly_line.yearly_volume_obj)/cycle_time)
             app.oee_label.configure(text='%.2f' % oee)
+            
             
             if elapsed_seconds > 500: #avoid warm-up
                 draw_buffers(app, assembly_line)
@@ -679,7 +766,7 @@ def clock(env, assembly_line, app):
         axs[0].set_ylabel('Shift Cycle Time (s)', color=fg_color)
         axs[0].set_title('Shift Cycle Time (s)', color=fg_color)
         axs[1].set_title('Avg. Annual Cycle Time (s)', color=fg_color)
-        axs[1].set_title('Overall Equipment Effectiveness (%)', color=fg_color)
+        axs[2].set_title('Overall Equipment Effectiveness (%)', color=fg_color)
         axs[2].set_xlabel('Duration (s)', color=fg_color)
         for ax in axs:
             ax.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
@@ -693,7 +780,6 @@ def clock(env, assembly_line, app):
     def clock_generator():
         while True:
             global timeout
-            print(timeout)
             yield env.timeout(timeout)
             update_display()
 
@@ -716,8 +802,8 @@ if __name__ == "__main__":
     df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
     tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
     config_file = 'config.yaml'
-    task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
-    assembly_line = ManufLine(env, 3, tasks, [[1], [2], [3]], task_assignement, config_file=config_file)
+    #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
+    assembly_line = ManufLine(env, tasks, config_file=config_file)
     #assembly_line.set_CT_machines([20, 20, 20, 20])
 
     ## Compile with OEE diagram modifs + parallel machines + robots transport 
