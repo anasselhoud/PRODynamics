@@ -36,6 +36,7 @@ class ManufLine:
         self.safety_stock = 0
         self.refill_time = 0
         self.refill_size = 1
+        self.reset_shift_bool = False
 
         self.supermarket_in = simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial)
         self.shop_stock_out = simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"]))
@@ -150,6 +151,7 @@ class ManufLine:
             print("Reseting Shift")
             
             self.num_cycles = self.num_cycles +1
+            self.reset_shift_bool = True
             for i, machine in enumerate(self.list_machines):
                 
                 print("Resetting machine " + machine.ID + " - " + str(machine.buffer_in.level) + " - " + str(machine.buffer_out.level))
@@ -361,6 +363,7 @@ class Machine:
         self.robot = manuf_line.robot
         self.previous_machine = None
         self.waiting_time = 0
+        self.operating = False
 
         if self.robot is None:
             if first:
@@ -467,6 +470,7 @@ class Machine:
                     yield self.buffer_in.get(1)
                     exit_t = self.env.now
                     self.exit_times.append(self.env.now)
+                    self.operating = True
                     yield self.env.timeout(done_in)
                     finish_time = self.env.now
                     while self.buffer_out.level == self.buffer_out.capacity:
@@ -477,6 +481,7 @@ class Machine:
                     yield self.buffer_out.put(1)
                     self.exit_times.append(self.env.now)
                     done_in = 0
+                    self.operating = False
                     self.parts_done = self.parts_done +1
             
                     self.parts_done_shift = self.parts_done_shift+1
@@ -511,7 +516,7 @@ class Robot:
         self.process = None
     def transport(self, from_entity, to_entity, time):
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
-            print("Transporting from " + from_entity.ID + " to " + to_entity.ID)
+            print("Transporting from " + from_entity.ID +" - STATE OP - " + str(from_entity.operating) + " to " + to_entity.ID)
             print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
             entry = self.env.now
             yield from_entity.buffer_out.get(1)
@@ -525,7 +530,7 @@ class Robot:
             yield self.env.timeout(0)
 
         if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
-            print("Transporting from " + str(from_entity) + " to " + to_entity.ID)
+            print("Transporting from " + str(from_entity) +" to " + to_entity.ID)
             print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
             entry = self.env.now
             yield from_entity.get(1)
@@ -573,23 +578,30 @@ class Robot:
                 from_entity = entities_order[i]
                 to_entity = from_entity.next_machine
                 print("here we are   " , from_entity.ID)
+                if self.manuf_line.reset_shift_bool:
+                    self.manuf_line.reset_shift_bool = False
+                    break
+                
                 try:#and from_entity.buffer_out.level > 0 and from_entity.buffer_out.level == 0 and not from_entity.first
-                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity :
+                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity and not to_entity.operating and from_entity.buffer_out.level > 0:
                         print("entered first")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
-                    if to_entity.buffer_in.level >= to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
-                        print("entered second")
-                        yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
-                        print("entered third")
-                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
-                    # else:
-                    #     yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
+                    # elif to_entity.buffer_in.level >= to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
+                    #     print("entered second")
+                    #     yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
+                    #     print("entered third")
+                    #     yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    else:
+                        #yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
+                        pass
                     
                 except:
-                    if to_entity.level < to_entity.capacity:
+                    if from_entity.buffer_out.level > 0:
+                        print("entered fourth")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     else:
-                        yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
+                        print("entered fifth")
+                        yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
             
 
             
