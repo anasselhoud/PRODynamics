@@ -296,7 +296,7 @@ class App(customtkinter.CTk):
         self.title("PRODynamics") 
         self.geometry(f"{1920}x{1080}") #1280x720
         #mainicon = tk.PhotoImage(file="./assets/icons/mainicon.png")
-        self.iconbitmap("./assets/icons/mainicon.ico")
+        self.iconbitmap("./assets/icons/mainicon2.ico")
         self.appearence_mode = "Dark"
         self.toplevel_window = None
         # configure grid layout (4x4)
