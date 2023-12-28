@@ -176,7 +176,6 @@ class ManufLine:
 
                 machine.parts_done_shift = 1
                 
-######### TODO: take in memory last action before reset shift or empty the line and start from beginning ########
                 
             print("Reset finished")
             
@@ -519,13 +518,19 @@ class Robot:
             print("Transporting from " + from_entity.ID +" - STATE OP - " + str(from_entity.operating) + " to " + to_entity.ID)
             print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
             entry = self.env.now
+            print("one")
             yield from_entity.buffer_out.get(1)
+            print("two")
             self.waiting_time += self.env.now-entry
             yield self.buffer.put(1)
+            print("three")
             yield self.env.timeout(time)
+            print("four")
             yield self.buffer.get(1)
+            print("five")
             entry = self.env.now
             yield to_entity.buffer_in.put(1)
+            print("six")
             self.waiting_time += self.env.now-entry
             yield self.env.timeout(0)
 
@@ -571,7 +576,10 @@ class Robot:
                     yield from self.transport(m.previous_machine, m, self.in_transport_times[i])
                 else:
                     print("first input - 2")
-                    yield from self.transport(m, m.next_machine, self.out_transport_times[i])
+                    if m.next_machine.buffer_in.level < m.next_machine.buffer_in.capacity:
+                        yield from self.transport(m, m.next_machine, self.out_transport_times[i])
+                    else: 
+                        pass
 
 
             for i in range(len(entities_order)):
@@ -583,9 +591,15 @@ class Robot:
                     break
                 
                 try:#and from_entity.buffer_out.level > 0 and from_entity.buffer_out.level == 0 and not from_entity.first
-                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity and not to_entity.operating and from_entity.buffer_out.level > 0:
+                    if to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
                         print("entered first")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
+                        print("entered after checking operating")
+                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
+                        print("entered here again after checking operating")
+                        yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
                     # elif to_entity.buffer_in.level >= to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
                     #     print("entered second")
                     #     yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
