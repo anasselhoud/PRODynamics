@@ -568,7 +568,9 @@ class Robot:
         entities_order = [input_entity, machine1, machine2, machine3, output_entity]
         times = [10, 10, 10, 10, 10] len(entities_order)
         """
+
         while True:
+            
             # Policy 1 => Follow everytime the same order, if not feasible pass to next 
             for  i, m in enumerate([m for m in self.manuf_line.list_machines if m.first]):
                 if m.buffer_in.level < m.buffer_in.capacity:
@@ -577,14 +579,17 @@ class Robot:
                 else:
                     print("first input - 2")
                     if m.next_machine.buffer_in.level < m.next_machine.buffer_in.capacity:
+                        print("first input - 21")
                         yield from self.transport(m, m.next_machine, self.out_transport_times[i])
                     else: 
+                        print("first input - 22")
                         pass
 
 
             for i in range(len(entities_order)):
                 from_entity = entities_order[i]
                 to_entity = from_entity.next_machine
+
                 print("here we are   " , from_entity.ID)
                 if self.manuf_line.reset_shift_bool:
                     self.manuf_line.reset_shift_bool = False
@@ -598,7 +603,7 @@ class Robot:
                         print("entered after checking operating")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
-                        print("entered here again after checking operating")
+                        print("entered here again after checking operating == BLOCKED HERE")
                         yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
                     # elif to_entity.buffer_in.level >= to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
                     #     print("entered second")
@@ -607,18 +612,24 @@ class Robot:
                     #     yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     else:
                         #yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
+                        print("PASSED 1")
                         pass
-                    
+                
                 except:
-                    if from_entity.buffer_out.level > 0:
+                    if to_entity.level < to_entity.capacity and from_entity.buffer_out.level > 0:
                         print("entered fourth")
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
+                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                    # elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
+                    #     print("entered here again after checking operating == BLOCKED HERE 2")
+                    #     yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
                     else:
                         print("entered fifth")
-                        yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
+                        #yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
+                        pass
             
-
-            
+            #### Recheck why it gets stuck sometimes on this ;)
             
 
 class Task:
