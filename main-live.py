@@ -584,8 +584,15 @@ class App(customtkinter.CTk):
         self.refill_label.grid(row=0, column=2, padx=5, pady=(0, 5))
 
         #indices_first_machines = [[m.ID for m in self.manuf_line.list_machines].index(id) for id in [m.ID for m in self.manuf_line.list_machines] if m.first == True]
+        
         # TODO: change the way we handle this indices machines to avoid having B1+2+6 => B1+2 and B5+6
         indices_first_machines = [[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in self.manuf_line.list_machines if m.first]]
+        
+        indices_multi_machines = [[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in self.manuf_line.list_machines]]
+        print("multi M indices = ", indices_multi_machines)
+        print("indices_first_machines")
+
+
         only_one = False
         for i,m in enumerate(self.manuf_line.list_machines):
             if m.first:

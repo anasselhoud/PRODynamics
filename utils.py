@@ -9,6 +9,7 @@ import customtkinter
 from customtkinter import *
 from typing import Union, Tuple, Optional
 import copy
+import ast
 
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
@@ -256,6 +257,7 @@ class ManufLine:
 
         self.list_machines = []
 
+        # If only one cell of "Robot Transport Time" is NaN (empty), means we are not using a robot to transport components.
         if all([not np.isnan(list_machines_config[i][9])  for i in range(len(list_machines_config))]):
             self.robot = Robot(self, self.env)
             self.robot.order = [list_machines_config[i][11]  for i in range(len(list_machines_config))]
@@ -263,7 +265,17 @@ class ManufLine:
             self.robot.in_transport_times = [list_machines_config[i][10] for i in range(len(list_machines_config))]
         
         notfirst_list = [list_machines_config[i][4] for i in range(len(list_machines_config))]
-    
+        notfirst_list1 = [item.strip("'")  for item in notfirst_list]
+        # if isinstance(item, str) else item for sublist in notfirst_list
+        lists = [eval(item) if item.startswith('[') else [item] for item in notfirst_list1]
+
+        # Flatten the lists
+        flattened_list = [item for sublist in lists for item in sublist]
+
+        #  Remove duplicates
+        unique_list = list(set(flattened_list))
+
+        print("non first_list = ", unique_list)
 
         for i in range(len(list_machines_config)):
             try:
@@ -273,7 +285,7 @@ class ManufLine:
             first, last = False, False
             if i == len(list_machines_config) - 1 :
                 last = True
-            if list_machines_config[i][0] not in notfirst_list:
+            if list_machines_config[i][0] not in unique_list:
                 first = True    
 
             try: 
@@ -306,9 +318,12 @@ class ManufLine:
         for i, machine in enumerate(self.list_machines):
             if machine.first:
                 machine.previous_machine = self.supermarket_in
+                machine.previous_machines.append(self.supermarket_in)
             if machine.last:
                 machine.next_machine = self.shop_stock_out
+                machine.next_machines.append(self.shop_stock_out)
             if self.robot is None:
+                # Process if robot is NOT used
                 try:
                     if l.index(list_machines_config[i][4]) not in index_next:
                         index_next.append(l.index(list_machines_config[i][4]))
@@ -322,20 +337,47 @@ class ManufLine:
                 except:
                     pass
             else:
+                # Process if robot is used
                 print("robot exists --- !")
                 
                 try:
-                    if l.index(list_machines_config[i][4]) not in index_next:
-                        index_next.append(l.index(list_machines_config[i][4]))
-                        machine.next_machine = self.list_machines[index_next[-1]]
-                        self.list_machines[index_next[-1]].previous_machine = machine
-                    else:
-                        machine.next_machine = self.list_machines[l.index(list_machines_config[i][4])]
-                        self.list_machines[l.index(list_machines_config[i][4])].previous_machine = machine
-                    
+                    link_cell_data = eval(list_machines_config[i][4])
                 except:
-                    pass
+                    link_cell_data = list_machines_config[i][4]
+                # If the machine delivers to many machine 
+                if type(link_cell_data) is list:
+                    for m_i in link_cell_data:
+                        if l.index(m_i) not in index_next:
+                            index_next.append(l.index(m_i))
+                            machine.next_machine = self.list_machines[index_next[-1]]
+                            self.list_machines[index_next[-1]].previous_machine = machine
+                            self.list_machines[index_next[-1]].previous_machines.append(machine)
+                            machine.next_machines.append(self.list_machines[index_next[-1]])
+                        else:
+                            machine.next_machine = self.list_machines[l.index(m_i)]
+                            self.list_machines[l.index(m_i)].previous_machine = machine
+                            machine.next_machines.append(self.list_machines[l.index(m_i)])
+                            self.list_machines[l.index(m_i)].previous_machines.append(machine)
                 
+                # If the machine delivers to only one machine 
+                else:
+                    try:
+                        if l.index(link_cell_data) not in index_next:
+                            index_next.append(l.index(link_cell_data))
+                            machine.next_machine = self.list_machines[index_next[-1]]
+                            self.list_machines[index_next[-1]].previous_machine = machine
+                            self.list_machines[index_next[-1]].previous_machines.append(machine)
+                            machine.next_machines.append(self.list_machines[index_next[-1]])
+                        else:
+                            machine.next_machine = self.list_machines[l.index(link_cell_data)]
+                            self.list_machines[l.index(link_cell_data)].previous_machine = machine
+                            machine.next_machines.append(self.list_machines[l.index(link_cell_data)])
+                            self.list_machines[l.index(link_cell_data)].previous_machines.append(machine)
+                        
+                    except:
+                        pass
+
+            print(machine.ID +" " +  str(machine) + "  =>  " + str(machine.previous_machines) + " --- =>" + str(machine.next_machines))
         
         
 
@@ -361,8 +403,12 @@ class Machine:
         self.next_machine = None
         self.robot = manuf_line.robot
         self.previous_machine = None
+
+        self.next_machines = []
+        self.previous_machines = []
         self.waiting_time = 0
         self.operating = False
+        self.identical_machines = []
 
         if self.robot is None:
             if first:
@@ -563,6 +609,7 @@ class Robot:
             yield self.env.timeout(0)
 
     def handle_empty_buffer(self, from_entity, to_entity, i):
+        from_entity.previous_machine = self.which_machine_to_getfrom(from_entity)
         try:
             if not from_entity.previous_machine.operating and from_entity.previous_machine.buffer_out.level == 0:
                 yield from self.handle_empty_buffer(from_entity.previous_machine, from_entity, i)
@@ -574,6 +621,25 @@ class Robot:
             elif from_entity.previous_machine.level>0:
                 yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i]) 
 
+    def which_machine_to_feed(self, current_machine):
+        print("Machine here = ", current_machine.ID)
+        #return random.choice(current_machine.next_machines)
+
+        
+        empty_buffers_machines = [m.buffer_in.level if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
+        return current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
+        # if len(empty_buffers_machines) > 0:
+        #     return empty_buffers_machines[0]
+        # else:
+        #     empty_buffers_machines
+
+
+
+        
+
+    
+    def which_machine_to_getfrom(self, current_machine):
+        return random.choice(current_machine.previous_machines)
 
     #entities_order = ["Start", "M1", "M2", "M3", "M4", "End"]
     def robot_process(self, entities_order):
@@ -601,7 +667,7 @@ class Robot:
 
             for i in range(len(entities_order)):
                 from_entity = entities_order[i]
-                to_entity = from_entity.next_machine
+                to_entity = self.which_machine_to_feed(from_entity)
 
                 print("here we are   " , from_entity.ID)
                 if self.manuf_line.reset_shift_bool:
@@ -645,7 +711,10 @@ class Robot:
             
             #### Recheck why it gets stuck sometimes on this ;)
         
+
     
+
+
 
         
 
