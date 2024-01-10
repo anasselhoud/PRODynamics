@@ -588,19 +588,29 @@ class App(customtkinter.CTk):
         # TODO: change the way we handle this indices machines to avoid having B1+2+6 => B1+2 and B5+6
         indices_first_machines = [[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in self.manuf_line.list_machines if m.first]]
         
-        indices_multi_machines = [[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in self.manuf_line.list_machines]]
-        print("multi M indices = ", indices_multi_machines)
-        print("indices_first_machines")
+       
 
+        for m1 in self.manuf_line.list_machines:
+            for m2 in self.manuf_line.list_machines:
+                # Check if list of next machines is same
+                if m1.next_machines == m2.next_machines and m1 != m2:
+                    m1.identical_machines.append(m2)
 
-        only_one = False
+            print(m1.ID + " -- identical = " + str([m.ID for m in m1.identical_machines]))
+        
+        passed_machines = []
         for i,m in enumerate(self.manuf_line.list_machines):
-            if m.first:
-                if not only_one:
-                    only_one = True
-                    buffer_btn = customtkinter.CTkButton(master=self.buffer_state_frame, text=f"B{'+'.join(map(str, indices_first_machines))}", width = 50, height=50, fg_color="green", text_color_disabled= "white", state="disabled", font=('Arial', 15))
+            if m.identical_machines != []:
+                if m not in passed_machines:
+                    indices_identical_machines = [i+1]
+                    indices_identical_machines.extend([[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in m.identical_machines]])
+                    print(m.ID + " -- indic identical = " + str(indices_identical_machines))
+                    buffer_btn = customtkinter.CTkButton(master=self.buffer_state_frame, text=f"B{'+'.join(map(str, indices_identical_machines))}", width = 50, height=50, fg_color="green", text_color_disabled= "white", state="disabled", font=('Arial', 15))
                     buffer_btn.grid(row=2*(i+1), column=0, rowspan=2, padx=10, pady=(0, 5))
                     self.buffer_state_btn.append(buffer_btn)
+                    
+                    passed_machines.extend(m.identical_machines)
+
             else:
                 buffer_btn = customtkinter.CTkButton(master=self.buffer_state_frame, text=f"B{i+1}", width = 50, height=50, fg_color="green", text_color_disabled= "white", state="disabled", font=('Arial', 15))
                 buffer_btn.grid(row=2*(i+1), column=0, rowspan=2, padx=10, pady=(0, 5))
