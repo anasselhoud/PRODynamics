@@ -10,6 +10,7 @@ from customtkinter import *
 from typing import Union, Tuple, Optional
 import copy
 import ast
+import csv
 
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
@@ -86,7 +87,7 @@ class ManufLine:
     def generate(self):
         return self.env
     
-    def get_results(self):
+    def get_results(self, save=False, experiment_number=1):
         idle_times = []
         CTs = []
         
@@ -101,10 +102,32 @@ class ManufLine:
                 ct_machine.append(finished-entry)
             CTs.append(np.mean(ct_machine))
 
-        print("Machine Idle Times = ", idle_times)
-        print("Downtime of Machines = ", [1000*machine.n_breakdowns for machine in self.list_machines])
-        print("Parts done --", self.list_machines[-1].buffer_out.level)
-        print("Cycle Time --", self.sim_time/self.list_machines[-1].buffer_out.level)
+        print("Mean Machine Idle Times = ", idle_times)
+        print("Waiting Time of Machines", [machine.waiting_time for machine in self.list_machines])
+        print("Downtime of Machines = ", [machine.n_breakdowns for machine in self.list_machines])
+        print("Mean CT of Machines = ", CTs)
+        print("Parts done --", self.shop_stock_out.level)
+        print("Cycle Time --", self.sim_time/self.shop_stock_out.level)
+
+
+        if save:
+            csv_file_path = './results/results.csv'
+            with open(csv_file_path, 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+
+                if experiment_number == 1:
+                    writer.writerow(["Experiment", "Mean Idle Times", "Sum Idle Times", "Downtime", "Mean CT", "Parts Done", "Cycle Time"])
+
+                waiting_times = [machine.waiting_time for machine in self.list_machines]
+                breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
+                mean_ct = [self.sim_time/machine.parts_done for machine in self.list_machines]
+                #mean_ct = CTs
+                parts_done = self.shop_stock_out.level
+                cycle_time = self.sim_time/self.shop_stock_out.level
+                
+                writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
+
+
 
         return idle_times
     def get_track(self):
@@ -528,8 +551,8 @@ class Machine:
                     done_in = 0
                     self.operating = False
                     self.parts_done = self.parts_done +1
-            
                     self.parts_done_shift = self.parts_done_shift+1
+                    self.finished_times.append(self.env.now)
                     yield self.env.timeout(0)
                 except simpy.Interrupt:
                     self.broken = True
