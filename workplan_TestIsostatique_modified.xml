@@ -29,7 +29,7 @@
 					<part id="Loading00008660" ref="3154585" cycleTime="3.060" weight="0.019" thumb="0026.png" name="HEATSHIELD BOSS.2" />
 					<part id="Loading00008661" ref="3154585" cycleTime="3.060" weight="0.019" thumb="0027.png" name="HEATSHIELD BOSS.3" />
 					<part id="Loading00008662" ref="3154585" cycleTime="3.060" weight="0.019" thumb="0028.png" name="HEATSHIELD BOSS.4" />
-					<part id="Loading00008754" ref="3178945" cycleTime="3.060" weight="0.016" thumb="0065.png" name="3178945.1" />
+					<part id="Loading00008754" ref="3178945" cycleTime="3.060" weight="0.016" thumb="0065.png" name="378945.1" />
 		</parts>
 		<weldings>
 			<welding id="Machine00005396" cycleTime="14.06670" weight="1.955" thumb="0029.png" name="Wld1 {15mm_s}" length="0.145" type="Mag M-Circ Ext B" forbidden="" assy="Loading00008634;Loading00008636;Loading00008637" precedency="" />
