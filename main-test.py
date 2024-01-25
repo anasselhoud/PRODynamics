@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import *
-
+import pulp
 
 
 def known_tasks(list):
@@ -17,7 +17,7 @@ def known_tasks(list):
     return tasks
 
 
-def upload_config_test(assembly_line):
+def upload_config_test(assembly_line, buffer_size_list=[]):
     # Ask the user to select a file
     
     if os.path.exists("./LineData.xlsx"):
@@ -48,11 +48,17 @@ def upload_config_test(assembly_line):
             assembly_line.safety_stock = float(config_data_gloabl[5][2])
             assembly_line.refill_size = float(config_data_gloabl[6][2])
 
-            assembly_line.supermarket_in = simpy.Container(env, capacity=assembly_line.stock_capacity, init=assembly_line.stock_initial)
-            assembly_line.shop_stock_out = simpy.Container(env, capacity=float(assembly_line.config["shopstock"]["capacity"]), init=float(assembly_line.config["shopstock"]["initial"]))
+            assembly_line.supermarket_in = simpy.Container(assembly_line.env, capacity=assembly_line.stock_capacity, init=assembly_line.stock_initial)
+            assembly_line.shop_stock_out = simpy.Container(assembly_line.env, capacity=float(assembly_line.config["shopstock"]["capacity"]), init=float(assembly_line.config["shopstock"]["initial"]))
             
-            assembly_line.create_machines(config_data.values.tolist())
             
+            machine_data = config_data.values.tolist()
+            if buffer_size_list != []:
+                for i in range(len(machine_data)):
+                    machine_data[i][5] = buffer_size_list[i]
+            
+
+            assembly_line.create_machines(machine_data)
             try:
                 assembly_line.sim_time = eval(str(config_data_gloabl[0][2]))
                 assembly_line.yearly_volume_obj = eval(str(config_data_gloabl[1][2]))
@@ -77,9 +83,22 @@ def upload_config_test(assembly_line):
     else:
         print("Unsupported file type. Please upload an Excel (.xlsx or .xls) or JSON file.")
         return None
-def run(assembly_line, experiment_number=1):
+
+
+def change_buffers_size(size_list, assembly_line):
+    '''
+    Takes a list of proposed sizes of buffer [1, 1, 1, 1, 1, 1] and reconfigure the line based on that.  
+    '''
+
+    for i, machine in enumerate(assembly_line.list_machines):
+        machine.buffer_out = simpy.Container(assembly_line.env, capacity=float(size_list[i]), init=0)
+
+
+def run(assembly_line, experiment_number=1, save=False):
     assembly_line.run()
-    assembly_line.get_results(save=True, experiment_number=experiment_number)
+
+    cts = assembly_line.get_results(save=save, experiment_number=experiment_number)
+    return cts
     #list_machines = assembly_line.get_track()
 
 if __name__ == "__main__":
@@ -89,10 +108,99 @@ if __name__ == "__main__":
     tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
     config_file = 'config.yaml'
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
-
-    for i in range(3):
+    
+    
+    for i in range(200):
+   
         env = simpy.Environment()
         assembly_line = ManufLine(env, tasks, config_file=config_file)
-        upload_config_test(assembly_line)
-        run(assembly_line, i+1)
-        #print(assembly_line.list_machines)
+        
+        size_list = [1+i*10 for _ in range(8)]
+        upload_config_test(assembly_line, buffer_size_list=size_list)
+       
+
+        run(assembly_line, i, save=True)
+
+    
+
+    def buffer_optim_costfunction(variables):
+        env = simpy.Environment()
+        assembly_line = ManufLine(env, tasks, config_file=config_file)
+
+        upload_config_test(assembly_line, buffer_size_list=variables)
+        
+        #print(size_list)
+        #change_buffers_size(size_list, assembly_line)
+        ct = run(assembly_line)
+        print(ct)
+        return ct
+
+
+    def function_to_optimize(buffer_capacities):
+        """
+        Define the function that you want to optimize.
+        """
+        sim_results = buffer_optim_costfunction(buffer_capacities)
+
+        result_values = []
+
+        for i in range(len(sim_results)):
+            if i == len(sim_results) - 1:  # If it's the last element, just take its current value
+                result_values.append(sim_results[i])
+            else:
+                result_values.append(sim_results[i] + sim_results[i+1])
+        return result_values
+
+    def finite_perturbation_analysis(function, buffer_capacities, perturbation_value=10):
+        """
+        Perform Finite Perturbation Analysis to estimate the gradient of the function with respect to buffer capacities.
+        """
+        gradient_estimate = np.zeros_like(buffer_capacities)
+
+        for i in range(len(buffer_capacities)):
+
+            buffer_capacities_plus = buffer_capacities.copy()
+            buffer_capacities_plus[i] += perturbation_value
+            buffer_capacities_minus = buffer_capacities.copy()
+            buffer_capacities_minus[i] = max(buffer_capacities_minus[i]-perturbation_value, 1)
+
+            function_plus = function(buffer_capacities_plus)
+            function_minus = function(buffer_capacities_minus)
+
+            gradient_estimate[i] = (function_plus[i] - function_minus[i]) / (2 * perturbation_value)
+
+        return gradient_estimate
+
+    def optimize_buffer_capacities(initial_buffer_capacities, iterations=100, learning_rate=0.1):
+        """
+        Optimize buffer capacities using Finite Perturbation Analysis.
+        """
+        buffer_capacities = initial_buffer_capacities.copy()
+
+        for i in range(iterations):
+            print("Iteration -- " + str(i) + " -- Current capacities = ", buffer_capacities)
+            gradient = finite_perturbation_analysis(function_to_optimize, [int(b) for b in buffer_capacities])
+            buffer_capacities -= learning_rate * gradient
+
+        return [int(b) for b in buffer_capacities]
+
+
+    # initial_buffer_capacities = [1 for _ in range(7)]
+    # optimized_buffer_capacities = optimize_buffer_capacities(initial_buffer_capacities)
+
+    # print("Initial Buffer Capacities:", initial_buffer_capacities)
+    # print("Optimized Buffer Capacities:", optimized_buffer_capacities)
+    
+    # initial_buffer_capacities = [1 for _ in range(7)]
+    # buffer_optim_costfunction(initial_buffer_capacities)
+    # gradient_estimate = finite_perturbation_analysis(function_to_optimize, initial_buffer_capacities)
+    # print("Gradient Estimate:", gradient_estimate)
+
+
+    """
+    Ideas for optimization modeling:
+        - Variables: 
+            -- buffers capacity and how they can affect the cycle time at the end.
+            -- priority to be chosen: state [buffers states of each machine] => actions [which one to take] => reward [CT evaluation and also if the flow is blocked]
+            -- 
+    """
