@@ -38,41 +38,43 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
     # Check the file extension to determine the file type
     if file_path.endswith('.xlsx') or file_path.endswith('.xls'):
         # Read Excel file using pandas
+        #try:
+        config_data = pd.read_excel(file_path, sheet_name="Line Data")
+        config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
+        print("Excel file uploaded and read successfully.")
+        config_data_gloabl = config_line_globa_data.values.tolist()
+        print(config_data_gloabl)
+
+        assembly_line.stock_capacity = float(config_data_gloabl[2][2])
+        assembly_line.stock_initial = float(config_data_gloabl[3][2])
+        assembly_line.refill_time = float(config_data_gloabl[4][2])
+        assembly_line.safety_stock = float(config_data_gloabl[5][2])
+        assembly_line.refill_size = float(config_data_gloabl[6][2])
+
+        assembly_line.supermarket_in = simpy.Container(assembly_line.env, capacity=assembly_line.stock_capacity, init=assembly_line.stock_initial)
+        assembly_line.shop_stock_out = simpy.Container(assembly_line.env, capacity=float(assembly_line.config["shopstock"]["capacity"]), init=float(assembly_line.config["shopstock"]["initial"]))
+        
+        
+        machine_data = config_data.values.tolist()
+        print(len(machine_data))
+        print(buffer_size_list)
+        if buffer_size_list != []:
+            for i in range(len(machine_data)):
+                machine_data[i][5] = buffer_size_list[i]
+        
+
+        assembly_line.create_machines(machine_data)
         try:
-            config_data = pd.read_excel(file_path, sheet_name="Line Data")
-            config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
-            print("Excel file uploaded and read successfully.")
-            config_data_gloabl = config_line_globa_data.values.tolist()
-            print(config_data_gloabl)
-
-            assembly_line.stock_capacity = float(config_data_gloabl[2][2])
-            assembly_line.stock_initial = float(config_data_gloabl[3][2])
-            assembly_line.refill_time = float(config_data_gloabl[4][2])
-            assembly_line.safety_stock = float(config_data_gloabl[5][2])
-            assembly_line.refill_size = float(config_data_gloabl[6][2])
-
-            assembly_line.supermarket_in = simpy.Container(assembly_line.env, capacity=assembly_line.stock_capacity, init=assembly_line.stock_initial)
-            assembly_line.shop_stock_out = simpy.Container(assembly_line.env, capacity=float(assembly_line.config["shopstock"]["capacity"]), init=float(assembly_line.config["shopstock"]["initial"]))
-            
-            
-            machine_data = config_data.values.tolist()
-            if buffer_size_list != []:
-                for i in range(len(machine_data)):
-                    machine_data[i][5] = buffer_size_list[i]
-            
-
-            assembly_line.create_machines(machine_data)
-            try:
-                assembly_line.sim_time = eval(str(config_data_gloabl[0][2]))
-                assembly_line.yearly_volume_obj = eval(str(config_data_gloabl[1][2]))
-            except:
-                assembly_line.sim_time = int(config_data_gloabl[0][2])
-                assembly_line.yearly_volume_obj = int(config_data_gloabl[1][2])
-           
-            return config_data
-        except Exception as e:
-            print(f"Error reading Excel file: {e}")
-            return None
+            assembly_line.sim_time = eval(str(config_data_gloabl[0][2]))
+            assembly_line.yearly_volume_obj = eval(str(config_data_gloabl[1][2]))
+        except:
+            assembly_line.sim_time = int(config_data_gloabl[0][2])
+            assembly_line.yearly_volume_obj = int(config_data_gloabl[1][2])
+    
+        return config_data
+        # except Exception as e:
+        #     print(f"Error reading Excel file: {e}")
+        #     return None
     elif file_path.endswith('.json'):
         # Read JSON file
         try:
@@ -187,14 +189,11 @@ if __name__ == "__main__":
     env = simpy.Environment()
     assembly_line = ManufLine(env, tasks, config_file=config_file)
     
-    size_list = [1, 1, 1, 1, 1, 1, 1]
+    size_list = [1, 1, 1, 1, 1, 1, 1, 1]
     upload_config_test(assembly_line, buffer_size_list=size_list)
 
     run(assembly_line, 1, save=True, track=True)
-    print("Len ", len(assembly_line.robot_states))
-    print("Len ", len(assembly_line.buffer_tracks))
-    print("Len ", len(assembly_line.sim_times_track))
-    print("Len ", assembly_line.sim_times_track[3])
+
     # buffer_cap = [1, 1, 1, 1, 1, 1, 1]
     # print(function_to_optimize(buffer_cap))
     
