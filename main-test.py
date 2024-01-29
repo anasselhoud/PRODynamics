@@ -133,6 +133,7 @@ def function_to_optimize(buffer_capacities):
     # print("Inventory Cost = ", inventory_cost)
     # print("Waiting Cost = ", result_values)
     # print("Cost Results = ", results_values_cost)
+# print
     return results_values_cost
 
 def finite_perturbation_analysis(function, buffer_capacities, perturbation_value=10):
