@@ -4,6 +4,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import *
+import os
+import time
+
 
 
 
@@ -90,9 +93,11 @@ if __name__ == "__main__":
     config_file = 'config.yaml'
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
 
-    for i in range(3):
+    for i in range(1000):
         env = simpy.Environment()
         assembly_line = ManufLine(env, tasks, config_file=config_file)
+        start_time = time.time()
         upload_config_test(assembly_line)
         run(assembly_line, i+1)
-        #print(assembly_line.list_machines)
+        
+        print("--- %s seconds ---" % (time.time() - start_time))
