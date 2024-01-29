@@ -51,8 +51,14 @@ class ManufLine:
         self.operators_assignement = operators_assignement
         self.robot = None
 
-        
+        self.buffer_tracks = []
+        self.robot_states = []
+        self.machines_states = []
+        self.machines_CT = []
+        self.machines_idle_times = []
         self.list_machines = []
+        self.machines_breakdown = []
+        self.sim_times_track = []
         # self.list_operators = [Operator(operators_assignement[i]) for i in range(len(operators_assignement))]
 
         # previous_machine = None
@@ -87,7 +93,7 @@ class ManufLine:
     def generate(self):
         return self.env
     
-    def get_results(self, save=False, experiment_number=1):
+    def get_results(self, save=False, experiment_number=1, track=False):
         idle_times = []
         CTs = []
         
@@ -109,8 +115,27 @@ class ManufLine:
         # print("Parts done --", self.shop_stock_out.level)
         # print("Cycle Time --", self.sim_time/self.shop_stock_out.level)
 
+        if save and track:
+            csv_file_path = './results/forcast_data.csv'
+            with open(csv_file_path, 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile)
 
-        if save:
+                if experiment_number == 1:
+                    writer.writerow(["Sim Instant", "Robot State", "Machines State", "Machine CT", "Machines Breakdowns", "Machines Idle Time", "Buffers State"])
+                
+                sim_time = list(self.sim_times_track)
+                waiting_times = list(self.machines_idle_times)
+                breakdowns =  list(self.machines_breakdown)
+                buffer_tracks = self.buffer_tracks
+                robots_states = self.robot_states
+                machines_state = self.machines_states
+                machines_ct = self.machines_CT
+
+                for i in range(len(sim_time)):
+                    writer.writerow([sim_time[i], robots_states[i], machines_state[i], machines_ct[i], breakdowns[i], waiting_times[i], buffer_tracks[i]])
+            return waiting_times, sim_time
+
+        if save and not track:
             csv_file_path = './results/results.csv'
             with open(csv_file_path, 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile)
@@ -124,10 +149,10 @@ class ManufLine:
                 #mean_ct = CTs
                 parts_done = self.shop_stock_out.level
                 cycle_time = self.sim_time/self.shop_stock_out.level
-                
+                print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
                 writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
-            return idle_times
-        else:
+            return waiting_times, cycle_time
+        if not save:
             waiting_times = [machine.waiting_time for machine in self.list_machines]
             if self.shop_stock_out.level != 0:
                 cycle_time = self.sim_time/self.shop_stock_out.level
@@ -135,7 +160,7 @@ class ManufLine:
                 cycle_time = 100000000000
 
             print("CT = ", self.sim_time/self.shop_stock_out.level)
-            return waiting_times 
+            return waiting_times, cycle_time
 
 
         
@@ -149,6 +174,14 @@ class ManufLine:
         plt.show()
         return self.list_machines
 
+    def track_sim(self, robot_state):
+        self.buffer_tracks.append([(m.buffer_in.level, m.buffer_out.level) for m in self.list_machines])
+        self.robot_states.append(robot_state)
+        self.machines_states.append([m.operating for m in self.list_machines])
+        self.machines_idle_times.append([m.waiting_time for m in self.list_machines])
+        self.machines_CT.append([self.env.now/(m.parts_done+1) for m in self.list_machines])
+        self.machines_breakdown.append([m.n_breakdowns for m in self.list_machines])
+        self.sim_times_track.append(self.env.now)
 
     def run(self):
         #print(f"Current simulation time at the start: {self.env.now}")
@@ -156,7 +189,7 @@ class ManufLine:
         order_process = [None for _ in range(len(self.list_machines))]
         #order_process[0] = self.supermarket_in
         for i, m in enumerate(self.list_machines):
-            m.process = self.env.process(m.aiti())
+            m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
             if self.robot is not None:
                 order_process[self.robot.order[i]-1] = m
@@ -166,7 +199,8 @@ class ManufLine:
             #print("Robot Included")
             self.robot.process = self.env.process(self.robot.robot_process(order_process))
 
-            
+        print("static buffers:", [self.supermarket_in.capacity, self.shop_stock_out.capacity])
+        print("machine buffers:", [(m.buffer_in.capacity, m.buffer_out.capacity) for m in self.list_machines])
         self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
@@ -463,6 +497,7 @@ class Machine:
         self.next_machine = None
         self.robot = manuf_line.robot
         self.previous_machine = None
+        self.operating_state = []
 
         self.next_machines = []
         self.previous_machines = []
@@ -623,6 +658,7 @@ class Robot:
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             #print("Transporting from " + from_entity.ID +" - STATE OP - " + str(from_entity.operating) + " to " + to_entity.ID)
             #print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
+            #self.manuf_line.track_sim((from_entity.ID, to_entity.ID))
             entry = self.env.now
             #print("one")
             yield from_entity.buffer_out.get(1)
@@ -638,11 +674,13 @@ class Robot:
             yield to_entity.buffer_in.put(1)
             #print("six")
             self.waiting_time += self.env.now-entry
+            self.manuf_line.track_sim((from_entity.ID, to_entity.ID))
             yield self.env.timeout(0)
 
         if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             #print("Transporting from " + str(from_entity) +" to " + to_entity.ID)
             #print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
+            #self.manuf_line.track_sim(("InputStock", to_entity.ID))
             entry = self.env.now
             yield from_entity.get(1)
             self.waiting_time += self.env.now-entry
@@ -652,11 +690,13 @@ class Robot:
             entry = self.env.now
             yield to_entity.buffer_in.put(1)
             self.waiting_time += self.env.now-entry
+            self.manuf_line.track_sim(("InputStock", to_entity.ID))
             yield self.env.timeout(0)  
 
         if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
             #print("Transporting from " + from_entity.ID + " to " + str(to_entity))
             #print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
+            #self.manuf_line.track_sim((from_entity.ID, "OutputStock"))
             entry = self.env.now
             yield from_entity.buffer_out.get(1)
             self.waiting_time += self.env.now-entry
@@ -666,6 +706,7 @@ class Robot:
             entry = self.env.now
             yield to_entity.put(1)
             self.waiting_time += self.env.now-entry
+            self.manuf_line.track_sim((from_entity.ID, "OutputStock"))
             yield self.env.timeout(0)
 
     def handle_empty_buffer(self, from_entity, to_entity, i):

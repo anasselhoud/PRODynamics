@@ -94,12 +94,80 @@ def change_buffers_size(size_list, assembly_line):
         machine.buffer_out = simpy.Container(assembly_line.env, capacity=float(size_list[i]), init=0)
 
 
-def run(assembly_line, experiment_number=1, save=False):
+def run(assembly_line, experiment_number=1, save=False, track=False):
     assembly_line.run()
 
-    cts = assembly_line.get_results(save=save, experiment_number=experiment_number)
-    return cts
-    #list_machines = assembly_line.get_track()
+    waiting_times,cycle_time  = assembly_line.get_results(save=save, track=track, experiment_number=experiment_number)
+    return waiting_times, cycle_time
+   
+
+def buffer_optim_costfunction(variables):
+    env = simpy.Environment()
+    assembly_line = ManufLine(env, tasks, config_file=config_file)
+
+    upload_config_test(assembly_line, buffer_size_list=variables)
+    
+    waiting_times, cycle_time= run(assembly_line)
+    return waiting_times, cycle_time
+
+
+def function_to_optimize(buffer_capacities):
+    """
+    Define the function that you want to optimize.
+    """
+    sim_results, cycle_time = buffer_optim_costfunction(buffer_capacities)
+
+    result_values = []
+
+    for i in range(len(sim_results)):
+        if i == len(sim_results) - 1:  # If it's the last element, just take its current value
+            result_values.append(sim_results[i])
+        else:
+            result_values.append(sim_results[i] + sim_results[i+1])
+
+        
+        inventory_cost = [50*i for i in buffer_capacities]
+        results_values_cost = [1000*a_i/cycle_time + b_i for a_i, b_i in zip(result_values, inventory_cost)]
+    
+    # print("Buffer Capacities Candidates = ", buffer_capacities)
+    # print("Inventory Cost = ", inventory_cost)
+    # print("Waiting Cost = ", result_values)
+    # print("Cost Results = ", results_values_cost)
+    return results_values_cost
+
+def finite_perturbation_analysis(function, buffer_capacities, perturbation_value=10):
+    """
+    Perform Finite Perturbation Analysis to estimate the gradient of the function with respect to buffer capacities.
+    """
+    gradient_estimate = np.zeros_like(buffer_capacities)
+
+    for i in range(len(buffer_capacities)):
+
+        buffer_capacities_plus = buffer_capacities.copy()
+        buffer_capacities_plus[i] += perturbation_value
+        buffer_capacities_minus = buffer_capacities.copy()
+        buffer_capacities_minus[i] = max(buffer_capacities_minus[i]-perturbation_value, 1)
+
+        function_plus = function(buffer_capacities_plus)
+        function_minus = function(buffer_capacities_minus)
+
+        gradient_estimate[i] = (function_plus[i] - function_minus[i]) / (2 * perturbation_value)
+
+    return gradient_estimate
+
+def optimize_buffer_capacities(initial_buffer_capacities, iterations=100, learning_rate=0.1):
+    """
+    Optimize buffer capacities using Finite Perturbation Analysis.
+    """
+    buffer_capacities = initial_buffer_capacities.copy()
+
+    for i in range(iterations):
+        print("Iteration -- " + str(i) + " -- Current capacities = ", [max(int(b), 1) for b in buffer_capacities])
+        gradient = finite_perturbation_analysis(function_to_optimize, [max(int(b), 1) for b in buffer_capacities])
+        buffer_capacities -= learning_rate * gradient
+
+    return [max(int(b), 1) for b in buffer_capacities]
+
 
 if __name__ == "__main__":
 
@@ -110,80 +178,24 @@ if __name__ == "__main__":
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
     
     
-    for i in range(200):
+    # for i in range(200):
    
-        env = simpy.Environment()
-        assembly_line = ManufLine(env, tasks, config_file=config_file)
-        
-        size_list = [1+i*10 for _ in range(8)]
-        upload_config_test(assembly_line, buffer_size_list=size_list)
-       
-
-        run(assembly_line, i, save=True)
-
+    env = simpy.Environment()
+    assembly_line = ManufLine(env, tasks, config_file=config_file)
     
+    size_list = [1, 1, 1, 1, 1, 1, 1]
+    upload_config_test(assembly_line, buffer_size_list=size_list)
 
-    def buffer_optim_costfunction(variables):
-        env = simpy.Environment()
-        assembly_line = ManufLine(env, tasks, config_file=config_file)
-
-        upload_config_test(assembly_line, buffer_size_list=variables)
-        
-        #print(size_list)
-        #change_buffers_size(size_list, assembly_line)
-        ct = run(assembly_line)
-        print(ct)
-        return ct
-
-
-    def function_to_optimize(buffer_capacities):
-        """
-        Define the function that you want to optimize.
-        """
-        sim_results = buffer_optim_costfunction(buffer_capacities)
-
-        result_values = []
-
-        for i in range(len(sim_results)):
-            if i == len(sim_results) - 1:  # If it's the last element, just take its current value
-                result_values.append(sim_results[i])
-            else:
-                result_values.append(sim_results[i] + sim_results[i+1])
-        return result_values
-
-    def finite_perturbation_analysis(function, buffer_capacities, perturbation_value=10):
-        """
-        Perform Finite Perturbation Analysis to estimate the gradient of the function with respect to buffer capacities.
-        """
-        gradient_estimate = np.zeros_like(buffer_capacities)
-
-        for i in range(len(buffer_capacities)):
-
-            buffer_capacities_plus = buffer_capacities.copy()
-            buffer_capacities_plus[i] += perturbation_value
-            buffer_capacities_minus = buffer_capacities.copy()
-            buffer_capacities_minus[i] = max(buffer_capacities_minus[i]-perturbation_value, 1)
-
-            function_plus = function(buffer_capacities_plus)
-            function_minus = function(buffer_capacities_minus)
-
-            gradient_estimate[i] = (function_plus[i] - function_minus[i]) / (2 * perturbation_value)
-
-        return gradient_estimate
-
-    def optimize_buffer_capacities(initial_buffer_capacities, iterations=100, learning_rate=0.1):
-        """
-        Optimize buffer capacities using Finite Perturbation Analysis.
-        """
-        buffer_capacities = initial_buffer_capacities.copy()
-
-        for i in range(iterations):
-            print("Iteration -- " + str(i) + " -- Current capacities = ", buffer_capacities)
-            gradient = finite_perturbation_analysis(function_to_optimize, [int(b) for b in buffer_capacities])
-            buffer_capacities -= learning_rate * gradient
-
-        return [int(b) for b in buffer_capacities]
-
+    run(assembly_line, 1, save=True, track=True)
+    print("Len ", len(assembly_line.robot_states))
+    print("Len ", len(assembly_line.buffer_tracks))
+    print("Len ", len(assembly_line.sim_times_track))
+    print("Len ", assembly_line.sim_times_track[3])
+    # buffer_cap = [1, 1, 1, 1, 1, 1, 1]
+    # print(function_to_optimize(buffer_cap))
+    
+    # buffer_cap = [49, 165, 1, 18, 1, 16, 1]
+    # print(function_to_optimize(buffer_cap))
 
     # initial_buffer_capacities = [1 for _ in range(7)]
     # optimized_buffer_capacities = optimize_buffer_capacities(initial_buffer_capacities)
