@@ -41,9 +41,7 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
         #try:
         config_data = pd.read_excel(file_path, sheet_name="Line Data")
         config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
-        print("Excel file uploaded and read successfully.")
         config_data_gloabl = config_line_globa_data.values.tolist()
-        print(config_data_gloabl)
 
         assembly_line.stock_capacity = float(config_data_gloabl[2][2])
         assembly_line.stock_initial = float(config_data_gloabl[3][2])
@@ -56,8 +54,6 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
         
         
         machine_data = config_data.values.tolist()
-        print(len(machine_data))
-        print(buffer_size_list)
         if buffer_size_list != []:
             for i in range(len(machine_data)):
                 machine_data[i][5] = buffer_size_list[i]
@@ -109,10 +105,9 @@ def run(assembly_line, experiment_number=1, save=False, track=False):
 def buffer_optim_costfunction(variables):
     env = simpy.Environment()
     assembly_line = ManufLine(env, tasks, config_file=config_file)
-
     upload_config_test(assembly_line, buffer_size_list=variables)
-    
     waiting_times, cycle_time= run(assembly_line)
+
     return waiting_times, cycle_time
 
 
@@ -131,15 +126,10 @@ def function_to_optimize(buffer_capacities):
             result_values.append(sim_results[i] + sim_results[i+1])
 
         
-        inventory_cost = [50*i for i in buffer_capacities]
-        results_values_cost = [1000*a_i/cycle_time + b_i for a_i, b_i in zip(result_values, inventory_cost)]
+        inventory_cost = [10*i for i in buffer_capacities]
+        results_values_cost = [100*a_i/cycle_time + b_i for a_i, b_i in zip(result_values, inventory_cost)]
     
-    # print("Buffer Capacities Candidates = ", buffer_capacities)
-    # print("Inventory Cost = ", inventory_cost)
-    # print("Waiting Cost = ", result_values)
-    # print("Cost Results = ", results_values_cost)
-# print
-    return results_values_cost
+    return np.sum(results_values_cost)
 
 def finite_perturbation_analysis(function, buffer_capacities, perturbation_value=10):
     """
@@ -148,7 +138,6 @@ def finite_perturbation_analysis(function, buffer_capacities, perturbation_value
     gradient_estimate = np.zeros_like(buffer_capacities)
 
     for i in range(len(buffer_capacities)):
-
         buffer_capacities_plus = buffer_capacities.copy()
         buffer_capacities_plus[i] += perturbation_value
         buffer_capacities_minus = buffer_capacities.copy()
@@ -157,22 +146,29 @@ def finite_perturbation_analysis(function, buffer_capacities, perturbation_value
         function_plus = function(buffer_capacities_plus)
         function_minus = function(buffer_capacities_minus)
 
-        gradient_estimate[i] = (function_plus[i] - function_minus[i]) / (2 * perturbation_value)
+        gradient_estimate[i] = (function_plus - function_minus) / (2 * perturbation_value)
 
-    return gradient_estimate
+    return gradient_estimate, min(function_minus, function_plus)
 
 def optimize_buffer_capacities(initial_buffer_capacities, iterations=100, learning_rate=0.1):
     """
     Optimize buffer capacities using Finite Perturbation Analysis.
     """
     buffer_capacities = initial_buffer_capacities.copy()
-
+    gradient_tracks = []
+    costfunction_tracks = []
+    print("Starting the Optimization")
     for i in range(iterations):
-        print("Iteration -- " + str(i) + " -- Current capacities = ", [max(int(b), 1) for b in buffer_capacities])
-        gradient = finite_perturbation_analysis(function_to_optimize, [max(int(b), 1) for b in buffer_capacities])
+        start =  time.time() 
+        gradient, cost = finite_perturbation_analysis(function_to_optimize, [max(int(b), 1) for b in buffer_capacities])
         buffer_capacities -= learning_rate * gradient
+        print("Iteration -- " + str(i) + " -- Current capacities = ", [max(int(b), 1) for b in buffer_capacities])
+        print("Time required per iteration = ",  time.time() -start)
+        gradient_tracks.append(gradient)
+        costfunction_tracks.append(cost)
+        
 
-    return [max(int(b), 1) for b in buffer_capacities]
+    return [max(int(b), 1) for b in buffer_capacities], costfunction_tracks, gradient_tracks
 
 
 if __name__ == "__main__":
@@ -186,25 +182,34 @@ if __name__ == "__main__":
     
     # for i in range(200):
    
-    env = simpy.Environment()
-    assembly_line = ManufLine(env, tasks, config_file=config_file)
+    # env = simpy.Environment()
+    # assembly_line = ManufLine(env, tasks, config_file=config_file)
     
-    size_list = [1, 1, 1, 1, 1, 1, 1, 1]
-    upload_config_test(assembly_line, buffer_size_list=size_list)
+    # size_list = [1, 1, 1, 1, 1, 1, 1, 1]
+    # upload_config_test(assembly_line, buffer_size_list=size_list)
 
-    run(assembly_line, 1, save=True, track=True)
+    # run(assembly_line, 1, save=True, track=True)
 
     # buffer_cap = [1, 1, 1, 1, 1, 1, 1]
     # print(function_to_optimize(buffer_cap))
     
     # buffer_cap = [49, 165, 1, 18, 1, 16, 1]
     # print(function_to_optimize(buffer_cap))
+    optimized_buffer_capacities_list = []
+    for i, lr in enumerate([0.01, 0.001]):
+        for j in range(40):
+            initial_buffer_capacities = [1 for _ in range(7)]
+            optimized_buffer_capacities, costfunction_tracks, gradient_tracks = optimize_buffer_capacities(initial_buffer_capacities,iterations=100, learning_rate=lr)
+            optimized_buffer_capacities_list.append(optimized_buffer_capacities)
+            csv_file_path = './results/buffer_capacities_optim.csv'
 
-    # initial_buffer_capacities = [1 for _ in range(7)]
-    # optimized_buffer_capacities = optimize_buffer_capacities(initial_buffer_capacities)
-
-    # print("Initial Buffer Capacities:", initial_buffer_capacities)
-    # print("Optimized Buffer Capacities:", optimized_buffer_capacities)
+            with open(csv_file_path, 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                if i == 0 and j == 0:
+                    writer.writerow(["Learning Rate", "Best Buffer Capacities", "Cost Function Tracks", "Gradient Tracks"])
+                writer.writerow([lr, optimized_buffer_capacities, costfunction_tracks, gradient_tracks])
+                
+    print("Optimized Buffer Capacities:", optimized_buffer_capacities_list)
     
     # initial_buffer_capacities = [1 for _ in range(7)]
     # buffer_optim_costfunction(initial_buffer_capacities)

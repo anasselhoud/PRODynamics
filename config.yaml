@@ -20,7 +20,7 @@ shopstock: #Final Output Dynamics
   depletion-time: "0" 
 
 breakdowns: #Exponential distribution
-  enabled: true 
+  enabled: false 
   mttf: "3600*8" # Mean time to failure
   mttr: "3600" #Mean Time to Repair  (à mettre sur le diag en vert)
   probabiliy: 0.1  # Probability of breakdown

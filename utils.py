@@ -159,7 +159,6 @@ class ManufLine:
             else:
                 cycle_time = 100000000000
 
-            print("CT = ", self.sim_time/self.shop_stock_out.level)
             return waiting_times, cycle_time
 
 
@@ -198,9 +197,6 @@ class ManufLine:
         if self.robot is not None:
             #print("Robot Included")
             self.robot.process = self.env.process(self.robot.robot_process(order_process))
-
-        print("static buffers:", [self.supermarket_in.capacity, self.shop_stock_out.capacity])
-        print("machine buffers:", [(m.buffer_in.capacity, m.buffer_out.capacity) for m in self.list_machines])
         self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
@@ -849,30 +845,30 @@ class Robot:
                         yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
                         yield from self.handle_empty_buffer(from_entity, to_entity, i)
-                    # elif to_entity.buffer_in.level >= to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
-                    #     print("entered second")
-                    #     yield from self.transport(to_entity, to_entity.next_machine, self.in_transport_times[i])
-                    #     print("entered third")
-                    #     yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
                     else:
-                         #yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
-                         # entered here again after checking operating == BLOCKED HERE
-                         # Transporting from M4 - STATE OP - False to M5
-                         # [(1, 1), (0, 1), (0, 1), (0, 0), (1, 0), (0, 0)]
-                        continue
-                
-                except:
-                    if to_entity.level < to_entity.capacity and from_entity.buffer_out.level > 0:
-                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
-                    elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
-                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
-                    elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
-                        yield from self.handle_empty_buffer(from_entity, to_entity, i)
-                    else:
-                        #yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i])
                         continue
             
-            #### Recheck why it gets stuck sometimes on this ;)
+                except Exception as e:
+                    
+                    try:
+                        if to_entity.level < to_entity.capacity and from_entity.buffer_out.level > 0:
+                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                        elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
+                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                        elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
+                            yield from self.handle_empty_buffer(from_entity, to_entity, i)
+                        else:
+                            continue
+                    except Exception as e2:
+                        if to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
+                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                        elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
+                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                        elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
+                            yield from self.handle_empty_buffer(from_entity, to_entity, i)
+                        else:
+                            continue
+            
         
 
 class Task:
