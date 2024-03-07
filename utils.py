@@ -22,10 +22,13 @@ class ManufLine:
         -- tasks_assignement = [1, 1, 2, 3, 3, 4, 4, 4 ....]
 
          """
-        
-        with open(config_file, 'r') as stream:
-            config = yaml.safe_load(stream)
-
+        try:
+            with open(config_file, 'r') as stream:
+                config = yaml.safe_load(stream)
+        except:
+            config_file = os.path.join(os.path.dirname(sys.executable), 'config.yaml')
+            with open(config_file, 'r') as stream:
+                config = yaml.safe_load(stream)
         self.env = env
         self.parts_done = 0
         self.config = config
@@ -50,6 +53,8 @@ class ManufLine:
         self.tasks_assignement = tasks_assignement
         self.operators_assignement = operators_assignement
         self.robot = None
+        self.n_robots = 1
+        self.robot_strategy = 0
 
         self.buffer_tracks = []
         self.robot_states = []
@@ -102,7 +107,7 @@ class ManufLine:
             ct_machine = []
             for entry, exit in zip(machine.entry_times, machine.exit_times):
                 idle_times_machine.append(exit-entry)
-            idle_times.append(np.sum(idle_times_machine))
+            idle_times.append(np.mean(idle_times_machine))
 
             for entry, finished in zip(machine.entry_times, machine.finished_times):
                 ct_machine.append(finished-entry)
@@ -116,24 +121,41 @@ class ManufLine:
         # print("Cycle Time --", self.sim_time/self.shop_stock_out.level)
 
         if save and track:
-            csv_file_path = './results/forcast_data.csv'
+            csv_file_path = "./results/forecast_data.csv"
             with open(csv_file_path, 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile)
 
-                if experiment_number == 1:
-                    writer.writerow(["Sim Instant", "Robot State", "Machines State", "Machine CT", "Machines Breakdowns", "Machines Idle Time", "Buffers State"])
-                
+               
                 sim_time = list(self.sim_times_track)
+                print("Sim time = ", sim_time)
                 waiting_times = list(self.machines_idle_times)
                 breakdowns =  list(self.machines_breakdown)
                 buffer_tracks = self.buffer_tracks
                 robots_states = self.robot_states
                 machines_state = self.machines_states
                 machines_ct = self.machines_CT
+                tracksim = False
+                cycle_time = self.sim_time/self.shop_stock_out.level
+                if buffer_tracks != [] or tracksim:
+                    print("Printed track sim")
+                    if experiment_number == 1:
+                        writer.writerow(["Sim Instant", "Robot State", "Machines State", "Machine CT", "Machines Breakdowns", "Machines Idle Time", "Buffers State"])
+                
+                    for i in range(len(sim_time)):
+                        writer.writerow([sim_time[i], robots_states[i], machines_state[i], machines_ct[i], breakdowns[i], waiting_times[i], buffer_tracks[i]])
+                else:
+                 
+                    writer.writerow(["Machine ID", "Buffer Tracks"])
+                    sim_time = []
+                    buffer_tracks = []
+                    for machine in self.list_machines:
+                        sim_time.append([t[0] for t in machine.buffer_tracks])
+                        buffer_tracks.append([t[1] for t in machine.buffer_tracks])
 
-                for i in range(len(sim_time)):
-                    writer.writerow([sim_time[i], robots_states[i], machines_state[i], machines_ct[i], breakdowns[i], waiting_times[i], buffer_tracks[i]])
-            return waiting_times, sim_time
+                    for i in range(len(buffer_tracks)):
+                        writer.writerow([self.list_machines[i].ID, buffer_tracks[i]])
+
+            return waiting_times, cycle_time, breakdowns
 
         if save and not track:
             csv_file_path = './results/results.csv'
@@ -151,15 +173,16 @@ class ManufLine:
                 cycle_time = self.sim_time/self.shop_stock_out.level
                 print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
                 writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
-            return waiting_times, cycle_time
+            return waiting_times, cycle_time, breakdowns
         if not save:
             waiting_times = [machine.waiting_time for machine in self.list_machines]
+            breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
             if self.shop_stock_out.level != 0:
                 cycle_time = self.sim_time/self.shop_stock_out.level
             else:
                 cycle_time = 100000000000
 
-            return waiting_times, cycle_time
+            return waiting_times, cycle_time, breakdowns
 
 
         
@@ -195,8 +218,12 @@ class ManufLine:
         #order_process[-1] = self.shop_stock_out
         self.env.process(self.refill_market())
         if self.robot is not None:
-            #print("Robot Included")
-            self.robot.process = self.env.process(self.robot.robot_process(order_process))
+            print(str(self.n_robots) + "  -- Robot Included")
+            for i in range(int(self.n_robots)):
+                self.robot.process = self.env.process(self.robot.robot_process(order_process))
+            #     print(self.robot.schedule)
+            #self.robot.process = self.env.process(self.robot.robot_process(order_process))
+            #self.robot.process = self.env.process(self.robot.robot_process(order_process))
         self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
@@ -207,13 +234,14 @@ class ManufLine:
         while True:
             #if self.env.now // (3600 * 8) == self.num_cycles +1:
             yield self.env.timeout(3600 * 8)
-            #print("Reseting Shift")
+            print("Reseting Shift")
             
             self.num_cycles = self.num_cycles +1
             self.reset_shift_bool = True
             for i, machine in enumerate(self.list_machines):
-                
+
                 #print("Resetting machine " + machine.ID + " - " + str(machine.buffer_in.level) + " - " + str(machine.buffer_out.level))
+                
                 if self.robot is None:
                     if machine.first:
                         #machine.buffer_in.items = []
@@ -324,6 +352,7 @@ class ManufLine:
         
         notfirst_list = [list_machines_config[i][4] for i in range(len(list_machines_config))]
         notfirst_list1 = [item.strip("'")  for item in notfirst_list]
+
         # if isinstance(item, str) else item for sublist in notfirst_list
         lists = [eval(item) if item.startswith('[') else [item] for item in notfirst_list1]
 
@@ -370,6 +399,7 @@ class ManufLine:
         self.set_CT_machines([ct[1] for ct in list_machines_config])
         l = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
+            machine.move_robot_time = self.robot.in_transport_times[i]
             if machine.first:
                 machine.previous_machine = self.supermarket_in
                 machine.previous_machines.append(self.supermarket_in)
@@ -549,6 +579,8 @@ class Machine:
         self.waiting_time = 0
         self.operating = False
         self.identical_machines = []
+        self.move_robot_time = 10
+
 
         if self.robot is None:
             if first:
@@ -575,7 +607,7 @@ class Machine:
         
         # Events to signal when the machine is loaded and when the operator is free
     
-        
+        self.loaded = 0
 
         self.last = last
         self.first = first
@@ -646,30 +678,51 @@ class Machine:
             done_in =  deterministic_time + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
             start = self.env.now
             self.buffer_tracks.append((self.env.now, self.buffer_out.level))
-            
+
+            # if self.manuf_line.robot is not None:
+            #     from_entity = self.manuf_line.robot.load(self)
+            #     print("Here loading")
+            #     try:
+            #         print("Here loading1", self.ID)
+            #         yield from_entity.buffer_out.get(1)
+            #         print("Here loading2", self.ID)
+            #         yield self.env.timeout(10)
+            #         print("Here loading3", self.ID)
+            #         yield self.buffer_in.put(1)
+            #         print("Here loading4", self.ID)
+            #     except:
+            #         print("Here loading1", self.ID)
+            #         yield from_entity.get(1)
+            #         print("Here loading2", self.ID)
+            #         yield self.env.timeout(10)
+            #         print("Here loading3", self.ID)
+            #         yield self.buffer_in.put(1)
+            #         print("Here loading4", self.ID)
+
+
     
             while done_in > 0:
                 try:
                     entry = self.env.now
                     self.entry_times.append(entry)
+                    
                     yield self.buffer_in.get(1)
                     exit_t = self.env.now
-                    self.exit_times.append(self.env.now)
                     self.operating = True
                     yield self.env.timeout(done_in)
                     finish_time = self.env.now
                     while self.buffer_out.level == self.buffer_out.capacity:
                         yield self.env.timeout(1)
                     self.waiting_time += exit_t - entry +self.env.now - finish_time
-                    self.loaded = False
-                    self.entry_times.append(self.env.now)
                     yield self.buffer_out.put(1)
-                    self.exit_times.append(self.env.now)
+                    # if self.last:
+                    #     self.manuf_line.shop_stock_out.put(1)
                     done_in = 0
                     self.operating = False
                     self.parts_done = self.parts_done +1
                     self.parts_done_shift = self.parts_done_shift+1
                     self.finished_times.append(self.env.now)
+                    self.exit_times.append(self.env.now)
                     yield self.env.timeout(0)
                 except simpy.Interrupt:
                     self.broken = True
@@ -691,67 +744,64 @@ class Robot:
         #self.assigned_machines = assigned_machines
         
         self.tt = 0
-        self.free = True
+        self.busy = False
         self.manuf_line = manuf_line
         self.env = env
+        self.schedule = []
         self.buffer = simpy.Container(self.env, capacity=float(maxlimit), init=0)
         self.waiting_time = 0
         self.out_transport_times = []
         self.in_transport_times = []
         self.process = None
-    def transport(self, from_entity, to_entity, time):
+
+    def schedule_transport(self, from_machine, to_machine, transport_time):
+        """Schedule a transport task if the robot is available."""
+
+        transport_task = self.env.process(self.transport(from_machine, to_machine, transport_time))
+        self.schedule.append(transport_task)
+            
+
+    def transport(self, from_entity, to_entity, time=10):
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
-            #print("Transporting from " + from_entity.ID +" - STATE OP - " + str(from_entity.operating) + " to " + to_entity.ID)
-            #print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
-            #self.manuf_line.track_sim((from_entity.ID, to_entity.ID))
             entry = self.env.now
-            #print("one")
             yield from_entity.buffer_out.get(1)
-            #print("two")
+            to_entity.loaded +=1
             self.waiting_time += self.env.now-entry
-            yield self.buffer.put(1)
-            #print("three")
-            yield self.env.timeout(time)
-            #print("four")
-            yield self.buffer.get(1)
-            #print("five")
+            yield self.env.timeout(abs(to_entity.move_robot_time - from_entity.move_robot_time))
             entry = self.env.now
             yield to_entity.buffer_in.put(1)
-            #print("six")
             self.waiting_time += self.env.now-entry
             self.manuf_line.track_sim((from_entity.ID, to_entity.ID))
+            self.busy = False
             yield self.env.timeout(0)
 
         if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
-            #print("Transporting from " + str(from_entity) +" to " + to_entity.ID)
-            #print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
-            #self.manuf_line.track_sim(("InputStock", to_entity.ID))
             entry = self.env.now
             yield from_entity.get(1)
+            to_entity.loaded +=1
             self.waiting_time += self.env.now-entry
-            yield self.buffer.put(1)
-            yield self.env.timeout(time)
-            yield self.buffer.get(1)
+            yield self.env.timeout(abs(to_entity.move_robot_time))
             entry = self.env.now
             yield to_entity.buffer_in.put(1)
             self.waiting_time += self.env.now-entry
             self.manuf_line.track_sim(("InputStock", to_entity.ID))
-            yield self.env.timeout(0)  
+            self.busy = False 
+            yield self.env.timeout(0) 
+            
 
         if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
-            ##print("Transporting from " + from_entity.ID + " to " + str(to_entity))
+            #print("Transporting from " + from_entity.ID + " to " + str(to_entity))
             ##print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
             #self.manuf_line.track_sim((from_entity.ID, "OutputStock"))
             entry = self.env.now
             yield from_entity.buffer_out.get(1)
             self.waiting_time += self.env.now-entry
-            yield self.buffer.put(1)
-            yield self.env.timeout(time)
-            yield self.buffer.get(1)
+            yield self.env.timeout(abs(from_entity.move_robot_time))
             entry = self.env.now
             yield to_entity.put(1)
             self.waiting_time += self.env.now-entry
             self.manuf_line.track_sim((from_entity.ID, "OutputStock"))
+            self.busy = False 
             yield self.env.timeout(0)
 
     def handle_empty_buffer(self, from_entity, to_entity, i):
@@ -760,57 +810,125 @@ class Robot:
         from_entity.previous_machine = self.which_machine_to_getfrom(from_entity)
 
         if from_entity.previous_machine == True:
-            yield from self.transport(from_entity, to_entity, self.in_transport_times[i]) 
+            yield from self.transport(from_entity, to_entity) 
         else:
             try:
                 if not from_entity.previous_machine.operating and from_entity.previous_machine.buffer_out.level == 0:
                     yield from self.handle_empty_buffer(from_entity.previous_machine, from_entity, i)
                 elif from_entity.previous_machine.operating or from_entity.previous_machine.buffer_out.level>0:
-                    yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i]) 
+                    yield from self.transport(from_entity.previous_machine, from_entity) 
             except:
                 if from_entity.previous_machine.level == 0:
                     yield from self.handle_empty_buffer(from_entity.previous_machine, from_entity, i)
                 elif from_entity.previous_machine.level>0:
-                    yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i]) 
+                    yield from self.transport(from_entity.previous_machine, from_entity) 
 
         if from_entity.previous_machine == True:
-            yield from self.transport(from_entity, to_entity, self.in_transport_times[i]) 
+            yield from self.transport(from_entity, to_entity) 
         else:
             try:
                 if not from_entity.previous_machine.operating and from_entity.previous_machine.buffer_out.level == 0:
                     yield from self.handle_empty_buffer(from_entity.previous_machine, from_entity, i)
                 elif from_entity.previous_machine.operating or from_entity.previous_machine.buffer_out.level>0:
-                    yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i]) 
+                    yield from self.transport(from_entity.previous_machine, from_entity) 
             except:
                 if from_entity.previous_machine.level == 0:
                     yield from self.handle_empty_buffer(from_entity.previous_machine, from_entity, i)
                 elif from_entity.previous_machine.level>0:
-                    yield from self.transport(from_entity.previous_machine, from_entity, self.in_transport_times[i]) 
+                    yield from self.transport(from_entity.previous_machine, from_entity) 
+
 
     def which_machine_to_feed(self, current_machine):
-        ##print("Machine here = ", current_machine.ID)
-        #return random.choice(current_machine.next_machines)
+        """
+        Return the best machine to feed based on a given strategy
+        TODO: Upgrade to python 3.10 to use match case 
 
+        0,0 = 608s
+        0,1 = 650 s
+        1,0 = 640 /540s
+        1,1 = 297.1
+
+        """
+        if self.manuf_line.robot_strategy == 0:
+            empty_buffers_machines = [m.loaded if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
+            next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
+            return next_machine
         
-        empty_buffers_machines = [m.buffer_in.level if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
-        return current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
-        # if len(empty_buffers_machines) > 0:
-        #     return empty_buffers_machines[0]
-        # else:
-        #     empty_buffers_machines
+        elif self.manuf_line.robot_strategy == 1:
+            empty_buffers_machines = [m.buffer_in.level if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
+            next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
+            return next_machine
+    
+
+        elif self.manuf_line.robot_strategy == 2:
+            empty_buffers_machines = [m.loaded if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
+            next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
+            return next_machine
+
 
     
     def which_machine_to_getfrom(self, current_machine):
+
+        """
+        Return the best machine to get from based on a given strategy.
+        """
+        if self.manuf_line.robot_strategy == 0:
+            full_buffers_machines = [m.loaded if isinstance(m, Machine) else m.level for m in current_machine.previous_machines]
+            previous_machine = current_machine.previous_machines[full_buffers_machines.index(min(full_buffers_machines))]
+
+        elif self.manuf_line.robot_strategy == 1:
+            full_buffers_machines = [m.buffer_out.level if isinstance(m, Machine) else m.level for m in current_machine.previous_machines]
+            previous_machine = current_machine.previous_machines[full_buffers_machines.index(max(full_buffers_machines))]
+    
+
         try:
-            return random.choice(current_machine.previous_machines)
-        except:
-            return True
-        try:
-            return random.choice(current_machine.previous_machines)
+            return previous_machine 
         except:
             return True
 
+
     #entities_order = ["Start", "M1", "M2", "M3", "M4", "End"]
+        
+    # entities_order =  [<utils.Machine object at 0x000001C86C62F250>, <utils.Machine object at 0x000001C86C62F310>, <utils.Machine object at 0x000001C86C62F610>, <utils.Machine object at 0x000001C86C62F6A0>, 
+    # <utils.Machine object at 0x000001C86C62F5B0>, <utils.Machine object at 0x000001C86C62F8E0>, None, None, None, None, None, None]
+    
+    def robot_process_local(self, from_entity, to_entity, transport_time=10):
+        yield from self.transport(from_entity, to_entity, transport_time)
+
+        
+    def load(self, machine):
+        to_entity = machine
+
+        for from_entity_candidate in to_entity.previous_machines:
+            try:
+                if from_entity_candidate.buffer_out.level > 0:
+                    from_entity = from_entity_candidate
+                    return from_entity
+            except:
+                if from_entity_candidate.level > 0:
+                    from_entity = from_entity_candidate
+                    return from_entity
+                
+        return to_entity.previous_machines[0]
+
+
+    def unload(self, machine):
+        from_entity = machine
+        print("Here unloading", machine.ID)
+        for to_entity_candidate in from_entity.next_machines:
+            try:
+                if to_entity_candidate.buffer_in.level < to_entity_candidate.buffer_in.capacity:
+                    print("Here unloading 2", machine.ID)
+                    to_entity = to_entity_candidate
+                    return to_entity
+            except:
+                if to_entity_candidate.level < to_entity_candidate.capacity:
+                    print("Here unloading 21", machine.ID)
+                    to_entity = to_entity_candidate
+                    return to_entity
+
+
+
     def robot_process(self, entities_order):
         """
         entities_order = [input_entity, machine1, machine2, machine3, output_entity]
@@ -821,10 +939,10 @@ class Robot:
             # Policy 1 => Follow everytime the same order, if not feasible pass to next 
             for  i, m in enumerate([m for m in self.manuf_line.list_machines if m.first]):
                 if m.buffer_in.level < m.buffer_in.capacity:
-                    yield from self.transport(m.previous_machine, m, self.in_transport_times[i])
+                    yield from self.transport(m.previous_machine, m)
                 else:
                     if m.next_machine.buffer_in.level < m.next_machine.buffer_in.capacity:
-                        yield from self.transport(m, m.next_machine, self.out_transport_times[i])
+                        yield from self.transport(m, m.next_machine)
                     else: 
                         pass
 
@@ -840,9 +958,9 @@ class Robot:
                 
                 try:
                     if to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
-                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                        yield from self.transport(from_entity, to_entity)
                     elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
-                        yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                        yield from self.transport(from_entity, to_entity)
                     elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
                         yield from self.handle_empty_buffer(from_entity, to_entity, i)
                     else:
@@ -852,24 +970,103 @@ class Robot:
                     
                     try:
                         if to_entity.level < to_entity.capacity and from_entity.buffer_out.level > 0:
-                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                            yield from self.transport(from_entity, to_entity)
                         elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
-                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                            yield from self.transport(from_entity, to_entity)
                         elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
                             yield from self.handle_empty_buffer(from_entity, to_entity, i)
                         else:
                             continue
                     except Exception as e2:
                         if to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
-                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                            yield from self.transport(from_entity, to_entity)
                         elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
-                            yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                            yield from self.transport(from_entity, to_entity)
                         elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
                             yield from self.handle_empty_buffer(from_entity, to_entity, i)
                         else:
                             continue
+
+
+    def robot_process1(self, entities_order):
+        while True:
+            # Prioritize machines with lower buffer levels
+            eligible_machines = [m for m in self.manuf_line.list_machines if m.buffer_in.level < m.buffer_in.capacity]
+            eligible_machines.sort(key=lambda m: m.buffer_in.level)
+
+            # Transport entities to eligible machines
+            for machine in eligible_machines:
+                yield from self.transport(machine.previous_machine, machine, self.in_transport_times[self.manuf_line.list_machines.index(machine)])
+
+            # Transport entities between machines based on dynamic scheduling
+            for i in range(len(entities_order)):
+                from_entity = entities_order[i]
+                to_entity = self.which_machine_to_feed(from_entity)
+
+                # Check if transport is feasible
+                if (
+                    to_entity.buffer_in.level < to_entity.buffer_in.capacity
+                    and from_entity.buffer_out.level > 0
+                ):
+                    yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                elif (
+                    to_entity.buffer_in.level < to_entity.buffer_in.capacity
+                    and from_entity.buffer_out.level == 0
+                    and from_entity.operating
+                ):
+                    yield from self.transport(from_entity, to_entity, self.out_transport_times[i])
+                elif (
+                    to_entity.buffer_in.level < to_entity.buffer_in.capacity
+                    and from_entity.buffer_out.level == 0
+                    and not from_entity.operating
+                ):
+                    yield from self.handle_empty_buffer(from_entity, to_entity, i)
+                else:
+                    continue
+    
+    def robot_process2(self, entities_order):
+        """
+        entities_order = [input_entity, machine1, machine2, machine3, output_entity]
+        times = [10, 10, 10, 10, 10] len(entities_order)
+        """
+        while True:
+
+            for  i, m in enumerate([m for m in self.manuf_line.list_machines if m.first]):
+                if m.buffer_in.level < m.buffer_in.capacity:
+                    yield from self.transport(m.previous_machine, m, self.in_transport_times[i])
+                else:
+                    if m.next_machine.buffer_in.level < m.next_machine.buffer_in.capacity:
+                        yield from self.transport(m, m.next_machine, self.out_transport_times[i])
+                    else: 
+                        pass
+            # Iterate over machines in the manufacturing line
+            for machine in [m for m in self.manuf_line.list_machines if not m.first]:
+                # Check if the current machine has input buffer space
+                if machine.buffer_in.level < machine.buffer_in.capacity:
+                    # Find the next entity to feed this machine
+                    next_entity = self.find_next_entity(machine, entities_order)
+                    if next_entity:
+                        # Transport the entity to the machine
+                        yield from self.transport(next_entity, machine, self.out_transport_times[entities_order.index(machine)])
             
+            # Wait for some time before checking again (optional)
+            yield self.env.timeout(1)
+
+    def find_next_entity(self, machine, entities_order):
+        """
+        Find the next entity to feed the given machine based on the entities_order.
+        """
+        # Get the index of the given machine in the entities_order list
+        machine_index = entities_order.index(machine)
         
+        # Iterate over entities in the order list starting from the machine's index
+        for i in range(machine_index + 1, len(entities_order)):
+            next_entity = entities_order[i]
+            # Check if the next entity has output buffer with available space
+            if next_entity.buffer_out.level > 0:
+                return next_entity
+        return None
+   
 
 class Task:
     def __init__(self, ID, machine_time, manual_time):
@@ -957,11 +1154,12 @@ def draw_buffers(app, assembly_line):
             idle_times_machine = []
             for entry, exi in zip(m.entry_times, m.exit_times):
                 idle_times_machine.append(exi-entry)
-            idle_time = np.sum(idle_times_machine)
+            avg_idle_time = np.mean(idle_times_machine)
+            #idle_time = idle_times_machine[-1]
             try:
                 m.buffer_btn[1].configure(text=f"Capacity = {m.buffer_out.capacity}")
                 m.buffer_btn[2].configure(text=f"Level = {m.buffer_out.level}")
-                m.buffer_btn[3].configure( text="Waiting/Idle Time = %.2f" % m.waiting_time)
+                m.buffer_btn[3].configure( text="Waiting/Idle Time = %.2f" % avg_idle_time)
                 m.buffer_btn[4].configure(text="Total Downtime = %.2f" % float(m.MTTR*float(m.n_breakdowns)))
             except:
                 pass
@@ -977,13 +1175,15 @@ def draw_buffers(app, assembly_line):
             idle_times_machine = []
             for entry, exi in zip(m.entry_times, m.exit_times):
                 idle_times_machine.append(exi-entry)
-            idle_time = np.sum(idle_times_machine)
-            
+            avg_idle_time = np.mean(idle_times_machine)
+            #idle_time = idle_times_machine[-1]
             m.buffer_btn[1].configure(text=f"Capacity = {m.buffer_out.capacity}")
             m.buffer_btn[2].configure(text=f"Level = {m.buffer_out.level}")
-            m.buffer_btn[3].configure( text="Waiting/Idle Time = %.2f" % m.waiting_time)
+            m.buffer_btn[3].configure( text="Avg. Cycle Time = %.2f" % avg_idle_time)
             m.buffer_btn[4].configure(text="Total Downtime = %.2f" % float(float(assembly_line.breakdowns['mttr'])*m.n_breakdowns))
-        uptime_m = 100*(1-(float(float(m.MTTR)*m.n_breakdowns)+m.waiting_time)/assembly_line.env.now)
+        #uptime_m = 100*(1-(float(float(m.MTTR)*m.n_breakdowns)+m.waiting_time)/assembly_line.env.now)
+        #uptime_m = avg_idle_time
+        uptime_m=  assembly_line.env.now/m.parts_done
         machine_util.append(max(0, uptime_m))
     app.update_machine_util_viz(machine_names, machine_util)
 

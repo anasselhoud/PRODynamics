@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 from utils import *
 import os
 import time
-
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 
 
@@ -98,25 +100,25 @@ def change_buffers_size(size_list, assembly_line):
 def run(assembly_line, experiment_number=1, save=False, track=False):
     assembly_line.run()
 
-    waiting_times,cycle_time  = assembly_line.get_results(save=save, track=track, experiment_number=experiment_number)
-    return waiting_times, cycle_time
+    waiting_times,cycle_time, breakdowns  = assembly_line.get_results(save=save, track=track, experiment_number=experiment_number)
+    return waiting_times, cycle_time, breakdowns
    
 
 def buffer_optim_costfunction(variables):
+    variables = [max(int(b), 1) for b in variables]
+
     env = simpy.Environment()
     assembly_line = ManufLine(env, tasks, config_file=config_file)
     upload_config_test(assembly_line, buffer_size_list=variables)
-    waiting_times, cycle_time= run(assembly_line)
+    waiting_times, cycle_time, breakdowns= run(assembly_line)
 
-    return waiting_times, cycle_time
-
+    return waiting_times, cycle_time, breakdowns
 
 def function_to_optimize(buffer_capacities):
     """
     Define the function that you want to optimize.
     """
-    sim_results, cycle_time = buffer_optim_costfunction(buffer_capacities)
-
+    sim_results, cycle_time, breakdowns = buffer_optim_costfunction(buffer_capacities)
     result_values = []
 
     for i in range(len(sim_results)):
@@ -125,10 +127,62 @@ def function_to_optimize(buffer_capacities):
         else:
             result_values.append(sim_results[i] + sim_results[i+1])
 
-        
-        inventory_cost = [10*i for i in buffer_capacities]
-        results_values_cost = [100*a_i/cycle_time + b_i for a_i, b_i in zip(result_values, inventory_cost)]
+    inventory_cost = [10*i for i in buffer_capacities]
+    results_values_cost = [-100 * a_i / 250 + b_i for a_i, b_i in zip(result_values, inventory_cost)]
+
+    #total_cost = np.sum(results_values_cost)
+    total_cost = results_values_cost
+    print("Total Cost : ", total_cost)
+
+    return total_cost
+
+
+def function_to_optimize_torch(buffer_capacities_tensors):
+
+    buffer_capacities_tensor = torch.stack(buffer_capacities_tensors)
     
+    # Calculate waiting times per machine
+    buffer_capacities = [buffer_capacity.detach().numpy().astype(int) for buffer_capacity in buffer_capacities_tensors]
+    sim_results, cycletime, _ = buffer_optim_costfunction(buffer_capacities)
+    
+    result_values = [(sim_results[i] + sim_results[i+1]) / cycletime if i < len(sim_results) - 1 else sim_results[i] / cycletime for i in range(len(sim_results))]
+    result_values_tensor = torch.tensor(result_values, dtype=torch.float32)
+    
+    waiting_times_per_buffer = [result_values_tensor[i]/buffer_capacities_tensor[i] for i in range(len(result_values_tensor))]
+    total_waiting_time = torch.sum(torch.stack(waiting_times_per_buffer))
+
+    total_cost = torch.sum(torch.mul(buffer_capacities_tensor, 10))
+    print("total cost = ", total_cost)
+    print("total waiting time = ", total_waiting_time)
+    total_loss = total_cost + total_waiting_time    
+    return total_loss
+
+
+def function_to_optimize_movingavg(buffer_capacities):
+    """
+    Define the function that you want to optimize.
+    """
+    sim_results, cycle_time, breakdowns = buffer_optim_costfunction(buffer_capacities)
+    result_values = []
+
+    for i in range(len(sim_results)):
+        if i == len(sim_results) - 1:  
+            result_values.append(sim_results[i]/(breakdowns[i]+1))
+        else:
+            result_values.append((sim_results[i] + sim_results[i+1])/(breakdowns[i]+breakdowns[i+1]+1))
+
+    
+    inventory_cost = [10 * i for i in buffer_capacities]
+    results_values_cost = [100 * a_i / cycle_time + b_i for a_i, b_i in zip(result_values, inventory_cost)]
+
+    inventory_cost = torch.tensor([10*i for i in buffer_capacities], dtype=torch.float32)
+    result_values_tensor = torch.tensor(results_values_cost, dtype=torch.float32)
+    
+    # Compute gradients for inventory_cost and result_values_tensor
+    inventory_cost.requires_grad_(True)
+    result_values_tensor.requires_grad_(True)
+    total_cost = torch.sum(results_values_cost)
+    total_cost.requires_grad_(True)
     return np.sum(results_values_cost)
 
 def finite_perturbation_analysis(function, buffer_capacities, perturbation_value=10):
@@ -146,7 +200,11 @@ def finite_perturbation_analysis(function, buffer_capacities, perturbation_value
         function_plus = function(buffer_capacities_plus)
         function_minus = function(buffer_capacities_minus)
 
-        gradient_estimate[i] = (function_plus - function_minus) / (2 * perturbation_value)
+        gradient_estimate[i] = (function_plus[i] - function_minus[i]) / (2 * perturbation_value)
+        if gradient_estimate[i] > 200:
+            gradient_estimate[i]= 500
+        elif gradient_estimate[i] < -200:
+            gradient_estimate[i]= -200
 
     return gradient_estimate, min(function_minus, function_plus)
 
@@ -180,24 +238,46 @@ if __name__ == "__main__":
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
     
     
-    # for i in range(200):
-   
-    # env = simpy.Environment()
-    # assembly_line = ManufLine(env, tasks, config_file=config_file)
-    
-    # size_list = [1, 1, 1, 1, 1, 1, 1, 1]
-    # upload_config_test(assembly_line, buffer_size_list=size_list)
+    # for i in range(100):
+    #     start = time.time()
+    #     variables = [500, 500, 500, 500, 500, 500, 500]
 
-    # run(assembly_line, 1, save=True, track=True)
+    #     env = simpy.Environment()
+    #     assembly_line = ManufLine(env, tasks, config_file=config_file)
+    #     upload_config_test(assembly_line, variables)
+    #     waiting_times, cycle_time, breakdowns= run(assembly_line, save=True, track=True)
+    #     print("Time required per iteration = ",  time.time() -start)
 
+    # cycle_times = []
+    # for i in range(100):
+    #     start = time.time()
+        
+    #     #variables = [80, 100, 1, 1, 1, 1, 1]
+    #     variables2 = [206, 40, 1, 1, 1, 1, 1]
+    #     variables3 = [170, 47, 21, 1, 1, 1, 1]
+    #     env = simpy.Environment()
+    #     assembly_line = ManufLine(env, tasks, config_file=config_file)
+    #     upload_config_test(assembly_line, variables2)
+    #     print("start sim -- ")
+    #     waiting_times, cycle_time, breakdowns= run(assembly_line, save=True, track=True)
+    #     print("Time required per iteration = ",  time.time() -start)
+    #     print("Waiting time = ", waiting_times)
+    #     print("Cycle Time = ", cycle_time)
+    #     cycle_times.append(cycle_time)
+
+    # plt.boxplot(cycle_times)
+    # plt.show()
     # buffer_cap = [1, 1, 1, 1, 1, 1, 1]
     # print(function_to_optimize(buffer_cap))
     
     # buffer_cap = [49, 165, 1, 18, 1, 16, 1]
     # print(function_to_optimize(buffer_cap))
+
+    #TODO: Use sample to estimate the gradient instead of one simulation.
+
     optimized_buffer_capacities_list = []
-    for i, lr in enumerate([0.01, 0.001]):
-        for j in range(40):
+    for i, lr in enumerate([0.1, 0.01]):
+        for j in range(40): ##### 
             initial_buffer_capacities = [1 for _ in range(7)]
             optimized_buffer_capacities, costfunction_tracks, gradient_tracks = optimize_buffer_capacities(initial_buffer_capacities,iterations=100, learning_rate=lr)
             optimized_buffer_capacities_list.append(optimized_buffer_capacities)
@@ -211,16 +291,16 @@ if __name__ == "__main__":
                 
     print("Optimized Buffer Capacities:", optimized_buffer_capacities_list)
     
-    # initial_buffer_capacities = [1 for _ in range(7)]
-    # buffer_optim_costfunction(initial_buffer_capacities)
-    # gradient_estimate = finite_perturbation_analysis(function_to_optimize, initial_buffer_capacities)
-    # print("Gradient Estimate:", gradient_estimate)
+   
 
-
-    """
+"""
     Ideas for optimization modeling:
         - Variables: 
             -- buffers capacity and how they can affect the cycle time at the end.
             -- priority to be chosen: state [buffers states of each machine] => actions [which one to take] => reward [CT evaluation and also if the flow is blocked]
             -- 
-    """
+        - 
+
+ """
+
+

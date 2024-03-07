@@ -37,6 +37,8 @@ class SupportWindow(customtkinter.CTkToplevel):
 
 
 
+
+
 class SettingWindow(customtkinter.CTkToplevel):
     def __init__(self, manuf_line):
         super().__init__()
@@ -62,19 +64,32 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Produced Volume", width=200)
         self.yearly_volume_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
 
+
+
+        self.n_robots_label = customtkinter.CTkLabel(self.frame, text="Number of Robots")
+        self.n_robots_label.grid(row=4,column=0, padx=(10,10), pady=(10,10))
+        self.n_robots_input = customtkinter.CTkEntry(self.frame, placeholder_text="Input number of robots", width=200)
+        self.n_robots_input.grid(row=5,column=0, padx=(10,10), pady=(10,10))
+
+        self.strategy_dropdown_label = customtkinter.CTkLabel(self.frame, text="Robot's Load/Unload Strategy")
+        self.strategy_dropdown_label.grid(row=6,column=0, padx=(10,10), pady=(10,10))
+        self.strategy_dropdown = customtkinter.CTkComboBox(master=self.frame,values=["Balanced Strategy", "Greedy Strategy"], width=200)
+        self.strategy_dropdown.grid(row=7,column=0, padx=(10,10), pady=(10,10))
+        
+        
         self.save_setting_btn = customtkinter.CTkButton(self.frame, text="Save", font=('Arial bold', 16), fg_color="Green", command=self.save_setting)
-        self.save_setting_btn.grid(row=4, column=0, padx=20, pady=10)
+        self.save_setting_btn.grid(row=8, column=0, padx=20, pady=10)
         # Resource Data Frame (Machine/Buffers...)
         self.tabview = customtkinter.CTkTabview(self, corner_radius=20, width=500, height=250)
         self.tabview.grid(row=0, column=1, padx=(10, 10), pady=(10, 0), sticky="nsew")
         self.tabview.add("Machines")
-        
         self.tabview.add("Stock")
+        
         # self.tabview.tab("CTkTabview").grid_columnconfigure(0, weight=1)  # configure grid of individual tabs
         # self.tabview.tab("Tab 2").grid_columnconfigure(0, weight=1)
         self.tabview.tab("Machines").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
         self.tabview.tab("Machines").grid_rowconfigure((1), weight=1)
-            
+        #
         self.frame_machine_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Machines"), height=100, width=700)
         self.frame_machine_list.grid(row=1, column=0, columnspan=3, padx=0, pady=0)
         self.table_machines = CTkTable(self.frame_machine_list, row=8, column=8, values=self.machine_data, header_color="deepskyblue4")
@@ -141,7 +156,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.refill_size_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Size", width=200)
         self.refill_size_input.grid(row=3,column=1, padx=(10,10), pady=(10,10))
 
-
+        
         # #table.grid(row=0, column=0)
         # self.table_buffers.pack(expand=True)
         
@@ -205,6 +220,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.safety_stock_input.insert(0, "20")
         self.refill_time_input.insert(0, "120")
         self.refill_size_input.insert(0, "100")
+        self.n_robots_input.insert(0, "1")
 
 
 
@@ -295,6 +311,8 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)
                 self.refill_size_input.insert(0, str(config_data_gloabl[6][2]))
+                self.n_robots_input.delete(0, END)
+                self.n_robots_input.insert(0, str(config_data_gloabl[11][2]))
                 return config_data
             except Exception as e:
                 print(f"Error reading Excel file: {e}")
@@ -320,11 +338,15 @@ class SettingWindow(customtkinter.CTkToplevel):
         else:
             self.manuf_line.breakdowns_switch = False
 
+        available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
         self.manuf_line.stock_initial = float(self.initial_stock_input.get())
         self.manuf_line.refill_time = float(self.refill_time_input.get())
         self.manuf_line.safety_stock = float(self.safety_stock_input.get())
         self.manuf_line.refill_size = float(self.refill_size_input.get())
+        self.manuf_line.n_robots = float(self.n_robots_input.get())
+        self.manuf_line.robot_strategy = int(available_strategies.index(self.strategy_dropdown.get()))
+
 
         self.manuf_line.supermarket_in = simpy.Container(env, capacity=self.manuf_line.stock_capacity, init=self.manuf_line.stock_initial)
         self.manuf_line.shop_stock_out = simpy.Container(env, capacity=float(self.manuf_line.config["shopstock"]["capacity"]), init=float(self.manuf_line.config["shopstock"]["initial"]))
@@ -340,15 +362,127 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.destroy()
         
 
-class Report(customtkinter.CTkToplevel):
-     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.geometry("1024x576")
-        self.title("Reports") 
-        self.grid_columnconfigure((1), weight=2)
-        self.grid_columnconfigure((0), weight=1)
+class ReportingWindow(customtkinter.CTkToplevel):
+     def __init__(self, manuf_line):
+        super().__init__()
+        self.geometry("1260x720")
+        self.title("Report") 
+        self.grid_columnconfigure((1), weight=1)
+        #self.grid_columnconfigure((0), weight=1)
         self.grid_rowconfigure((1), weight=1)
-        self.resizable(width=False, height=False)
+        #self.resizable(width=False, height=False)
+        self.manuf_line = manuf_line
+        self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250)
+        self.frame_data.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
+        self.simulated_prod_time_btn = customtkinter.CTkButton(self.frame_data, text="Simulation Time", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
+        self.simulated_prod_time_btn.grid(row=0, column=1, padx=20, pady=10)
+        self.simulated_prod_time_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
+        self.simulated_prod_time_label.grid(row=1, column=1, padx=20, pady=10)
+
+        self.global_cycle_time_btn = customtkinter.CTkButton(self.frame_data, text="Global Cycle Time", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
+        self.global_cycle_time_btn.grid(row=2, column=1, padx=20, pady=10)
+        self.global_cycle_time_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
+        self.global_cycle_time_label.grid(row=3, column=1, padx=20, pady=10)
+
+        self.efficiency_btn = customtkinter.CTkButton(self.frame_data, text="Efficiency Rate", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
+        self.efficiency_btn.grid(row=4, column=1, padx=20, pady=10)
+        self.efficiency_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
+        self.efficiency_label.grid(row=5, column=1, padx=20, pady=10)
+
+        self.oee_btn = customtkinter.CTkButton(self.frame_data, text="OEE / TRS", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
+        self.oee_btn.grid(row=6, column=1, padx=20, pady=10)
+        self.oee_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
+        self.oee_label.grid(row=7, column=1, padx=20, pady=10)
+
+        self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
+        self.frame.grid(row=0, column=1, pady = 10, padx=10, sticky="nsew")
+        self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
+        self.frame_br.grid(row=1, column=1, pady = 10, padx=10, sticky="nsew")
+        
+        # Prep Plot of Machine Avg. Cycle Time
+        fig_m, ax_m = plt.subplots(nrows=1, ncols=1, figsize=(7, 3), sharex=True, facecolor="#282C34")
+        fig_m.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
+        fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
+        ax_m.clear()
+        ax_m.set_ylabel('Cycle Time (s)', color=fg_color)
+        ax_m.set_title('Machine Avg. Cycle Time', color=fg_color)
+        ax_m.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
+        ax_m.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+        ax_m.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+        canvas_fig_m = FigureCanvasTkAgg(fig_m, master=self.frame)
+        canvas_fig_widget_m = canvas_fig_m.get_tk_widget()
+        canvas_fig_widget_m.pack(expand=True, fill=tk.BOTH)
+
+        # Prep Plot of Machine Breakdowns
+
+        fig_br, ax_br = plt.subplots(nrows=1, ncols=1, figsize=(7, 3), sharex=True, facecolor="#282C34")
+        fig_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
+        fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
+        ax_br.clear()
+        ax_br.set_ylabel('Total Number of breakdowns', color=fg_color)
+        ax_br.set_title('Total Number of breakdowns of machines', color=fg_color)
+        ax_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
+        ax_br.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+        ax_br.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+        canvas_fig_br = FigureCanvasTkAgg(fig_br, master=self.frame_br)
+        canvas_fig_widget__br = canvas_fig_br.get_tk_widget()
+        canvas_fig_widget__br.pack(expand=True, fill=tk.BOTH)
+
+
+        ## Lunch Fast Sim
+        if manuf_line.machines_CT == []:
+            run(self.manuf_line)
+
+
+        # Set up KPIs
+        CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
+        efficiency_rate = 100*((300*24*3600/CT_line)/assembly_line.yearly_volume_obj)
+
+        simulated_prod_time_str = format_time(self.manuf_line.sim_time)
+        self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
+        self.global_cycle_time_label.configure(text = f'{CT_line:.1f} s')
+        self.efficiency_label.configure(text = f'{efficiency_rate:.1f} %')
+
+        # Plot of Machine Avg. Cycle Time
+        ctk.set_appearance_mode("dark")
+        machines_names = [m.ID for m in manuf_line.list_machines]
+        machines_util = [100*CT_line/(sum(x) / len(x)) for x in zip(*manuf_line.machines_CT)]
+        #machines_util = [(manuf_line.sim_time - m.waiting_time)/manuf_line.sim_time for m in manuf_line.list_machines]
+        bars = ax_m.bar(machines_names, machines_util)  # Set your desired bar color
+        #ax_m.set_ylim(0, 110)
+        #ax_m.axhline(y=manuf_line.sim_time/manuf_line.shop_stock_out.level, color='green', linestyle='--', label="Line Cycle Time")
+        
+    
+        for bar, util in zip(bars, machines_util):
+            height = bar.get_height()
+            ax_m.annotate(f'{util:.1f}%',  
+                        xy=(bar.get_x() + bar.get_width() / 2, height/2),
+                        xytext=(0, 3), 
+                        textcoords="offset points",
+                        ha='center', va='bottom',
+                        color='white', 
+                        fontsize=10) 
+
+        #canvas_fig_widget_m.draw()
+
+
+
+        # Plot of Machine Breakdowns
+        breakdown_values = [m.n_breakdowns for m in manuf_line.list_machines]
+        
+        bars = ax_br.bar(machines_names, breakdown_values)
+
+        # Annotating the values on the bars
+        for bar in bars:
+            height = bar.get_height()
+            ax_br.annotate('{}'.format(height),
+                        xy=(bar.get_x() + bar.get_width() / 2, height/2),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        color='white',
+                        ha='center', va='bottom')
+
+        #canvas_fig_widget__br.draw()
 
 
 class App(customtkinter.CTk):
@@ -382,7 +516,7 @@ class App(customtkinter.CTk):
         start_img =  tk.PhotoImage(file="./assets/icons/start_icon.png")
         self.Start = customtkinter.CTkButton(self.sidebar_frame, text="Start", font=('Arial', 15), command=self.start_sim, image=start_img, compound="left")
         self.Start.grid(row=2, column=0, padx=20, pady=10)
-        self.report_btn = customtkinter.CTkButton(self.sidebar_frame, text="Reports", font=('Arial', 15), command=self.start_sim)
+        self.report_btn = customtkinter.CTkButton(self.sidebar_frame, text="Reports", font=('Arial', 15), command=self.start_reporting)
         self.report_btn.grid(row=3, column=0, padx=20, pady=10)
         
         self.appearance_mode_label = customtkinter.CTkLabel(self.sidebar_frame, text="Appearance Mode:", anchor="w")
@@ -445,7 +579,7 @@ class App(customtkinter.CTk):
         self.partsdone_btn.grid(row=0, column=4, padx=20, pady=10)
         self.partsdone_label = customtkinter.CTkLabel(master=self.kpi_up_dynamics, text="N/A", font=('Arial bold', 18))
         self.partsdone_label.grid(row=1, column=4, padx=20, pady=10)
-        self.oee_btn = customtkinter.CTkButton(self.kpi_up_dynamics, text="OEE/TRS", width = 150, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15), command=self.sidebar_button_event)
+        self.oee_btn = customtkinter.CTkButton(self.kpi_up_dynamics, text="Efficiency Rate", width = 150, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15), command=self.sidebar_button_event)
         self.oee_btn.grid(row=0, column=5, padx=20, pady=10)
         self.oee_label = customtkinter.CTkLabel(master=self.kpi_up_dynamics, text="N/A", font=('Arial bold', 18))
         self.oee_label.grid(row=1, column=5, padx=20, pady=10)
@@ -539,31 +673,37 @@ class App(customtkinter.CTk):
         else:
             self.toplevel_window.focus()  # if window exists focus it
 
+    def open_report_window(self):
+        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+            self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
+        else:
+            self.toplevel_window.focus()  # if window exists focus it
+
     def update_machine_util_viz(self, machine_names, machines_util):
         ax_m.clear()
         fig_m.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
-        ax_m.set_ylabel('Utilization (%)', color=fg_color)
-        ax_m.set_title('Machine Uptime Rate', color=fg_color)
+        ax_m.set_ylabel('Cycle Time (s)', color=fg_color)
+        ax_m.set_title('Machine Avg. Cycle Time', color=fg_color)
         ax_m.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         ax_m.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
         ax_m.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
         bars = ax_m.bar(machine_names, machines_util)  # Set your desired bar color
-        ax_m.set_ylim(0, 110)
+        #ax_m.set_ylim(0, 110)
         ax_m.axhline(y=100, color='green', linestyle='--')
         
-        # Add labels inside the bars
+     
         for bar, util in zip(bars, machines_util):
             height = bar.get_height()
-            ax_m.annotate(f'{util:.2f}',  # Format the label as needed
+            ax_m.annotate(f'{util:.2f}',  
                         xy=(bar.get_x() + bar.get_width() / 2, height/2),
-                        xytext=(0, 3),  # 3 points vertical offset
+                        xytext=(0, 3), 
                         textcoords="offset points",
                         ha='center', va='bottom',
-                        color='white',  # Set your desired font color
-                        fontsize=10)  # Set your desired font size
+                        color='white', 
+                        fontsize=10) 
 
-        #fig_m.tight_layout()
+
         canvas_fig_m.draw()
 
     def start_sim(self):
@@ -585,7 +725,6 @@ class App(customtkinter.CTk):
 
         #indices_first_machines = [[m.ID for m in self.manuf_line.list_machines].index(id) for id in [m.ID for m in self.manuf_line.list_machines] if m.first == True]
         
-        # TODO: change the way we handle this indices machines to avoid having B1+2+6 => B1+2 and B5+6
         indices_first_machines = [[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in self.manuf_line.list_machines if m.first]]
         
        
@@ -596,7 +735,6 @@ class App(customtkinter.CTk):
                 if m1.next_machines == m2.next_machines and m1 != m2:
                     m1.identical_machines.append(m2)
 
-            print(m1.ID + " -- identical = " + str([m.ID for m in m1.identical_machines]))
         
         passed_machines = []
         for i,m in enumerate(self.manuf_line.list_machines):
@@ -604,7 +742,6 @@ class App(customtkinter.CTk):
                 if m not in passed_machines:
                     indices_identical_machines = [i+1]
                     indices_identical_machines.extend([[machine.ID for machine in self.manuf_line.list_machines].index(id)+1 for id, machine in [(m.ID, m) for m in m.identical_machines]])
-                    print(m.ID + " -- indic identical = " + str(indices_identical_machines))
                     buffer_btn = customtkinter.CTkButton(master=self.buffer_state_frame, text=f"B{'+'.join(map(str, indices_identical_machines))}", width = 50, height=50, fg_color="green", text_color_disabled= "white", state="disabled", font=('Arial', 15))
                     buffer_btn.grid(row=2*(i+1), column=0, rowspan=2, padx=10, pady=(0, 5))
                     self.buffer_state_btn.append(buffer_btn)
@@ -622,7 +759,7 @@ class App(customtkinter.CTk):
             buffer_level= customtkinter.CTkLabel(master=self.buffer_state_frame, text="Level = N/A", font=('Arial', 14), justify="left")
             buffer_level.grid(row=2*(i+1), column=1, padx=10, pady=(0, 5))
             self.buffer_levels.append(buffer_level)
-            machine_idle = customtkinter.CTkLabel(master=self.buffer_state_frame, text="Avg. Idle Time = N/A", font=('Arial', 14), justify="left")
+            machine_idle = customtkinter.CTkLabel(master=self.buffer_state_frame, text="Avg. Cycle Time = N/A", font=('Arial', 14), justify="left")
             machine_idle.grid(row=2*(i+1), column=2, padx=5, pady=(0, 5))
             self.machine_idles.append(machine_idle)
             machine_downtime = customtkinter.CTkLabel(master=self.buffer_state_frame, text="Total Downtime = N/A", font=('Arial', 14), justify="left")
@@ -634,10 +771,16 @@ class App(customtkinter.CTk):
                 pass
             
         
-        
+        env.process(clock(self.manuf_line.env, self.manuf_line, self))
         thread = threading.Thread(target=run, args={self.manuf_line,})
         thread.start()
 
+    def start_reporting(self):
+        self.report_btn.configure(state="disabled")
+        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+            self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
+        else:
+            self.toplevel_window.focus()  # if window exists focus it
         
 
 def generate_random_tasks(num_tasks):
@@ -661,8 +804,8 @@ def known_tasks(list):
 
 def run(assembly_line):
     assembly_line.run()
-    assembly_line.get_results()
-    list_machines = assembly_line.get_track()
+    #assembly_line.get_results()
+    #list_machines = assembly_line.get_track()
 
 def clock(env, assembly_line, app):
     shift_ct = []
@@ -700,10 +843,12 @@ def clock(env, assembly_line, app):
                 last_breakdown = new_breakdown
 
         if elapsed_seconds > 0 and assembly_line.shop_stock_out.level > 0  and all([machine.parts_done_shift > 0 for machine in assembly_line.list_machines]):
-            if elapsed_seconds_shift == 0:
-                elapsed_seconds_shift = 1000
-
-            shift_cycle_time = np.max([elapsed_seconds_shift / (assembly_line.list_machines[-1].parts_done_shift) for i in range(len(assembly_line.list_machines))])
+            if elapsed_seconds_shift < 1000:
+                elapsed_seconds_shift = 100
+            
+            
+            #print("Elapsed time = " + str(elapsed_seconds_shift) + " -  Level Shop Stock  = "  + str(assembly_line.list_machines[0].parts_done_shift))
+            shift_cycle_time = elapsed_seconds_shift / assembly_line.list_machines[-1].parts_done_shift 
             
             if assembly_line.robot is not None:
                 waiting_rate = 100*assembly_line.robot.waiting_time/env.now
@@ -713,8 +858,8 @@ def clock(env, assembly_line, app):
             cycle_time = elapsed_seconds / assembly_line.shop_stock_out.level
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
             #oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
-
-            oee = 100*((assembly_line.sim_time/assembly_line.yearly_volume_obj)/cycle_time)
+            
+            oee = 100*((300*24*3600/cycle_time)/assembly_line.yearly_volume_obj)
             app.oee_label.configure(text='%.2f' % oee)
             
             
@@ -817,8 +962,10 @@ def decrease_timeout():
 
 if __name__ == "__main__":
     
-    df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
-    tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
+    #df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
+    #tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
+    tasks = []
+    
     config_file = 'config.yaml'
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
     assembly_line = ManufLine(env, tasks, config_file=config_file)
@@ -828,7 +975,7 @@ if __name__ == "__main__":
     
     
     app = App(assembly_line)
-    env.process(clock(env, assembly_line, app))
+    
     #app.open_setting_window()
     ctk.set_appearance_mode("dark")
     fig, axs = plt.subplots(nrows=3, ncols=1, figsize=(8, 6), sharex=True, facecolor="#282C34")
