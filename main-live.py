@@ -438,20 +438,23 @@ class ReportingWindow(customtkinter.CTkToplevel):
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
         efficiency_rate = 100*((300*24*3600/CT_line)/assembly_line.yearly_volume_obj)
 
-        simulated_prod_time_str = format_time(self.manuf_line.sim_time)
+        simulated_prod_time_str = format_time(manuf_line.sim_time)
         self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
         self.global_cycle_time_label.configure(text = f'{CT_line:.1f} s')
         self.efficiency_label.configure(text = f'{efficiency_rate:.1f} %')
 
         # Plot of Machine Avg. Cycle Time
-        ctk.set_appearance_mode("dark")
         machines_names = [m.ID for m in manuf_line.list_machines]
-        machines_util = [100*CT_line/(sum(x) / len(x)) for x in zip(*manuf_line.machines_CT)]
+        if manuf_line.machines_CT != []:
+            machines_util = [100*CT_line/(sum(x) / len(x)) for x in zip(*manuf_line.machines_CT)]
+        else:
+            manuf_line.machines_CT = [manuf_line.sim_time/m.parts_done for m in manuf_line.list_machines]
+            machines_util = [100*CT_line/(ct_machine) for ct_machine in manuf_line.machines_CT]
         #machines_util = [(manuf_line.sim_time - m.waiting_time)/manuf_line.sim_time for m in manuf_line.list_machines]
         bars = ax_m.bar(machines_names, machines_util)  # Set your desired bar color
         #ax_m.set_ylim(0, 110)
         #ax_m.axhline(y=manuf_line.sim_time/manuf_line.shop_stock_out.level, color='green', linestyle='--', label="Line Cycle Time")
-        
+
     
         for bar, util in zip(bars, machines_util):
             height = bar.get_height()
@@ -464,8 +467,6 @@ class ReportingWindow(customtkinter.CTkToplevel):
                         fontsize=10) 
 
         #canvas_fig_widget_m.draw()
-
-
 
         # Plot of Machine Breakdowns
         breakdown_values = [m.n_breakdowns for m in manuf_line.list_machines]
@@ -483,6 +484,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
                         ha='center', va='bottom')
 
         #canvas_fig_widget__br.draw()
+
+        
 
 
 class App(customtkinter.CTk):

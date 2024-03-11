@@ -399,7 +399,7 @@ class ManufLine:
         self.set_CT_machines([ct[1] for ct in list_machines_config])
         l = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
-            machine.move_robot_time = self.robot.in_transport_times[i]
+            
             if machine.first:
                 machine.previous_machine = self.supermarket_in
                 machine.previous_machines.append(self.supermarket_in)
@@ -510,6 +510,7 @@ class ManufLine:
                 except:
                     pass
             else:
+                machine.move_robot_time = self.robot.in_transport_times[i]
                 # Process if robot is used                
                 try:
                     link_cell_data = eval(list_machines_config[i][4])
