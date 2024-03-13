@@ -19,7 +19,8 @@ import customtkinter
 
 
 env = simpy.Environment()
-
+global simulation_number
+simulation_number = 1
 customtkinter.set_appearance_mode("Dark")  # Modes: "System" (standard), "Dark", "Light"
 customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 
@@ -351,6 +352,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.manuf_line.supermarket_in = simpy.Container(env, capacity=self.manuf_line.stock_capacity, init=self.manuf_line.stock_initial)
         self.manuf_line.shop_stock_out = simpy.Container(env, capacity=float(self.manuf_line.config["shopstock"]["capacity"]), init=float(self.manuf_line.config["shopstock"]["initial"]))
         
+        self.manuf_line.machine_config_data = self.machine_data[1:]
         self.manuf_line.create_machines(self.machine_data[1:])
         
         try:
@@ -359,14 +361,19 @@ class SettingWindow(customtkinter.CTkToplevel):
         except:
             self.manuf_line.sim_time = int(self.sim_time_input.get())
             self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+
         self.destroy()
         
 
 class ReportingWindow(customtkinter.CTkToplevel):
+     
+
      def __init__(self, manuf_line):
         super().__init__()
         self.geometry("1260x720")
-        self.title("Report") 
+        global simulation_number
+        self.title("Simulation {}".format(simulation_number))
+        simulation_number+=1
         self.grid_columnconfigure((1), weight=1)
         #self.grid_columnconfigure((0), weight=1)
         self.grid_rowconfigure((1), weight=1)
@@ -445,6 +452,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
             self.manuf_line.reset()
             run(self.manuf_line)
         # Set up KPIs
+        print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
         efficiency_rate = 100*((300*24*3600/CT_line)/assembly_line.yearly_volume_obj)
 
@@ -721,10 +729,11 @@ class App(customtkinter.CTk):
             self.toplevel_window.focus()  # if window exists focus it
     
     def open_setting_window(self):
-        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-            self.toplevel_window = SettingWindow(self.manuf_line)  # create window if its None or destroyed
-        else:
-            self.toplevel_window.focus()  # if window exists focus it
+        self.toplevel_window = SettingWindow(self.manuf_line)
+        # if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+        #     self.toplevel_window = SettingWindow(self.manuf_line)  # create window if its None or destroyed
+        # else:
+        #     self.toplevel_window.focus()  # if window exists focus it
 
     def open_report_window(self):
         if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
@@ -830,10 +839,11 @@ class App(customtkinter.CTk):
 
     def start_reporting(self):
         #self.report_btn.configure(state="disabled")
-        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-            self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
-        else:
-            self.toplevel_window.focus()  # if window exists focus it
+        self.toplevel_window = ReportingWindow(self.manuf_line)
+        # if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+        #     self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
+        # else:
+        #     self.toplevel_window.focus()  # if window exists focus it
         
 
 def generate_random_tasks(num_tasks):

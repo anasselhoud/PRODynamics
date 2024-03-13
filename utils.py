@@ -33,6 +33,7 @@ class ManufLine:
         self.parts_done = 0
         self.config = config
         self.sim_time = eval(self.config['sim_time'])
+        self.machine_config_data = []
         self.breakdowns = self.config['breakdowns']
         self.breakdowns_switch = self.config['breakdowns']["enabled"]
         self.first_machine = None
@@ -55,7 +56,8 @@ class ManufLine:
         self.robot = None
         self.n_robots = 1
         self.robot_strategy = 0
-        self.ADAS_robot = simpy.Resource(env, capacity=1)
+        self.local = False
+        #self.ADAS_robot = simpy.Resource(env, capacity=1)
 
         self.buffer_tracks = []
         self.robot_states = []
@@ -235,10 +237,13 @@ class ManufLine:
 
         """
         self.env = simpy.Environment()
+        self.supermarket_in = simpy.Container(self.env, capacity=self.stock_capacity, init=self.stock_initial)
+        self.shop_stock_out = simpy.Container(self.env, capacity=float(self.config["shopstock"]["capacity"]), init=float(self.config["shopstock"]["initial"]))
+        self.robot.env = self.env
+        self.create_machines(self.machine_config_data)
+
         self.reset_shift()
 
-        while self.shop_stock_out.level > 0:
-            self.shop_stock_out.buffer_in.get(1)
 
     def initialize(self):
         self.generate()
@@ -410,7 +415,9 @@ class ManufLine:
             except:
                 pass
             first, last = False, False
-            if i == len(list_machines_config) - 1 :
+            # if i == len(list_machines_config) - 1 :
+            #     last = True
+            if list_machines_config[i][4] == "END":
                 last = True
             if list_machines_config[i][0] not in unique_list:
                 first = True    
@@ -731,50 +738,29 @@ class Machine:
             
             while done_in > 0:
                 try:
-
-                    # if self.buffer_in.level == 0:
-                    #     if self.first:
-                    #         print("Heere = ", self.ID)
-                    #         from_machine = self.previous_machines[0]
-                    #         with self.manuf_line.robot.robots_res.request(priority=self.prio) as req:
-                    #             print("got it")
-                    #             yield req
-                    #             yield from_machine.get(1) 
-                    #             yield self.env.timeout(abs(self.move_robot_time))
-                    #             yield self.buffer_in.put(1)
-                    #     else:
-                    #         from_machine = self.manuf_line.robot.which_machine_to_getfrom(self)
-                    #         print("Heere = ", self.ID)
-                    #         with self.manuf_line.robot.robots_res.request(priority=self.prio) as req:
-                    #             print("got it")
-                    #             yield req
-                    #             yield from_machine.buffer_out.get(1)
-                    #             yield self.env.timeout(abs(self.move_robot_time-from_machine.move_robot_time))
-                    #             yield self.buffer_out.put(1)
-                    #     # if self.last:
-                    #     #     to_machine = self.next_machines[0]
-                    #     #     print("Heere = ", self.ID)
-                    #     #     with self.manuf_line.robot.robots_res.request(priority=-1) as req:
-                    #     #         print("got it", to_machine)
-                    #     #         print("got it", to_machine.level)
-                    #     #         yield req
-                    #     #         yield self.buffer_out.get(1)
-                    #     #         yield self.env.timeout(abs(self.move_robot_time))
-                    #     #         yield to_machine.put(1)
-                    # else:
-                    #     pass
                     #self.waiting_time += 1
                     entry = self.env.now
                     self.entry_times.append(entry)
+                    
+                    if self.manuf_line.local:
+                        while self.buffer_in.level == 0 :
+                            yield self.env.timeout(10)
+                            self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]
+
                     yield self.buffer_in.get(1)
                     exit_t = self.env.now
                     self.exit_times.append(exit_t-entry)
                     self.waiting_time = [self.waiting_time[0] + exit_t-entry , self.waiting_time[1]]
+                    
+
                     self.operating = True
                     yield self.env.timeout(done_in)
                     entry2 = self.env.now
-                    while self.buffer_out.level == self.buffer_out.capacity:
-                        yield self.env.timeout(10)
+                    
+                    # while self.buffer_out.level == self.buffer_out.capacity:
+                    #     yield self.env.timeout(10)
+                    #     self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
+                    
                     yield self.buffer_out.put(1)
                     self.finished_times.append(self.env.now-entry)
                     self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry2]
@@ -965,15 +951,6 @@ class Robot:
         yield from self.transport(from_entity, to_entity, transport_time)
 
 
-    def ADAS_process(self, machine):
-        yield self.env.timeout(1)
-        with self.robots_res.request(priority=machine.prio) as req:
-            print(f'{machine.ID} requesting at {self.env.now} with priority={machine.prio}')
-            yield req
-            print(f'{machine.ID} got resource at {self.env.now}')
-            yield self.env.timeout(machine.move_robot_time)
-            self.robots_res.release(req) 
-        
 
 
     def robot_process(self, entities_order, first=True):
@@ -981,6 +958,7 @@ class Robot:
         entities_order = [input_entity, machine1, machine2, machine3, output_entity]
         times = [10, 10, 10, 10, 10] len(entities_order)
         """
+        print("Machines final =", [m.last for m in self.manuf_line.list_machines])
         while True:
             
             if first:
