@@ -240,13 +240,35 @@ if __name__ == "__main__":
     
     # for i in range(100):
     #     start = time.time()
-    #     variables = [500, 500, 500, 500, 500, 500, 500]
+    
+    
+    variables = [500, 500, 500, 500, 500, 500, 500]
 
-    #     env = simpy.Environment()
-    #     assembly_line = ManufLine(env, tasks, config_file=config_file)
-    #     upload_config_test(assembly_line, variables)
-    #     waiting_times, cycle_time, breakdowns= run(assembly_line, save=True, track=True)
-    #     print("Time required per iteration = ",  time.time() -start)
+    env = simpy.Environment()
+    assembly_line = ManufLine(env, tasks, config_file=config_file)
+    upload_config_test(assembly_line, variables)
+    #run(assembly_line, save=True, track=True)
+    assembly_line.initialize()
+
+    
+    actions = [
+        [assembly_line.supermarket_in, assembly_line.list_machines[0]],
+        [assembly_line.supermarket_in, assembly_line.list_machines[1]],
+        [assembly_line.list_machines[0], assembly_line.list_machines[2]],
+        [assembly_line.list_machines[0], assembly_line.list_machines[2]],
+        [assembly_line.supermarket_in, assembly_line.list_machines[0]],
+        [assembly_line.supermarket_in, assembly_line.list_machines[0]],
+        [assembly_line.list_machines[2], assembly_line.list_machines[3]],
+        [assembly_line.list_machines[0], assembly_line.list_machines[2]],
+        [assembly_line.list_machines[3], assembly_line.list_machines[4]],
+    ]
+
+    for action in actions:
+        # Run each action
+        assembly_line.run_action(action)
+        for m in assembly_line.list_machines:
+            print(m.ID + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
+
 
     # cycle_times = []
     # for i in range(100):
@@ -275,21 +297,21 @@ if __name__ == "__main__":
 
     #TODO: Use sample to estimate the gradient instead of one simulation.
 
-    optimized_buffer_capacities_list = []
-    for i, lr in enumerate([0.1, 0.01]):
-        for j in range(40): ##### 
-            initial_buffer_capacities = [1 for _ in range(7)]
-            optimized_buffer_capacities, costfunction_tracks, gradient_tracks = optimize_buffer_capacities(initial_buffer_capacities,iterations=100, learning_rate=lr)
-            optimized_buffer_capacities_list.append(optimized_buffer_capacities)
-            csv_file_path = './results/buffer_capacities_optim.csv'
+    # optimized_buffer_capacities_list = []
+    # for i, lr in enumerate([0.1, 0.01]):
+    #     for j in range(40): ##### 
+    #         initial_buffer_capacities = [1 for _ in range(7)]
+    #         optimized_buffer_capacities, costfunction_tracks, gradient_tracks = optimize_buffer_capacities(initial_buffer_capacities,iterations=100, learning_rate=lr)
+    #         optimized_buffer_capacities_list.append(optimized_buffer_capacities)
+    #         csv_file_path = './results/buffer_capacities_optim.csv'
 
-            with open(csv_file_path, 'a', newline='') as csvfile:
-                writer = csv.writer(csvfile)
-                if i == 0 and j == 0:
-                    writer.writerow(["Learning Rate", "Best Buffer Capacities", "Cost Function Tracks", "Gradient Tracks"])
-                writer.writerow([lr, optimized_buffer_capacities, costfunction_tracks, gradient_tracks])
+    #         with open(csv_file_path, 'a', newline='') as csvfile:
+    #             writer = csv.writer(csvfile)
+    #             if i == 0 and j == 0:
+    #                 writer.writerow(["Learning Rate", "Best Buffer Capacities", "Cost Function Tracks", "Gradient Tracks"])
+    #             writer.writerow([lr, optimized_buffer_capacities, costfunction_tracks, gradient_tracks])
                 
-    print("Optimized Buffer Capacities:", optimized_buffer_capacities_list)
+    # print("Optimized Buffer Capacities:", optimized_buffer_capacities_list)
     
    
 

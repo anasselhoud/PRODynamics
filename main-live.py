@@ -384,15 +384,20 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.global_cycle_time_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
         self.global_cycle_time_label.grid(row=3, column=1, padx=20, pady=10)
 
+        self.production_rate_btn = customtkinter.CTkButton(self.frame_data, text="Production Flow Rate", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
+        self.production_rate_btn.grid(row=4, column=1, padx=20, pady=10)
+        self.production_rate_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
+        self.production_rate_label.grid(row=5, column=1, padx=20, pady=10)
+
         self.efficiency_btn = customtkinter.CTkButton(self.frame_data, text="Efficiency Rate", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
-        self.efficiency_btn.grid(row=4, column=1, padx=20, pady=10)
+        self.efficiency_btn.grid(row=6, column=1, padx=20, pady=10)
         self.efficiency_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
-        self.efficiency_label.grid(row=5, column=1, padx=20, pady=10)
+        self.efficiency_label.grid(row=7, column=1, padx=20, pady=10)
 
         self.oee_btn = customtkinter.CTkButton(self.frame_data, text="OEE / TRS", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
-        self.oee_btn.grid(row=6, column=1, padx=20, pady=10)
+        self.oee_btn.grid(row=8, column=1, padx=20, pady=10)
         self.oee_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
-        self.oee_label.grid(row=7, column=1, padx=20, pady=10)
+        self.oee_label.grid(row=9, column=1, padx=20, pady=10)
 
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(row=0, column=1, pady = 10, padx=10, sticky="nsew")
@@ -400,12 +405,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.frame_br.grid(row=1, column=1, pady = 10, padx=10, sticky="nsew")
         
         # Prep Plot of Machine Avg. Cycle Time
-        fig_m, ax_m = plt.subplots(nrows=1, ncols=1, figsize=(7, 3), sharex=True, facecolor="#282C34")
+        fig_m, ax_m = plt.subplots(nrows=1, ncols=1, figsize=(9, 4), sharex=True, facecolor="#282C34")
         fig_m.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
         ax_m.clear()
-        ax_m.set_ylabel('Cycle Time (s)', color=fg_color)
-        ax_m.set_title('Machine Avg. Cycle Time', color=fg_color)
+        ax_m.set_ylabel('Percentage (%)', color=fg_color)
+        ax_m.set_title('Machine Utilization Rate', color=fg_color)
         ax_m.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         ax_m.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
         ax_m.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
@@ -415,12 +420,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
 
         # Prep Plot of Machine Breakdowns
 
-        fig_br, ax_br = plt.subplots(nrows=1, ncols=1, figsize=(7, 3), sharex=True, facecolor="#282C34")
+        fig_br, ax_br = plt.subplots(nrows=1, ncols=1, figsize=(9, 4), sharex=True, facecolor="#282C34")
         fig_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
         ax_br.clear()
-        ax_br.set_ylabel('Total Number of breakdowns', color=fg_color)
-        ax_br.set_title('Total Number of breakdowns of machines', color=fg_color)
+        ax_br.set_ylabel('Idle Time (s)', color=fg_color)
+        ax_br.set_title('Idle Time of Machines per type of waiting', color=fg_color)
         ax_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         ax_br.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
         ax_br.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
@@ -430,10 +435,15 @@ class ReportingWindow(customtkinter.CTkToplevel):
 
 
         ## Lunch Fast Sim
-        if manuf_line.machines_CT == []:
+        # if manuf_line.machines_CT == []:
+        #
+        try: 
             run(self.manuf_line)
-
-
+        except:
+            ## TODO: Not working correctly when trying to launch two simulation one after the other without 
+            print("-- Reseting the environement to avoid multi-sim problems. ")
+            self.manuf_line.reset()
+            run(self.manuf_line)
         # Set up KPIs
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
         efficiency_rate = 100*((300*24*3600/CT_line)/assembly_line.yearly_volume_obj)
@@ -442,46 +452,86 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
         self.global_cycle_time_label.configure(text = f'{CT_line:.1f} s')
         self.efficiency_label.configure(text = f'{efficiency_rate:.1f} %')
-
+        self.production_rate_label.configure(text = f'{3600*manuf_line.shop_stock_out.level/manuf_line.sim_time:.1f} part/h')
         # Plot of Machine Avg. Cycle Time
         machines_names = [m.ID for m in manuf_line.list_machines]
-        if manuf_line.machines_CT != []:
-            machines_util = [100*CT_line/(sum(x) / len(x)) for x in zip(*manuf_line.machines_CT)]
-        else:
-            manuf_line.machines_CT = [manuf_line.sim_time/m.parts_done for m in manuf_line.list_machines]
-            machines_util = [100*CT_line/(ct_machine) for ct_machine in manuf_line.machines_CT]
-        #machines_util = [(manuf_line.sim_time - m.waiting_time)/manuf_line.sim_time for m in manuf_line.list_machines]
-        bars = ax_m.bar(machines_names, machines_util)  # Set your desired bar color
-        #ax_m.set_ylim(0, 110)
-        #ax_m.axhline(y=manuf_line.sim_time/manuf_line.shop_stock_out.level, color='green', linestyle='--', label="Line Cycle Time")
+        idle_times = []
+        machines_CT = []
+        idle_times_sum = []
+        
+        for i, machine in enumerate(manuf_line.list_machines):
+            idle_times_machine = []
+            
+            #for entry, exit in zip(machine.entry_times, machine.exit_times):
+            ct_machine = []
+            for finished in machine.finished_times:
+                ct_machine.append(finished)
+            machines_CT.append(np.mean(ct_machine))
 
-    
-        for bar, util in zip(bars, machines_util):
-            height = bar.get_height()
-            ax_m.annotate(f'{util:.1f}%',  
-                        xy=(bar.get_x() + bar.get_width() / 2, height/2),
-                        xytext=(0, 3), 
-                        textcoords="offset points",
-                        ha='center', va='bottom',
-                        color='white', 
-                        fontsize=10) 
+            for time in machine.exit_times:
+                idle_times_machine.append(time)
+            
+            idle_times.append(np.mean(idle_times_machine))
+            idle_times_sum.append(np.sum(idle_times_machine)/manuf_line.sim_time)
 
-        #canvas_fig_widget_m.draw()
+        
+        machines_prod_rate = [manuf_line.sim_time/m.parts_done for m in manuf_line.list_machines]
+        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/(m.ct+2*abs(m.move_robot_time)))) for m in manuf_line.list_machines]
+        machines_util = [machines_CT[i]* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
+
+        #machine_available_percentage = [100*(m.ct + 2 * abs(m.move_robot_time)) * m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
+        waiting_time_percentage = [100*(m.waiting_time[0] + m.waiting_time[1])/manuf_line.sim_time   for m in manuf_line.list_machines]
+        breakdown_percentage = [100*float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
+
+        # Calculate machine available percentage, breakdown percentage, and waiting time percentage
+        #waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
+        machine_available_percentage = [100 - waiting_percentage - breakdown_percentage for waiting_percentage, breakdown_percentage in zip(waiting_time_percentage, breakdown_percentage)] 
+        print('Efficiency = ', machine_efficiency_rate)
+        print('Availability 1 = ', machines_util)
+        print('Utilization 2 = ', machine_available_percentage)
+        
+        oee_100quality = 100*np.sum([m.ct + 2*abs(m.move_robot_time) for m in manuf_line.list_machines])/np.sum([ct for ct in machines_CT])
+      
+
+        self.oee_label.configure(text = f'{oee_100quality:.1f} %')
+
+        bars1 = ax_m.bar(machines_names, machine_available_percentage, label='Operating', color="green")
+        bars2 = ax_m.bar(machines_names, breakdown_percentage, bottom=machine_available_percentage, label='Breakdown', color="red")
+        bars3 = ax_m.bar(machines_names, waiting_time_percentage, bottom=np.array(machine_available_percentage) + np.array(breakdown_percentage), label='Waiting', color="Orange")
+        ax_m.plot(machines_names, machine_efficiency_rate, '--x', color='white', label="Efficiency")
+        ax_m.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+          fancybox=True, shadow=True, ncol=4)
+        
+        fig_m.tight_layout()
+
 
         # Plot of Machine Breakdowns
         breakdown_values = [m.n_breakdowns for m in manuf_line.list_machines]
-        
-        bars = ax_br.bar(machines_names, breakdown_values)
+        starvation_times = [m.waiting_time[0] for m in manuf_line.list_machines]
+        blockage_times = [m.waiting_time[1] for m in manuf_line.list_machines]
 
-        # Annotating the values on the bars
-        for bar in bars:
-            height = bar.get_height()
-            ax_br.annotate('{}'.format(height),
-                        xy=(bar.get_x() + bar.get_width() / 2, height/2),
-                        xytext=(0, 3),
-                        textcoords="offset points",
-                        color='white',
-                        ha='center', va='bottom')
+        num_machines = len( manuf_line.list_machines)
+        bar_width = 0.35
+        index = range(num_machines)
+
+        bar_starv = ax_br.bar(index, starvation_times, bar_width, label='Starvation Time')
+        bar_block = ax_br.bar([i + bar_width for i in index], blockage_times,bar_width, label='Blockage Time')
+
+        ax_br.set_xticks([i + bar_width / 2 for i in index])  # Set machine names as x-tick positions
+        ax_br.set_xticklabels(machines_names)
+
+        ax_br.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+          fancybox=True, shadow=True, ncol=2)
+        fig_br.tight_layout()
+
+        # for bar in bar_starv:
+        #     height = bar.get_height()
+        #     ax_br.annotate('{}'.format(height),
+        #                 xy=(bar.get_x() + bar.get_width() / 2, height/2),
+        #                 xytext=(0, 3),
+        #                 textcoords="offset points",
+        #                 color='white',
+        #                 ha='center', va='bottom')
 
         #canvas_fig_widget__br.draw()
 
@@ -779,7 +829,7 @@ class App(customtkinter.CTk):
         thread.start()
 
     def start_reporting(self):
-        self.report_btn.configure(state="disabled")
+        #self.report_btn.configure(state="disabled")
         if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
             self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
         else:
