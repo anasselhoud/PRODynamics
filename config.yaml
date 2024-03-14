@@ -1,7 +1,8 @@
 sim_time: "3600*24*200"
 
 project_data:
-  yearly_volume: 100000 
+  yearly_volume: 100000
+  takt_time: 1000
 
 supermarket: #Raw Input Dynamics
   capacity: "100"

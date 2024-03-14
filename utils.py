@@ -40,7 +40,7 @@ class ManufLine:
         self.stock_capacity = float(config["supermarket"]["capacity"])
         self.stock_initial = float(config["supermarket"]["initial"])
         self.safety_stock = 0
-        self.refill_time = 0
+        self.refill_time = None
         self.refill_size = 1
         self.reset_shift_bool = False
 
@@ -336,23 +336,28 @@ class ManufLine:
     def refill_market(self):
         
         while True:
-            yield self.env.timeout(1)
-            if self.supermarket_in.level < self.safety_stock:
+            #yield self.env.timeout(1)
+            #if self.supermarket_in.level < self.safety_stock:
                 #print("Start Refilling raw supermarket - Stock")
-                time_refill_start= self.env.now
-                try:
-                    yield self.env.timeout(int(self.refill_time))
-                    #print("Time to refill = ", self.env.now-time_refill_start)
-                    self.supermarket_in.put(self.refill_size)
-                    self.supermarket_n_refills =self.supermarket_n_refills + 1
-                except: 
-                    #print("Stock Refilling Interruped by machine breakdown")
-                    pass
-                
-                #print("Finished Refilling raw supermarket - Stock")
-                yield self.env.timeout(0)
-            else:
-                yield self.env.timeout(0)
+            time_refill_start= self.env.now
+            if isinstance(self.refill_time, list):
+                refill_time = int(random.uniform(self.refill_time[0], self.refill_time[1]))
+            elif isinstance(self.refill_time, float):
+                refill_time = self.refill_time
+            print("refill time = " ,refill_time)
+            try:
+                yield self.env.timeout(refill_time)
+                #print("Time to refill = ", self.env.now-time_refill_start)
+                self.supermarket_in.put(self.refill_size)
+                self.supermarket_n_refills =self.supermarket_n_refills + 1
+            except: 
+                #print("Stock Refilling Interruped by machine breakdown")
+                pass
+            
+            #print("Finished Refilling raw supermarket - Stock")
+            yield self.env.timeout(0)
+            # else:
+            #     yield self.env.timeout(0)
 
 
     def deplete_shopstock(self):

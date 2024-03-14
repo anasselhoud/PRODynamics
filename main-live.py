@@ -15,6 +15,7 @@ import tkinter
 import tkinter.messagebox
 import customtkinter as ctk
 import customtkinter
+import re
 #from chart_studio.widgets import GraphWidget
 
 
@@ -307,7 +308,9 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.initial_stock_input.delete(0, END)
                 self.initial_stock_input.insert(0, str(config_data_gloabl[3][2]))
                 self.refill_time_input.delete(0, END)
+                
                 self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
+
                 self.safety_stock_input.delete(0, END)
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)
@@ -342,7 +345,16 @@ class SettingWindow(customtkinter.CTkToplevel):
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
         self.manuf_line.stock_initial = float(self.initial_stock_input.get())
-        self.manuf_line.refill_time = float(self.refill_time_input.get())
+        # if value1-value2, then the refill time is random between two values
+        pattern = r'^(\d+)-(\d+)$'
+        match = re.match(pattern, str(self.refill_time_input.get()))
+        if match:
+            value1 = int(match.group(1))
+            value2 = int(match.group(2))
+            self.manuf_line.refill_time = [value1, value2]
+        else:
+            self.manuf_line.refill_time = float(self.refill_time_input.get())
+
         self.manuf_line.safety_stock = float(self.safety_stock_input.get())
         self.manuf_line.refill_size = float(self.refill_size_input.get())
         self.manuf_line.n_robots = float(self.n_robots_input.get())
