@@ -267,8 +267,11 @@ if __name__ == "__main__":
         # Run each action
         assembly_line.run_action(action)
         for m in assembly_line.list_machines:
-            print(m.ID + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
+            print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
+            print("Level = ",assembly_line.shop_stock_out.level)
 
+
+    
 
     # cycle_times = []
     # for i in range(100):

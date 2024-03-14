@@ -60,11 +60,11 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.sim_time_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
         self.sim_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Simulation Time (s)", width=200)
         self.sim_time_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
-        self.yearly_volume_label = customtkinter.CTkLabel(self.frame, text="Expected Produced Volume")
-        self.yearly_volume_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
-        self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Produced Volume", width=200)
-        self.yearly_volume_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
-
+        self.takt_time_label = customtkinter.CTkLabel(self.frame, text="Expected Takt Time")
+        self.takt_time_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
+        self.takt_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Takt Time", width=200)
+        self.takt_time_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
+        
 
 
         self.n_robots_label = customtkinter.CTkLabel(self.frame, text="Number of Robots")
@@ -215,7 +215,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         ## Default
 
         self.sim_time_input.insert(0, "3600*24*200")
-        self.yearly_volume_input.insert(0, "100000")
+        self.takt_time_input.insert(0, "100000")
         self.stock_capacity_input.insert(0, "100")
         self.initial_stock_input.insert(0, "100")
         self.safety_stock_input.insert(0, "20")
@@ -298,8 +298,8 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.table_machines.update_values(self.machine_data)
                 self.sim_time_input.delete(0, END)
                 self.sim_time_input.insert(0, str(config_data_gloabl[0][2]))
-                self.yearly_volume_input.delete(0, END)
-                self.yearly_volume_input.insert(0, str(config_data_gloabl[1][2]))
+                self.takt_time_input.delete(0, END)
+                self.takt_time_input.insert(0, str(config_data_gloabl[1][2]))
 
                 self.stock_capacity_input.delete(0, END)
                 self.stock_capacity_input.insert(0, str(config_data_gloabl[2][2]))
@@ -357,10 +357,10 @@ class SettingWindow(customtkinter.CTkToplevel):
         
         try:
             self.manuf_line.sim_time = eval(str(self.sim_time_input.get()))
-            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+            self.manuf_line.takt_time = eval(str(self.takt_time_input.get()))
         except:
             self.manuf_line.sim_time = int(self.sim_time_input.get())
-            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+            self.manuf_line.takt_time = eval(str(self.takt_time_input.get()))
 
         self.destroy()
         
@@ -454,7 +454,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         # Set up KPIs
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
-        efficiency_rate = 100*((300*24*3600/CT_line)/assembly_line.yearly_volume_obj)
+        efficiency_rate = 100*(assembly_line.takt_time/CT_line)
 
         simulated_prod_time_str = format_time(manuf_line.sim_time)
         self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
@@ -922,7 +922,7 @@ def clock(env, assembly_line, app):
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
             #oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
             
-            oee = 100*((300*24*3600/cycle_time)/assembly_line.yearly_volume_obj)
+            oee =assembly_line.takt_time/cycle_time
             app.oee_label.configure(text='%.2f' % oee)
             
             
