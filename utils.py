@@ -312,6 +312,11 @@ class ManufLine:
                     machine.n_breakdowns += 1
                     machine.process.interrupt()    
     
+    def rework_process(self):
+        """
+        A rework process to be included. 
+        """
+        return True
     def monitor_waiting_time(self, machine):
         while True:
             if not machine.operating:
