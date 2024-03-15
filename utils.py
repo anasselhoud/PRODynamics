@@ -279,13 +279,11 @@ class ManufLine:
                 
                 if self.robot is None:
                     if machine.first:
-                        #machine.buffer_in.items = []
                         while machine.buffer_out.level > 0:
                             machine.buffer_out.get(1)
                     if machine.last:
                         while machine.buffer_in.level > 0:
                             machine.buffer_in.get(1)
-                        #machine.buffer_out.items = []
 
                     if not machine.first and not machine.last:
                         while machine.buffer_out.level > 0:
@@ -293,8 +291,11 @@ class ManufLine:
                             machine.buffer_out.get(1)
                 else:
                     while machine.buffer_out.level > 0:
-                        machine.buffer_in.get(1)
-                        machine.buffer_out.get(1)
+                        if machine.last:
+                            machine.buffer_out.get(1)
+                            self.shop_stock_out.put(1)
+                        else:
+                            machine.buffer_out.get(1)
 
                 machine.parts_done_shift = 1
                 
@@ -317,6 +318,7 @@ class ManufLine:
         A rework process to be included. 
         """
         return True
+    
     def monitor_waiting_time(self, machine):
         while True:
             if not machine.operating:
@@ -344,7 +346,6 @@ class ManufLine:
                 refill_time = int(random.uniform(self.refill_time[0], self.refill_time[1]))
             elif isinstance(self.refill_time, float):
                 refill_time = self.refill_time
-            print("refill time = " ,refill_time)
             try:
                 yield self.env.timeout(refill_time)
                 #print("Time to refill = ", self.env.now-time_refill_start)
@@ -895,17 +896,8 @@ class Robot:
                     yield from self.transport(from_entity.previous_machine, from_entity) 
 
     def handle_empty_buffer(self, from_entity, to_entity, i):
-        try:
-            print("Machine requesting = ", from_entity.ID)
-        except:
-            print("Machine requesting = ", from_entity)
 
         from_entity.previous_machine = self.which_machine_to_getfrom(from_entity)
-        try:
-            print("Which machine to get from = ", from_entity.previous_machine.ID)
-        except:
-            print("Which machine to get from = ", from_entity.previous_machine)
-
         if from_entity.previous_machine == True:
             yield from self.transport(from_entity, to_entity) 
         else:
@@ -939,11 +931,6 @@ class Robot:
         """
         Return the best machine to feed based on a given strategy
         TODO: Upgrade to python 3.10 to use match case 
-
-        0,0 = 608s
-        0,1 = 650 s
-        1,0 = 640 /540s
-        1,1 = 297.1
 
         """
         if self.manuf_line.robot_strategy == 0:
@@ -981,6 +968,7 @@ class Robot:
         try:
             return previous_machine 
         except:
+            # No machine
             return True
 
 

@@ -16,6 +16,8 @@ import tkinter.messagebox
 import customtkinter as ctk
 import customtkinter
 import re
+import multiprocessing
+from time import time
 #from chart_studio.widgets import GraphWidget
 
 
@@ -378,11 +380,15 @@ class SettingWindow(customtkinter.CTkToplevel):
         
 
 class ReportingWindow(customtkinter.CTkToplevel):
-     
+    
 
-     def __init__(self, manuf_line):
+    def __init__(self, parent, manuf_line):
+        self.manuf_line = manuf_line
+        
+       
         super().__init__()
         self.geometry("1260x720")
+        self.loading_window = None
         global simulation_number
         self.title("Simulation {}".format(simulation_number))
         simulation_number+=1
@@ -390,7 +396,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
         #self.grid_columnconfigure((0), weight=1)
         self.grid_rowconfigure((1), weight=1)
         #self.resizable(width=False, height=False)
-        self.manuf_line = manuf_line
+        self.textbox = customtkinter.CTkTextbox(master=self, width=450, height=250, corner_radius=0, font=("Arial", 18), wrap="word")
+        self.textbox.grid_remove()
         self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250)
         self.frame_data.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
         self.simulated_prod_time_btn = customtkinter.CTkButton(self.frame_data, text="Simulation Time", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
@@ -452,17 +459,29 @@ class ReportingWindow(customtkinter.CTkToplevel):
         canvas_fig_widget__br = canvas_fig_br.get_tk_widget()
         canvas_fig_widget__br.pack(expand=True, fill=tk.BOTH)
 
-
+        
+        # parent.toplevel_window.destroy()
+        # parent.toplevel_window = self
+        
         ## Lunch Fast Sim
         # if manuf_line.machines_CT == []:
-        #
-        try: 
-            run(self.manuf_line)
-        except:
-            ## TODO: Not working correctly when trying to launch two simulation one after the other without 
-            print("-- Reseting the environement to avoid multi-sim problems. ")
-            self.manuf_line.reset()
-            run(self.manuf_line)
+        #Launch the loading screen (self.loading_screen() function)
+
+        #self.start_loading_and_sim()
+
+        #self.loading_window = LoadingScreen()
+        
+        
+        #self.loading_window.destroy()
+        # try: 
+        #     run(self.manuf_line)
+        # except:
+        #     print("-- Reseting the environement to avoid multi-sim problems. ")
+        #     self.manuf_line.reset()
+        #     run(self.manuf_line)
+  
+        #Close the loading screen and continue program 
+
         # Set up KPIs
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
@@ -485,7 +504,10 @@ class ReportingWindow(customtkinter.CTkToplevel):
             #for entry, exit in zip(machine.entry_times, machine.exit_times):
             ct_machine = []
             for finished in machine.finished_times:
-                ct_machine.append(finished)
+                if finished is None:
+                    ct_machine.append(0)
+                else:
+                    ct_machine.append(finished)
             machines_CT.append(np.mean(ct_machine))
 
             for time in machine.exit_times:
@@ -495,8 +517,10 @@ class ReportingWindow(customtkinter.CTkToplevel):
             idle_times_sum.append(np.sum(idle_times_machine)/manuf_line.sim_time)
 
         
-        machines_prod_rate = [manuf_line.sim_time/m.parts_done for m in manuf_line.list_machines]
-        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/(m.ct+2*abs(m.move_robot_time)))) for m in manuf_line.list_machines]
+
+        machines_prod_rate = [manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines]
+
+        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
         machines_util = [machines_CT[i]* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
 
         #machine_available_percentage = [100*(m.ct + 2 * abs(m.move_robot_time)) * m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
@@ -544,19 +568,18 @@ class ReportingWindow(customtkinter.CTkToplevel):
           fancybox=True, shadow=True, ncol=2)
         fig_br.tight_layout()
 
-        # for bar in bar_starv:
-        #     height = bar.get_height()
-        #     ax_br.annotate('{}'.format(height),
-        #                 xy=(bar.get_x() + bar.get_width() / 2, height/2),
-        #                 xytext=(0, 3),
-        #                 textcoords="offset points",
-        #                 color='white',
-        #                 ha='center', va='bottom')
 
-        #canvas_fig_widget__br.draw()
-
-        
-
+class LoadingScreen(customtkinter.CTkToplevel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.geometry("500x300")
+        self.resizable(width=False, height=False)
+        self.title("Support") 
+        self.textbox = customtkinter.CTkTextbox(master=self, width=450, height=250, corner_radius=0, font=("Arial", 18), wrap="word")
+        self.textbox.grid(row=1, column=1, padx=(25, 25), pady=(25,25), sticky="nsew")
+        self.textbox.tag_config("center", justify="center")
+        self.textbox.insert("0.0", "\n This work was completed within the context of a CIFRE PhD Thesis by Anass ELHOUD. \n \n  If you have any concerns, feedback, or have come across errors, please feel free to reach out: \n\n anass.elhoud@forvia.com \n www.elhoud.me", "center")
+        self.textbox.configure(state="disabled")
 
 class App(customtkinter.CTk):
     def __init__(self, manuf_line):
@@ -681,11 +704,7 @@ class App(customtkinter.CTk):
         self.supermarket_level = None
         self.refill_label = None
         # setting_titles = ["Breakdowns", "Hazard Delays", "Buffer Capacity", "Manual Fatigue", "Learning Model"]
-    
-     
-            
 
-        
         #self.buffer_state_frame2 = customtkinter.CTkFrame(self)
         #self.buffer_state_frame2.grid(row=2, column=2, padx=(5, 5), pady=(10, 0), sticky="nsew")
 
@@ -747,11 +766,6 @@ class App(customtkinter.CTk):
         # else:
         #     self.toplevel_window.focus()  # if window exists focus it
 
-    def open_report_window(self):
-        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-            self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
-        else:
-            self.toplevel_window.focus()  # if window exists focus it
 
     def update_machine_util_viz(self, machine_names, machines_util):
         ax_m.clear()
@@ -849,14 +863,37 @@ class App(customtkinter.CTk):
         thread = threading.Thread(target=run, args={self.manuf_line,})
         thread.start()
 
+
+    def start_loading(self):
+        loading_window = LoadingScreen(self) 
+        # while True: 
+        #     print("waiting")
+        #     if not isinstance(self.toplevel_window, ReportingWindow):
+        #         self.toplevel_window = loading_window
+        #     else:
+        #         print("Destroying the loading window")
+        #         loading_window.destroy()
+        #         break
+
+
     def start_reporting(self):
-        #self.report_btn.configure(state="disabled")
-        self.toplevel_window = ReportingWindow(self.manuf_line)
-        # if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-        #     self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
-        # else:
-        #     self.toplevel_window.focus()  # if window exists focus it
+        # self.thread = threading.Thread(target=self.start_loading)
+        # self.thread.start()
+        # self.create_reporting_window()
+
+        #self.toplevel_window = LoadingScreen(self) 
+        self.launch_sim_whileloading()
+        self.toplevel_window = ReportingWindow(self, self.manuf_line)
         
+
+    def launch_sim_whileloading(self):
+        try:
+            run(self.manuf_line)
+        except Exception as e:
+            print("-- Resetting the environment to avoid multi-sim problems. --")
+            self.manuf_line.reset()
+            run(self.manuf_line)
+
 
 def generate_random_tasks(num_tasks):
     tasks = []
