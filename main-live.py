@@ -15,6 +15,10 @@ import tkinter
 import tkinter.messagebox
 import customtkinter as ctk
 import customtkinter
+import re
+import multiprocessing
+from time import time
+from datetime import datetime
 #from chart_studio.widgets import GraphWidget
 
 
@@ -51,7 +55,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.resizable(width=False, height=False)
         self.manuf_line = manuf_line
       
-        self.machine_data = [["Machine","MT","WC","CT", "Link", "B-Capacity", "MTTF", "MTTR"], ["M1", 20,20,20, "M3", 1, "3600*10", 3600*3],["M2", 20,20,20, "M3", 1, "3600*10", 3600*3],["M3", 20,20,20, "M4", 100, "3600*24", 3600], ["M4", 20,20,20, "END", 100, "3600*24", 3600]]
+        self.machine_data = [["Machine", "Type", "OP Time", "MT", "WC", "Link", "B-Capacity", "MTTF", "MTTR"], ["M1", "Type1", 20, 0, 0, "M2", 1, "3600*10", 3600*3],["M2", "Type2", 20, 0, 0, "M3", 1, "3600*10", 3600*3], ["M3", "Type3", 20, 0, 0, "M4", 1, "3600*10", 3600*3], ["M4", "Type4", 20, 0, 0, "END", 1, "3600*10", 3600*3]]
         # Simulation Data Frame
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
@@ -60,11 +64,11 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.sim_time_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
         self.sim_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Simulation Time (s)", width=200)
         self.sim_time_input.grid(row=1,column=0, padx=(10,10), pady=(10,10))
-        self.yearly_volume_label = customtkinter.CTkLabel(self.frame, text="Expected Produced Volume")
-        self.yearly_volume_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
-        self.yearly_volume_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Produced Volume", width=200)
-        self.yearly_volume_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
-
+        self.takt_time_label = customtkinter.CTkLabel(self.frame, text="Expected Takt Time")
+        self.takt_time_label.grid(row=2,column=0, padx=(10,10), pady=(10,10))
+        self.takt_time_input = customtkinter.CTkEntry(self.frame, placeholder_text="Expected Takt Time", width=200)
+        self.takt_time_input.grid(row=3,column=0, padx=(10,10), pady=(10,10))
+        
 
 
         self.n_robots_label = customtkinter.CTkLabel(self.frame, text="Number of Robots")
@@ -215,7 +219,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         ## Default
 
         self.sim_time_input.insert(0, "3600*24*200")
-        self.yearly_volume_input.insert(0, "100000")
+        self.takt_time_input.insert(0, "100000")
         self.stock_capacity_input.insert(0, "100")
         self.initial_stock_input.insert(0, "100")
         self.safety_stock_input.insert(0, "20")
@@ -226,7 +230,7 @@ class SettingWindow(customtkinter.CTkToplevel):
 
 
     
-    def add_func(self, current_list , current_table, inputs_labels = ["Machine", ["MT", "WC"], ["CT", "Link"], "Buffer Capacity", ["MTTF", "MTTR"]]):
+    def add_func(self, current_list , current_table, inputs_labels = ["Machine", ["MT", "WC"], ["OP Time", "Link"], "Buffer Capacity", ["MTTF", "MTTR"]]):
         dialog = CTkInputDialogSetting(text=inputs_labels, title="CTkInputDialog")
         # m_ct = customtkinter.CTkEntry(master=dialog)
         # m_ct.grid(row=4, column=0)
@@ -293,13 +297,12 @@ class SettingWindow(customtkinter.CTkToplevel):
                 config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
                 print("Excel file uploaded and read successfully.")
                 config_data_gloabl = config_line_globa_data.values.tolist()
-                print(config_data_gloabl)
                 self.machine_data[1:] = config_data.values.tolist()
                 self.table_machines.update_values(self.machine_data)
                 self.sim_time_input.delete(0, END)
                 self.sim_time_input.insert(0, str(config_data_gloabl[0][2]))
-                self.yearly_volume_input.delete(0, END)
-                self.yearly_volume_input.insert(0, str(config_data_gloabl[1][2]))
+                self.takt_time_input.delete(0, END)
+                self.takt_time_input.insert(0, str(config_data_gloabl[1][2]))
 
                 self.stock_capacity_input.delete(0, END)
                 self.stock_capacity_input.insert(0, str(config_data_gloabl[2][2]))
@@ -307,7 +310,9 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.initial_stock_input.delete(0, END)
                 self.initial_stock_input.insert(0, str(config_data_gloabl[3][2]))
                 self.refill_time_input.delete(0, END)
+                
                 self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
+                #self.repairmen_N_input.insert(0, str(config_data_gloabl[4][2]))
                 self.safety_stock_input.delete(0, END)
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)
@@ -342,7 +347,16 @@ class SettingWindow(customtkinter.CTkToplevel):
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
         self.manuf_line.stock_initial = float(self.initial_stock_input.get())
-        self.manuf_line.refill_time = float(self.refill_time_input.get())
+        # if value1-value2, then the refill time is random between two values
+        pattern = r'^(\d+)-(\d+)$'
+        match = re.match(pattern, str(self.refill_time_input.get()))
+        if match:
+            value1 = int(match.group(1))
+            value2 = int(match.group(2))
+            self.manuf_line.refill_time = [value1, value2]
+        else:
+            self.manuf_line.refill_time = float(self.refill_time_input.get())
+
         self.manuf_line.safety_stock = float(self.safety_stock_input.get())
         self.manuf_line.refill_size = float(self.refill_size_input.get())
         self.manuf_line.n_robots = float(self.n_robots_input.get())
@@ -357,20 +371,24 @@ class SettingWindow(customtkinter.CTkToplevel):
         
         try:
             self.manuf_line.sim_time = eval(str(self.sim_time_input.get()))
-            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+            self.manuf_line.takt_time = eval(str(self.takt_time_input.get()))
         except:
             self.manuf_line.sim_time = int(self.sim_time_input.get())
-            self.manuf_line.yearly_volume_obj = eval(str(self.yearly_volume_input.get()))
+            self.manuf_line.takt_time = eval(str(self.takt_time_input.get()))
 
         self.destroy()
         
 
 class ReportingWindow(customtkinter.CTkToplevel):
-     
+    
 
-     def __init__(self, manuf_line):
+    def __init__(self, parent, manuf_line):
+        self.manuf_line = manuf_line
+        
+       
         super().__init__()
         self.geometry("1260x720")
+        self.loading_window = None
         global simulation_number
         self.title("Simulation {}".format(simulation_number))
         simulation_number+=1
@@ -378,7 +396,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
         #self.grid_columnconfigure((0), weight=1)
         self.grid_rowconfigure((1), weight=1)
         #self.resizable(width=False, height=False)
-        self.manuf_line = manuf_line
+        self.textbox = customtkinter.CTkTextbox(master=self, width=450, height=250, corner_radius=0, font=("Arial", 18), wrap="word")
+        self.textbox.grid_remove()
         self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250)
         self.frame_data.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
         self.simulated_prod_time_btn = customtkinter.CTkButton(self.frame_data, text="Simulation Time", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
@@ -405,7 +424,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.oee_btn.grid(row=8, column=1, padx=20, pady=10)
         self.oee_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
         self.oee_label.grid(row=9, column=1, padx=20, pady=10)
-
+        self.save_setting_btn = customtkinter.CTkButton(self.frame_data, text="Save Sequence", font=('Arial bold', 16), fg_color="Green", command=self.save_robot_sequence)
+        self.save_setting_btn.grid(row=10, column=1, padx=20, pady=10)
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(row=0, column=1, pady = 10, padx=10, sticky="nsew")
         self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
@@ -440,21 +460,33 @@ class ReportingWindow(customtkinter.CTkToplevel):
         canvas_fig_widget__br = canvas_fig_br.get_tk_widget()
         canvas_fig_widget__br.pack(expand=True, fill=tk.BOTH)
 
-
+        
+        # parent.toplevel_window.destroy()
+        # parent.toplevel_window = self
+        
         ## Lunch Fast Sim
         # if manuf_line.machines_CT == []:
-        #
-        try: 
-            run(self.manuf_line)
-        except:
-            ## TODO: Not working correctly when trying to launch two simulation one after the other without 
-            print("-- Reseting the environement to avoid multi-sim problems. ")
-            self.manuf_line.reset()
-            run(self.manuf_line)
+        #Launch the loading screen (self.loading_screen() function)
+
+        #self.start_loading_and_sim()
+
+        #self.loading_window = LoadingScreen()
+        
+        
+        #self.loading_window.destroy()
+        # try: 
+        #     run(self.manuf_line)
+        # except:
+        #     print("-- Reseting the environement to avoid multi-sim problems. ")
+        #     self.manuf_line.reset()
+        #     run(self.manuf_line)
+  
+        #Close the loading screen and continue program 
+
         # Set up KPIs
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
-        efficiency_rate = 100*((300*24*3600/CT_line)/assembly_line.yearly_volume_obj)
+        efficiency_rate = 100*(assembly_line.takt_time/CT_line)
 
         simulated_prod_time_str = format_time(manuf_line.sim_time)
         self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
@@ -473,7 +505,10 @@ class ReportingWindow(customtkinter.CTkToplevel):
             #for entry, exit in zip(machine.entry_times, machine.exit_times):
             ct_machine = []
             for finished in machine.finished_times:
-                ct_machine.append(finished)
+                if finished is None:
+                    ct_machine.append(0)
+                else:
+                    ct_machine.append(finished)
             machines_CT.append(np.mean(ct_machine))
 
             for time in machine.exit_times:
@@ -482,9 +517,13 @@ class ReportingWindow(customtkinter.CTkToplevel):
             idle_times.append(np.mean(idle_times_machine))
             idle_times_sum.append(np.sum(idle_times_machine)/manuf_line.sim_time)
 
-        
-        machines_prod_rate = [manuf_line.sim_time/m.parts_done for m in manuf_line.list_machines]
-        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/(m.ct+2*abs(m.move_robot_time)))) for m in manuf_line.list_machines]
+        # print("Sequence Length = ", len(self.manuf_line.robot_states))
+        # print("Sequence = ", len(self.longest_repetitive_pattern(self.manuf_line.robot_states)))
+        print("CT Machines = ",machines_CT )
+        print("CT Machines 2 = ",[manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines] )
+        machines_prod_rate = [manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines]
+
+        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
         machines_util = [machines_CT[i]* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
 
         #machine_available_percentage = [100*(m.ct + 2 * abs(m.move_robot_time)) * m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
@@ -532,19 +571,53 @@ class ReportingWindow(customtkinter.CTkToplevel):
           fancybox=True, shadow=True, ncol=2)
         fig_br.tight_layout()
 
-        # for bar in bar_starv:
-        #     height = bar.get_height()
-        #     ax_br.annotate('{}'.format(height),
-        #                 xy=(bar.get_x() + bar.get_width() / 2, height/2),
-        #                 xytext=(0, 3),
-        #                 textcoords="offset points",
-        #                 color='white',
-        #                 ha='center', va='bottom')
+    def longest_repetitive_pattern(self, sequence):
+        longest_pattern = None
+        max_length = 0
 
-        #canvas_fig_widget__br.draw()
+        # Iterate through each possible start index
+        for i in range(len(sequence)):
+            # Iterate through each possible end index
+            for j in range(i + 1, len(sequence)):
+                pattern_length = j - i
+                # Check if the pattern repeats throughout the sequence
+                if all(sequence[x % pattern_length + i] == sequence[x % pattern_length + i - pattern_length] for x in range(j, len(sequence))):
+                    if pattern_length > max_length:
+                        max_length = pattern_length
+                        longest_pattern = sequence[i:j]
+        return longest_pattern
+    
+    def save_robot_sequence(self):
+        """
+        Save the robot sequence as CSV file to be analyzed or used.
+        """
+        folder_path = "./Robot Sequence/"
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
-        
+        # Generate current datetime string
+        datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        # Specify the file name
+        csv_file = f"{folder_path}sequence_{datetime_str}_data.csv"
+
+        with open(csv_file, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(self.manuf_line.robot_states)
+
+        self.manuf_line.robot_states
+
+class LoadingScreen(customtkinter.CTkToplevel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.geometry("500x300")
+        self.resizable(width=False, height=False)
+        self.title("Support") 
+        self.textbox = customtkinter.CTkTextbox(master=self, width=450, height=250, corner_radius=0, font=("Arial", 18), wrap="word")
+        self.textbox.grid(row=1, column=1, padx=(25, 25), pady=(25,25), sticky="nsew")
+        self.textbox.tag_config("center", justify="center")
+        self.textbox.insert("0.0", "\n This work was completed within the context of a CIFRE PhD Thesis by Anass ELHOUD. \n \n  If you have any concerns, feedback, or have come across errors, please feel free to reach out: \n\n anass.elhoud@forvia.com \n www.elhoud.me", "center")
+        self.textbox.configure(state="disabled")
 
 class App(customtkinter.CTk):
     def __init__(self, manuf_line):
@@ -669,11 +742,7 @@ class App(customtkinter.CTk):
         self.supermarket_level = None
         self.refill_label = None
         # setting_titles = ["Breakdowns", "Hazard Delays", "Buffer Capacity", "Manual Fatigue", "Learning Model"]
-    
-     
-            
 
-        
         #self.buffer_state_frame2 = customtkinter.CTkFrame(self)
         #self.buffer_state_frame2.grid(row=2, column=2, padx=(5, 5), pady=(10, 0), sticky="nsew")
 
@@ -735,11 +804,6 @@ class App(customtkinter.CTk):
         # else:
         #     self.toplevel_window.focus()  # if window exists focus it
 
-    def open_report_window(self):
-        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-            self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
-        else:
-            self.toplevel_window.focus()  # if window exists focus it
 
     def update_machine_util_viz(self, machine_names, machines_util):
         ax_m.clear()
@@ -837,14 +901,37 @@ class App(customtkinter.CTk):
         thread = threading.Thread(target=run, args={self.manuf_line,})
         thread.start()
 
+
+    def start_loading(self):
+        loading_window = LoadingScreen(self) 
+        # while True: 
+        #     print("waiting")
+        #     if not isinstance(self.toplevel_window, ReportingWindow):
+        #         self.toplevel_window = loading_window
+        #     else:
+        #         print("Destroying the loading window")
+        #         loading_window.destroy()
+        #         break
+
+
     def start_reporting(self):
-        #self.report_btn.configure(state="disabled")
-        self.toplevel_window = ReportingWindow(self.manuf_line)
-        # if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
-        #     self.toplevel_window = ReportingWindow(self.manuf_line)  # create window if its None or destroyed
-        # else:
-        #     self.toplevel_window.focus()  # if window exists focus it
+        # self.thread = threading.Thread(target=self.start_loading)
+        # self.thread.start()
+        # self.create_reporting_window()
+
+        #self.toplevel_window = LoadingScreen(self) 
+        self.launch_sim_whileloading()
+        self.toplevel_window = ReportingWindow(self, self.manuf_line)
         
+
+    def launch_sim_whileloading(self):
+        try:
+            run(self.manuf_line)
+        except Exception as e:
+            print("-- Resetting the environment to avoid multi-sim problems. --")
+            self.manuf_line.reset()
+            run(self.manuf_line)
+
 
 def generate_random_tasks(num_tasks):
     tasks = []
@@ -922,7 +1009,7 @@ def clock(env, assembly_line, app):
             app.annual_ct_label.configure(text='%.2f s' % cycle_time)
             #oee = 100*max([m.ct for m in assembly_line.list_machines])/cycle_time
             
-            oee = 100*((300*24*3600/cycle_time)/assembly_line.yearly_volume_obj)
+            oee =assembly_line.takt_time/cycle_time
             app.oee_label.configure(text='%.2f' % oee)
             
             
