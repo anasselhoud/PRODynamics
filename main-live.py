@@ -18,6 +18,7 @@ import customtkinter
 import re
 import multiprocessing
 from time import time
+from datetime import datetime
 #from chart_studio.widgets import GraphWidget
 
 
@@ -54,7 +55,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.resizable(width=False, height=False)
         self.manuf_line = manuf_line
       
-        self.machine_data = [["Machine","MT","WC","CT", "Link", "B-Capacity", "MTTF", "MTTR"], ["M1", 20,20,20, "M3", 1, "3600*10", 3600*3],["M2", 20,20,20, "M3", 1, "3600*10", 3600*3],["M3", 20,20,20, "M4", 100, "3600*24", 3600], ["M4", 20,20,20, "END", 100, "3600*24", 3600]]
+        self.machine_data = [["Machine", "Type", "OP Time", "MT", "WC", "Link", "B-Capacity", "MTTF", "MTTR"], ["M1", "Type1", 20, 0, 0, "M2", 1, "3600*10", 3600*3],["M2", "Type2", 20, 0, 0, "M3", 1, "3600*10", 3600*3], ["M3", "Type3", 20, 0, 0, "M4", 1, "3600*10", 3600*3], ["M4", "Type4", 20, 0, 0, "END", 1, "3600*10", 3600*3]]
         # Simulation Data Frame
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
@@ -229,7 +230,7 @@ class SettingWindow(customtkinter.CTkToplevel):
 
 
     
-    def add_func(self, current_list , current_table, inputs_labels = ["Machine", ["MT", "WC"], ["CT", "Link"], "Buffer Capacity", ["MTTF", "MTTR"]]):
+    def add_func(self, current_list , current_table, inputs_labels = ["Machine", ["MT", "WC"], ["OP Time", "Link"], "Buffer Capacity", ["MTTF", "MTTR"]]):
         dialog = CTkInputDialogSetting(text=inputs_labels, title="CTkInputDialog")
         # m_ct = customtkinter.CTkEntry(master=dialog)
         # m_ct.grid(row=4, column=0)
@@ -296,7 +297,6 @@ class SettingWindow(customtkinter.CTkToplevel):
                 config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
                 print("Excel file uploaded and read successfully.")
                 config_data_gloabl = config_line_globa_data.values.tolist()
-                print(config_data_gloabl)
                 self.machine_data[1:] = config_data.values.tolist()
                 self.table_machines.update_values(self.machine_data)
                 self.sim_time_input.delete(0, END)
@@ -312,7 +312,7 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.refill_time_input.delete(0, END)
                 
                 self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
-
+                #self.repairmen_N_input.insert(0, str(config_data_gloabl[4][2]))
                 self.safety_stock_input.delete(0, END)
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)
@@ -424,7 +424,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.oee_btn.grid(row=8, column=1, padx=20, pady=10)
         self.oee_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
         self.oee_label.grid(row=9, column=1, padx=20, pady=10)
-
+        self.save_setting_btn = customtkinter.CTkButton(self.frame_data, text="Save Sequence", font=('Arial bold', 16), fg_color="Green", command=self.save_robot_sequence)
+        self.save_setting_btn.grid(row=10, column=1, padx=20, pady=10)
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(row=0, column=1, pady = 10, padx=10, sticky="nsew")
         self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
@@ -516,8 +517,10 @@ class ReportingWindow(customtkinter.CTkToplevel):
             idle_times.append(np.mean(idle_times_machine))
             idle_times_sum.append(np.sum(idle_times_machine)/manuf_line.sim_time)
 
-        
-
+        # print("Sequence Length = ", len(self.manuf_line.robot_states))
+        # print("Sequence = ", len(self.longest_repetitive_pattern(self.manuf_line.robot_states)))
+        print("CT Machines = ",machines_CT )
+        print("CT Machines 2 = ",[manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines] )
         machines_prod_rate = [manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines]
 
         machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
@@ -568,6 +571,41 @@ class ReportingWindow(customtkinter.CTkToplevel):
           fancybox=True, shadow=True, ncol=2)
         fig_br.tight_layout()
 
+    def longest_repetitive_pattern(self, sequence):
+        longest_pattern = None
+        max_length = 0
+
+        # Iterate through each possible start index
+        for i in range(len(sequence)):
+            # Iterate through each possible end index
+            for j in range(i + 1, len(sequence)):
+                pattern_length = j - i
+                # Check if the pattern repeats throughout the sequence
+                if all(sequence[x % pattern_length + i] == sequence[x % pattern_length + i - pattern_length] for x in range(j, len(sequence))):
+                    if pattern_length > max_length:
+                        max_length = pattern_length
+                        longest_pattern = sequence[i:j]
+        return longest_pattern
+    
+    def save_robot_sequence(self):
+        """
+        Save the robot sequence as CSV file to be analyzed or used.
+        """
+        folder_path = "./Robot Sequence/"
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+        # Generate current datetime string
+        datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Specify the file name
+        csv_file = f"{folder_path}sequence_{datetime_str}_data.csv"
+
+        with open(csv_file, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(self.manuf_line.robot_states)
+
+        self.manuf_line.robot_states
 
 class LoadingScreen(customtkinter.CTkToplevel):
     def __init__(self, *args, **kwargs):

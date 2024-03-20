@@ -44,7 +44,7 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
         config_data = pd.read_excel(file_path, sheet_name="Line Data")
         config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
         config_data_gloabl = config_line_globa_data.values.tolist()
-
+        print("Capacity = ", config_data_gloabl[2][2])
         assembly_line.stock_capacity = float(config_data_gloabl[2][2])
         assembly_line.stock_initial = float(config_data_gloabl[3][2])
         assembly_line.refill_time = float(config_data_gloabl[4][2])
@@ -53,7 +53,8 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
 
         assembly_line.supermarket_in = simpy.Container(assembly_line.env, capacity=assembly_line.stock_capacity, init=assembly_line.stock_initial)
         assembly_line.shop_stock_out = simpy.Container(assembly_line.env, capacity=float(assembly_line.config["shopstock"]["capacity"]), init=float(assembly_line.config["shopstock"]["initial"]))
-        
+        assembly_line.repairmen = simpy.PreemptiveResource(env, capacity=float(config_data_gloabl[2][2]))
+
         
         machine_data = config_data.values.tolist()
         if buffer_size_list != []:
