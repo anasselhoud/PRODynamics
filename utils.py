@@ -1014,6 +1014,18 @@ class Robot:
     def robot_process_local(self, from_entity, to_entity, transport_time=10):
         yield from self.transport(from_entity, to_entity, transport_time)
 
+    def load_machine_new(self, machine, first=True):
+
+        """
+        Find the best machine to get from and load the machine or to transport the component to
+
+        if the current machine output buffer is full, the robot will transport the component to the next machine
+        if the current machine output buffer is not full, the robot will load the machine
+        if the current machine input buffer is empty, the robot will transport the component to the machine
+        """
+        
+
+
     def load_machine(self, tobe_loaded_machine, first=True):
         """
         """
