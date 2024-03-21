@@ -298,6 +298,7 @@ class SettingWindow(customtkinter.CTkToplevel):
                 print("Excel file uploaded and read successfully.")
                 config_data_gloabl = config_line_globa_data.values.tolist()
                 self.machine_data[1:] = config_data.values.tolist()
+                print("Machine Data = ", self.machine_data)
                 self.table_machines.update_values(self.machine_data)
                 self.sim_time_input.delete(0, END)
                 self.sim_time_input.insert(0, str(config_data_gloabl[0][2]))
@@ -464,27 +465,10 @@ class ReportingWindow(customtkinter.CTkToplevel):
         # parent.toplevel_window.destroy()
         # parent.toplevel_window = self
         
-        ## Lunch Fast Sim
-        # if manuf_line.machines_CT == []:
-        #Launch the loading screen (self.loading_screen() function)
-
-        #self.start_loading_and_sim()
-
-        #self.loading_window = LoadingScreen()
-        
-        
-        #self.loading_window.destroy()
-        # try: 
-        #     run(self.manuf_line)
-        # except:
-        #     print("-- Reseting the environement to avoid multi-sim problems. ")
-        #     self.manuf_line.reset()
-        #     run(self.manuf_line)
-  
-        #Close the loading screen and continue program 
 
         # Set up KPIs
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
+        print("Shop_stock_out = ", manuf_line.shop_stock_out.level)
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
         efficiency_rate = 100*(assembly_line.takt_time/CT_line)
 

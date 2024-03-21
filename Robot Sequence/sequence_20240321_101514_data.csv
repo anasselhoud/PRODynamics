@@ -1,0 +1,1060 @@
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+InputStock,Flushing 1
+Leaktest,Defuelling 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+InputStock,Flushing 1
+Flushing 2,Fuelling 4
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Flushing 1,Fuelling 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 3
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Fuelling 3,Leaktest
+Flushing 1,Fuelling 3
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Flushing 1,Fuelling 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Fuelling 6,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Flushing 2,Fuelling 6
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+Fuelling 4,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Flushing 2,Fuelling 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 5
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Fuelling 6,Leaktest
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Fuelling 3,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Leaktest,Defuelling 4
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Defuelling 4,OutputStock
+Fuelling 5,Leaktest
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Flushing 2,Fuelling 1
+InputStock,Flushing 2
+Defuelling 5,OutputStock
+Flushing 1,Fuelling 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Fuelling 5,Leaktest
+InputStock,Flushing 1
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Flushing 2,Fuelling 1
+Fuelling 2,Leaktest
+InputStock,Flushing 2
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Flushing 1,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 4
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Flushing 2,Fuelling 5
+Defuelling 4,OutputStock
+Fuelling 6,Leaktest
+InputStock,Flushing 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 2
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Fuelling 5,Leaktest
+Flushing 1,Fuelling 5
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+InputStock,Flushing 1
+Leaktest,Defuelling 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Fuelling 4,Leaktest
+Fuelling 4,Leaktest
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 4
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Fuelling 6,Leaktest
+Defuelling 4,OutputStock
+Leaktest,Defuelling 5
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+Flushing 2,Fuelling 1
+Fuelling 2,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Flushing 1,Fuelling 2
+Fuelling 3,Leaktest
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Fuelling 5,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Fuelling 4,Leaktest
+InputStock,Flushing 1
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Flushing 2,Fuelling 2
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Flushing 2,Fuelling 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 1
+InputStock,Flushing 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 4
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Flushing 2,Fuelling 3
+Defuelling 4,OutputStock
+Fuelling 4,Leaktest
+Flushing 2,Fuelling 4
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Flushing 1,Fuelling 1
+Flushing 1,Fuelling 2
+Defuelling 5,OutputStock
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+Fuelling 6,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Fuelling 6,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 5
+Flushing 1,Fuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Leaktest,Defuelling 4
+Defuelling 5,OutputStock
+InputStock,Flushing 1
+Flushing 1,Fuelling 6
+InputStock,Flushing 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 4
+Flushing 2,Fuelling 1
+Fuelling 2,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+Fuelling 5,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 4
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Defuelling 4,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 2
+InputStock,Flushing 1
+Fuelling 3,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Flushing 2,Fuelling 5
+Fuelling 6,Leaktest
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+Flushing 1,Fuelling 1
+InputStock,Flushing 1
+Flushing 2,Fuelling 3
+Fuelling 4,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+Defuelling 5,OutputStock
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Flushing 1,Fuelling 5
+Defuelling 4,OutputStock
+Fuelling 6,Leaktest
+InputStock,Flushing 1
+Flushing 1,Fuelling 6
+InputStock,Flushing 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 6
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Leaktest,Defuelling 5
+Leaktest,Defuelling 1
+InputStock,Flushing 1
+Defuelling 3,OutputStock
+Flushing 2,Fuelling 5
+Defuelling 5,OutputStock
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Flushing 2,Fuelling 3
+Fuelling 4,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Fuelling 1,Leaktest
+Fuelling 6,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Flushing 1,Fuelling 6
+InputStock,Flushing 1
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Fuelling 3,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+Defuelling 5,OutputStock
+Flushing 2,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Fuelling 6,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+InputStock,Flushing 2
+Fuelling 4,Leaktest
+Leaktest,Defuelling 5
+Leaktest,Defuelling 1
+Flushing 1,Fuelling 3
+InputStock,Flushing 1
+Flushing 2,Fuelling 4
+Defuelling 5,OutputStock
+Fuelling 5,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Leaktest,Defuelling 6
+Defuelling 1,OutputStock
+Fuelling 1,Leaktest
+Leaktest,Defuelling 3
+Leaktest,Defuelling 4
+InputStock,Flushing 2
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Fuelling 3,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Defuelling 4,OutputStock
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Flushing 2,Fuelling 1
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Fuelling 2,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Fuelling 5,Leaktest
+Flushing 1,Fuelling 5
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+InputStock,Flushing 1
+Fuelling 3,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Flushing 2,Fuelling 2
+Defuelling 5,OutputStock
+Flushing 2,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Fuelling 1,Leaktest
+Fuelling 6,Leaktest
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Defuelling 4,OutputStock
+Leaktest,Defuelling 5
+Fuelling 6,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Fuelling 1,Leaktest
+Leaktest,Defuelling 4
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Fuelling 1,Leaktest
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Flushing 2,Fuelling 3
+Leaktest,Defuelling 1
+Fuelling 4,Leaktest
+Fuelling 4,Leaktest
+Leaktest,Defuelling 4
+Leaktest,Defuelling 5
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Fuelling 6,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+Flushing 1,Fuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Fuelling 3,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+InputStock,Flushing 1
+Flushing 2,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Fuelling 6,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+Defuelling 4,OutputStock
+Flushing 1,Fuelling 6
+InputStock,Flushing 1
+Flushing 1,Fuelling 6
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+InputStock,Flushing 1
+Leaktest,Defuelling 1
+Flushing 2,Fuelling 3
+Defuelling 3,OutputStock
+Fuelling 4,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+InputStock,Flushing 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 2
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Leaktest,Defuelling 5
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Fuelling 5,Leaktest
+Fuelling 5,Leaktest
+Defuelling 5,OutputStock
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 6
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Fuelling 4,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+InputStock,Flushing 2
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Flushing 1,Fuelling 1
+InputStock,Flushing 1
+Fuelling 3,Leaktest
+Fuelling 6,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+Defuelling 4,OutputStock
+Flushing 2,Fuelling 6
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+Flushing 1,Fuelling 4
+Fuelling 5,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Flushing 2,Fuelling 1
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+Leaktest,Defuelling 6
+Leaktest,Defuelling 1
+Fuelling 6,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 4
+Flushing 1,Fuelling 6
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+Defuelling 4,OutputStock
+InputStock,Flushing 1
+Flushing 2,Fuelling 4
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Flushing 1,Fuelling 1
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Defuelling 3,OutputStock
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Fuelling 5,Leaktest
+Fuelling 5,Leaktest
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Flushing 2,Fuelling 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Fuelling 4,Leaktest
+InputStock,Flushing 1
+Leaktest,Defuelling 1
+Flushing 2,Fuelling 2
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Fuelling 5,Leaktest
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Fuelling 1,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Fuelling 6,Leaktest
+Fuelling 6,Leaktest
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 4
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Fuelling 3,Leaktest
+Defuelling 4,OutputStock
+Leaktest,Defuelling 5
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Flushing 2,Fuelling 1
+Fuelling 2,Leaktest
+Fuelling 6,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+InputStock,Flushing 2
+Defuelling 5,OutputStock
+InputStock,Flushing 1
+Flushing 1,Fuelling 6
+InputStock,Flushing 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Fuelling 3,Leaktest
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Leaktest,Defuelling 4
+Flushing 2,Fuelling 3
+Fuelling 4,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Leaktest,Defuelling 6
+Leaktest,Defuelling 1
+Fuelling 6,Leaktest
+Defuelling 3,OutputStock
+Defuelling 4,OutputStock
+Leaktest,Defuelling 5
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+InputStock,Flushing 1
+Flushing 2,Fuelling 2
+Defuelling 5,OutputStock
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Flushing 2,Fuelling 5
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+Fuelling 4,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+InputStock,Flushing 1
+Flushing 2,Fuelling 4
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Fuelling 1,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Flushing 1,Fuelling 2
+Defuelling 4,OutputStock
+Fuelling 3,Leaktest
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 6
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Leaktest,Defuelling 3
+Defuelling 4,OutputStock
+Fuelling 5,Leaktest
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Flushing 2,Fuelling 1
+Flushing 2,Fuelling 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Fuelling 5,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Defuelling 5,OutputStock
+Fuelling 6,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Leaktest,Defuelling 5
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Flushing 2,Fuelling 2
+Defuelling 5,OutputStock
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Leaktest,Defuelling 6
+Leaktest,Defuelling 1
+Fuelling 5,Leaktest
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+InputStock,Flushing 2
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+InputStock,Flushing 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Fuelling 4,Leaktest
+InputStock,Flushing 2
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+Flushing 2,Fuelling 5
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+Fuelling 6,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Defuelling 3,OutputStock
+Leaktest,Defuelling 4
+Fuelling 6,Leaktest
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 2
+Fuelling 1,Leaktest
+Leaktest,Defuelling 5
+Leaktest,Defuelling 1
+Defuelling 2,OutputStock
+Fuelling 3,Leaktest
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+InputStock,Flushing 1
+Fuelling 2,Leaktest
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Fuelling 5,Leaktest
+Flushing 2,Fuelling 5
+Defuelling 5,OutputStock
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 2
+Flushing 2,Fuelling 3
+Fuelling 1,Leaktest
+Fuelling 4,Leaktest
+Leaktest,Defuelling 1
+Leaktest,Defuelling 2
+InputStock,Flushing 2
+Flushing 1,Fuelling 4
+InputStock,Flushing 1
+Flushing 2,Fuelling 5
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 6
+Flushing 2,Fuelling 1
+InputStock,Flushing 2
+Fuelling 2,Leaktest
+Fuelling 2,Leaktest
+Defuelling 1,OutputStock
+Defuelling 2,OutputStock
+Leaktest,Defuelling 3
+Leaktest,Defuelling 4
+Flushing 1,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
+Leaktest,Defuelling 5
+Leaktest,Defuelling 1
+Fuelling 5,Leaktest
+Defuelling 3,OutputStock
+Defuelling 4,OutputStock
+Defuelling 5,OutputStock
+Leaktest,Defuelling 6
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 5
+Flushing 2,Fuelling 6
+Flushing 1,Fuelling 1
+Fuelling 2,Leaktest
+InputStock,Flushing 1
+Defuelling 1,OutputStock
+Leaktest,Defuelling 2
+Flushing 2,Fuelling 2
+Fuelling 3,Leaktest
+InputStock,Flushing 2
+Defuelling 6,OutputStock
+InputStock,Flushing 1
+InputStock,Flushing 2
+Flushing 1,Fuelling 3
+Flushing 2,Fuelling 4
+Fuelling 1,Leaktest
