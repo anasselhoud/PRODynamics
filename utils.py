@@ -46,10 +46,9 @@ class ManufLine:
         self.reset_shift_bool = False
 
         ### Multi reference
-        #self.initial_inventory = eval(config["project_data"]["initial_inventory"])
-        #self.product_references = eval(config["project_data"]["initial_inventory"])
-        #self.inventory_in = {ref: simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial) for ref in self.product_references}
-        #self.inventory_out = {ref: simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"])) for ref in self.product_references}
+        self.product_references = ["Ref A", "Ref B"]
+        self.inventory_in = {ref: simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial) for ref in self.product_references}
+        self.inventory_out = {ref: simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"])) for ref in self.product_references}
 
         self.supermarket_in = simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial)
         self.shop_stock_out = simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"]))
@@ -65,7 +64,6 @@ class ManufLine:
         self.n_robots = 1
         self.robot_strategy = 0
         self.local = True
-        #self.ADAS_robot = simpy.Resource(env, capacity=1)
 
         self.buffer_tracks = []
         self.robot_states = []
