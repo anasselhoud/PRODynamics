@@ -47,8 +47,8 @@ class ManufLine:
 
         ### Multi reference
         self.product_references = ["Ref A", "Ref B"]
-        self.inventory_in = {ref: simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial) for ref in self.product_references}
-        self.inventory_out = {ref: simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"])) for ref in self.product_references}
+        self.inventory_in = simpy.Store(env)
+        self.inventory_out = simpy.Store(env)
 
         self.supermarket_in = simpy.Container(env, capacity=self.stock_capacity, init=self.stock_initial)
         self.shop_stock_out = simpy.Container(env, capacity=float(config["shopstock"]["capacity"]), init=float(config["shopstock"]["initial"]))
@@ -238,7 +238,9 @@ class ManufLine:
             m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
 
-        self.env.process(self.refill_market())
+        for ref in self.product_references:
+            print("Reference confirmed = ", ref)
+            self.env.process(self.refill_market(ref))
 
         print(str(len(self.robots_list)) + "  -- Robot Included")
         for i in range(len(self.robots_list)):
@@ -250,7 +252,8 @@ class ManufLine:
                 self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process())
             else:
                 self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process(False))
-        self.env.process(self.reset_shift())
+        #TODO: fix problem of reset shift with multi references
+        #self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
 
@@ -258,11 +261,11 @@ class ManufLine:
         """
         Careful my friend! This function resets the full production line. Used mainly when wanting to start 
         a new simulation without interupting the code. 
-
         """
         self.env = simpy.Environment()
         self.supermarket_in = simpy.Container(self.env, capacity=self.stock_capacity, init=self.stock_initial)
         self.shop_stock_out = simpy.Container(self.env, capacity=float(self.config["shopstock"]["capacity"]), init=float(self.config["shopstock"]["initial"]))
+        self.inventory_in = simpy.Store(self.env)
         self.robots_list = []
         
         
@@ -384,7 +387,7 @@ class ManufLine:
         for i, machine in enumerate(self.list_machines):
             machine.ct = CTs[i]
 
-    def refill_market(self):
+    def refill_market(self, ref="Ref A"):
         """
         Refills the input market with products.
 
@@ -395,15 +398,22 @@ class ManufLine:
 
         Note: This function uses the `self.env` attribute as the simulation environement.
         """
+
         while True:
-            time_refill_start = self.env.now
             if isinstance(self.refill_time, list):
                 refill_time = int(random.uniform(self.refill_time[0], self.refill_time[1]))
             elif isinstance(self.refill_time, float):
                 refill_time = self.refill_time
             try:
                 yield self.env.timeout(refill_time)
-                self.supermarket_in.put(self.refill_size)
+                yield self.supermarket_in.put(self.refill_size) 
+                yield self.inventory_in.put(ref)
+                # if self.supermarket_in.level < self.stock_capacity:
+                #     yield self.supermarket_in.put(self.refill_size)
+                # else: 
+                #     pass
+                #yield self.inventory_in.put(ref)
+                #print("Refill market = ", ref)
                 self.supermarket_n_refills += 1
             except:
                 pass
@@ -702,16 +712,20 @@ class Machine:
         self.identical_machines = []
         self.move_robot_time = 0
         self.same_machine = None
-
+        self.ref_produced = []
+        
 
         if self.manuf_line.robots_list == []:
             if first:
                 self.buffer_in = manuf_line.supermarket_in
-                self.buffer_out = simpy.Container(env, capacity=float(buffer_capacity), init=self.initial_buffer)
-            
+                self.buffer_out = simpy.Container(env, init=self.initial_buffer)
+                self.store_in = manuf_line.inventory_in
+                self.store_out = simpy.Store(env)
             if last:
                 self.buffer_in = simpy.Container(env, capacity=float(buffer_capacity), init=self.initial_buffer)
                 self.buffer_out = manuf_line.shop_stock_out
+                self.store_in = simpy.Store(env)
+                self.store_out = manuf_line.inventory_out
             
             if not first and not last:
                 self.buffer_in = simpy.Container(env, capacity=float(buffer_capacity), init=self.initial_buffer)
@@ -719,6 +733,8 @@ class Machine:
         else:
             self.buffer_in = simpy.Container(env, capacity=float(buffer_capacity), init=self.initial_buffer)
             self.buffer_out = simpy.Container(env, capacity=float(buffer_capacity), init=self.initial_buffer)
+            self.store_in = simpy.Store(env)
+            self.store_out = simpy.Store(env)
 
         
         self.MTTF = mttf #Mean time to failure in seconds
@@ -736,6 +752,7 @@ class Machine:
         self.breakdowns = breakdowns
         self.hazard_delays = 1 if hazard_delays else 0
         self.op_fatigue = config["fatigue_model"]["enabled"]
+        self.current_product = None
        
         #self.process = self.env.process(self.machine_process())
         #env.process(self.break_down())
@@ -814,9 +831,12 @@ class Machine:
                             while self.buffer_in.level == 0 :
                                 yield self.env.timeout(10)
                                 self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]
-
+                        
+                        
                         yield self.buffer_in.get(1)
-                        print("Machine " + self.ID + " - start operating")
+                        product = yield self.store_in.get()
+                        self.current_product = product
+                        print("Machine " + self.ID + " - start operating" + " - product = " + str(self.current_product))
                         exit_t = self.env.now
                         self.exit_times.append(exit_t-entry)
                     
@@ -829,6 +849,7 @@ class Machine:
                                 self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
                         
                         yield self.buffer_out.put(1)
+                        yield self.store_out.put(product)
                         # with self.manuf_line.robots_list[0].robots_res.request(priority=self.prio) as req:
                         #     print(f'{self.ID} requesting unload at {self.env.now} with priority={self.prio}')
                         #     yield req
@@ -836,8 +857,10 @@ class Machine:
                         #     yield from self.manuf_line.robots_list[0].unload_machine(self)
                         #     yield self.env.timeout(0)
                         self.finished_times.append(self.env.now-entry)
+                        self.ref_produced.append(product)
                         done_in = 0
                         self.operating = False
+                        self.current_product = None
                         self.parts_done = self.parts_done +1
                         self.parts_done_shift = self.parts_done_shift+1
                         print("Machine " + self.ID + " - finished operating - produced part.")
@@ -846,7 +869,8 @@ class Machine:
                     except simpy.Interrupt:
                         self.broken = True
                         done_in -= self.env.now - start
-                        self.buffer_in.put(1)
+                        yield self.buffer_in.put(1)
+                        yield self.store_in.put(self.current_product)
                         try:
                             #with self.manuf_line.repairmen.request(priority=self.prio) as req:
                                 #yield req
@@ -895,10 +919,12 @@ class Robot:
                 entry = self.env.now
                 self.busy = True
                 yield from_entity.buffer_out.get(1)
+                product = yield from_entity.store_out.get()
                 to_entity.loaded +=1
                 self.waiting_time += self.env.now-entry
                 yield self.env.timeout(abs(to_entity.move_robot_time - from_entity.move_robot_time)+self.loadunload_time)
                 entry_2 = self.env.now
+                yield to_entity.store_in.put(product)
                 yield to_entity.buffer_in.put(1)
                 self.waiting_time += self.env.now-entry_2
                 self.manuf_line.track_sim((from_entity.Name, to_entity.Name, self.env.now))
@@ -914,10 +940,12 @@ class Robot:
                 self.busy = True
                 entry = self.env.now
                 yield from_entity.get(1)
+                product = yield  self.manuf_line.inventory_in.get() 
                 to_entity.loaded +=1
                 self.waiting_time += self.env.now-entry
                 yield self.env.timeout(abs(to_entity.move_robot_time)+self.loadunload_time)
                 entry_2 = self.env.now
+                yield to_entity.store_in.put(product)
                 yield to_entity.buffer_in.put(1)
                 self.waiting_time += self.env.now-entry_2
                 self.manuf_line.track_sim(("InputStock", to_entity.Name, self.env.now))
@@ -936,9 +964,11 @@ class Robot:
                 #self.manuf_line.track_sim((from_entity.ID, "OutputStock"))
                 entry = self.env.now
                 yield from_entity.buffer_out.get(1)
+                product = yield  from_entity.store_out.get()
                 self.waiting_time += self.env.now-entry
                 yield self.env.timeout(abs(from_entity.move_robot_time)+self.loadunload_time)
                 entry_2 = self.env.now
+                yield self.manuf_line.inventory_out.put(product) 
                 yield to_entity.put(1)
                 self.waiting_time += self.env.now-entry_2
                 self.manuf_line.track_sim((from_entity.Name, "OutputStock", self.env.now))
@@ -1012,8 +1042,6 @@ class Robot:
                 previous_machine = current_machine.previous_machines[full_buffers_machines.index(max(full_buffers_machines))]
             else:
                 return True
-    
-
         try:
             return previous_machine 
         except:
@@ -1042,16 +1070,13 @@ class Robot:
             elif previous_machine.level == 0 and current_machine.operating:
                 yield self.env.timeout(0)
         else:
-            found_it = False
             for i in range(len(current_machine.previous_machines)):
                 previous_machine = current_machine.previous_machines[i]
                 print("Previous machine level = ", previous_machine.buffer_out.level)
                 if previous_machine.buffer_out.level > 0:
-                    found_it = True
                     yield from self.transport(previous_machine, current_machine)
                     break
                 elif previous_machine.buffer_out.level == 0 and  previous_machine.operating:
-                    found_it = True
                     yield from self.transport(previous_machine, current_machine)
                     break
             # if found_it == False:

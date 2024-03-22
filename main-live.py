@@ -526,7 +526,9 @@ class ReportingWindow(customtkinter.CTkToplevel):
         print('Efficiency = ', machine_efficiency_rate)
         print('Availability 1 = ', machines_util)
         print('Utilization 2 = ', machine_available_percentage)
-        
+        for item in manuf_line.product_references:
+            print("Items of  = ", [m.ref_produced.count(item)  for m in manuf_line.list_machines])
+            print("Ref = " + item + " - " + str(manuf_line.inventory_out.items.count(item)))
         oee_100quality = 100*np.sum([m.ct + 2*abs(m.move_robot_time) for m in manuf_line.list_machines])/np.sum([ct for ct in machines_CT])
       
 
