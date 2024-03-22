@@ -298,6 +298,7 @@ class SettingWindow(customtkinter.CTkToplevel):
                 print("Excel file uploaded and read successfully.")
                 config_data_gloabl = config_line_globa_data.values.tolist()
                 self.machine_data[1:] = config_data.values.tolist()
+                print("Machine Data = ", self.machine_data)
                 self.table_machines.update_values(self.machine_data)
                 self.sim_time_input.delete(0, END)
                 self.sim_time_input.insert(0, str(config_data_gloabl[0][2]))
@@ -390,7 +391,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.geometry("1260x720")
         self.loading_window = None
         global simulation_number
-        self.title("Simulation {}".format(simulation_number))
+
+        if self.manuf_line.robot_strategy == 0:
+            strategy = "Balanced Strategy"
+        elif self.manuf_line.robot_strategy == 1:
+            strategy = "Greedy Strategy"
+        self.title("Simulation {} - {}".format(simulation_number, strategy))
         simulation_number+=1
         self.grid_columnconfigure((1), weight=1)
         #self.grid_columnconfigure((0), weight=1)
@@ -464,27 +470,10 @@ class ReportingWindow(customtkinter.CTkToplevel):
         # parent.toplevel_window.destroy()
         # parent.toplevel_window = self
         
-        ## Lunch Fast Sim
-        # if manuf_line.machines_CT == []:
-        #Launch the loading screen (self.loading_screen() function)
-
-        #self.start_loading_and_sim()
-
-        #self.loading_window = LoadingScreen()
-        
-        
-        #self.loading_window.destroy()
-        # try: 
-        #     run(self.manuf_line)
-        # except:
-        #     print("-- Reseting the environement to avoid multi-sim problems. ")
-        #     self.manuf_line.reset()
-        #     run(self.manuf_line)
-  
-        #Close the loading screen and continue program 
 
         # Set up KPIs
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
+        print("Shop_stock_out = ", manuf_line.shop_stock_out.level)
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
         efficiency_rate = 100*(assembly_line.takt_time/CT_line)
 
@@ -517,22 +506,23 @@ class ReportingWindow(customtkinter.CTkToplevel):
             idle_times.append(np.mean(idle_times_machine))
             idle_times_sum.append(np.sum(idle_times_machine)/manuf_line.sim_time)
 
-        # print("Sequence Length = ", len(self.manuf_line.robot_states))
-        # print("Sequence = ", len(self.longest_repetitive_pattern(self.manuf_line.robot_states)))
         print("CT Machines = ",machines_CT )
-        print("CT Machines 2 = ",[manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines] )
+        print("CT Machines 2 = ",[manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines])
+        print("Waiting times = ", [np.sum(m.waiting_time) for m in manuf_line.list_machines])
+        for ri in range(len(manuf_line.robots_list)):
+            print("Waiting time Robot = ", 100*manuf_line.robots_list[ri].waiting_time/manuf_line.sim_time)
         machines_prod_rate = [manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines]
 
         machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
-        machines_util = [machines_CT[i]* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
+        machines_util = [m.ct* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
 
-        #machine_available_percentage = [100*(m.ct + 2 * abs(m.move_robot_time)) * m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
-        waiting_time_percentage = [100*(m.waiting_time[0] + m.waiting_time[1])/manuf_line.sim_time   for m in manuf_line.list_machines]
+        machine_available_percentage = [100*m.ct* m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
+        #waiting_time_percentage = [100*(m.waiting_time[0] + m.waiting_time[1])/manuf_line.sim_time   for m in manuf_line.list_machines]
         breakdown_percentage = [100*float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
 
         # Calculate machine available percentage, breakdown percentage, and waiting time percentage
-        #waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
-        machine_available_percentage = [100 - waiting_percentage - breakdown_percentage for waiting_percentage, breakdown_percentage in zip(waiting_time_percentage, breakdown_percentage)] 
+        waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
+        #machine_available_percentage = [100 - waiting_percentage - breakdown_percentage for waiting_percentage, breakdown_percentage in zip(waiting_time_percentage, breakdown_percentage)] 
         print('Efficiency = ', machine_efficiency_rate)
         print('Availability 1 = ', machines_util)
         print('Utilization 2 = ', machine_available_percentage)
