@@ -253,7 +253,7 @@ class ManufLine:
             else:
                 self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process(False))
         #TODO: fix problem of reset shift with multi references
-        #self.env.process(self.reset_shift())
+        self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
 
@@ -816,19 +816,13 @@ class Machine:
                 start = self.env.now
                 self.buffer_tracks.append((self.env.now, self.buffer_out.level))
                 
-
+                
                 # Get best machine to get from
                 while done_in > 0:
                     try:
                         entry = self.env.now
                         self.entry_times.append(entry)
-                        # with self.manuf_line.robots_list[0].robots_res.request(priority=self.prio) as req:
-                        #     print(f'{self.ID} requesting load at {self.env.now} with priority={self.prio}')
-                        #     yield req
-                        #     print(f'{self.ID} got resource load at {self.env.now}')
-                        #     yield from self.manuf_line.robots_list[0].load_machine_new(self)
-                        
-                        #yield self.buffer_in.put(1) 
+
                         if self.manuf_line.local:
                             while self.buffer_in.level == 0 :
                                 yield self.env.timeout(10)
@@ -850,7 +844,7 @@ class Machine:
                                 yield self.env.timeout(10)
                                 self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
                         
-                        yield self.buffer_out.put(1) and self.store_out.put(product)
+                        
                         # with self.manuf_line.robots_list[0].robots_res.request(priority=self.prio) as req:
                         #     print(f'{self.ID} requesting unload at {self.env.now} with priority={self.prio}')
                         #     yield req
@@ -858,7 +852,6 @@ class Machine:
                         #     yield from self.manuf_line.robots_list[0].unload_machine(self)
                         #     yield self.env.timeout(0)
                         self.finished_times.append(self.env.now-entry)
-                        self.ref_produced.append(product)
                         done_in = 0
                         
                         print("Machine " + self.ID + " - finished operating - produced part.")
@@ -877,16 +870,22 @@ class Machine:
                         #    pass
                         
                         #if self.buffer_in.level == 0:
-                        #    yield self.buffer_in.put(1)
-                        #    yield self.store_in.put(self.current_product)
+                        if done_in > 0:
+                            print("Here ")
+                            yield self.buffer_in.put(1) 
+                            self.store_in.put(self.current_product)
                         #else:
                         #    pass
                         self.broken = False
                         self.operating = False
-                    if done_in==0:
-                        self.operating = False
-                        self.parts_done = self.parts_done +1
-                        self.parts_done_shift = self.parts_done_shift+1
+                    
+                if done_in==0:
+                    yield self.buffer_out.put(1) and self.store_out.put(product)
+                    self.finished_times.append(self.env.now-entry)
+                    self.ref_produced.append(product)
+                    self.operating = False
+                    self.parts_done = self.parts_done +1
+                    self.parts_done_shift = self.parts_done_shift+1
 
 
 class Robot:
