@@ -266,6 +266,7 @@ class ManufLine:
         self.supermarket_in = simpy.Container(self.env, capacity=self.stock_capacity, init=self.stock_initial)
         self.shop_stock_out = simpy.Container(self.env, capacity=float(self.config["shopstock"]["capacity"]), init=float(self.config["shopstock"]["initial"]))
         self.inventory_in = simpy.Store(self.env)
+        self.inventory_out = simpy.Store(self.env)
         self.robots_list = []
         
         
@@ -461,6 +462,7 @@ class ManufLine:
         print("Here 2 : ", all([not np.isnan(list_machines_config[i][12])  for i in range(len(list_machines_config))]))
         
         #TODO: Fix problems of transport when more than one robots are used
+        self.robots_list = []
         if all([not np.isnan(list_machines_config[i][10])  for i in range(len(list_machines_config))]) and all([not np.isnan(list_machines_config[i][12])  for i in range(len(list_machines_config))]):
             print("List of robots = ", [list_machines_config[j][12] for j in  range(len(list_machines_config))])
             for i in range(int(max([list_machines_config[j][12] for j in  range(len(list_machines_config))]))):
@@ -848,8 +850,7 @@ class Machine:
                                 yield self.env.timeout(10)
                                 self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
                         
-                        yield self.buffer_out.put(1)
-                        yield self.store_out.put(product)
+                        yield self.buffer_out.put(1) and self.store_out.put(product)
                         # with self.manuf_line.robots_list[0].robots_res.request(priority=self.prio) as req:
                         #     print(f'{self.ID} requesting unload at {self.env.now} with priority={self.prio}')
                         #     yield req
@@ -859,30 +860,33 @@ class Machine:
                         self.finished_times.append(self.env.now-entry)
                         self.ref_produced.append(product)
                         done_in = 0
-                        self.operating = False
-                        self.current_product = None
-                        self.parts_done = self.parts_done +1
-                        self.parts_done_shift = self.parts_done_shift+1
+                        
                         print("Machine " + self.ID + " - finished operating - produced part.")
                         #yield self.env.timeout(0)
 
                     except simpy.Interrupt:
                         self.broken = True
                         done_in -= self.env.now - start
-                        yield self.buffer_in.put(1)
-                        yield self.store_in.put(self.current_product)
-                        try:
+                        
+                        #try:
                             #with self.manuf_line.repairmen.request(priority=self.prio) as req:
                                 #yield req
-                            yield self.env.timeout(self.MTTR) #Time to repair
-                        except: 
-                            pass
+                        print(self.ID +" broken with  buffer in level " + str(self.buffer_in.level) + " time to repair = "+ str(self.MTTR))
+                        yield self.env.timeout(self.MTTR) #Time to repair
+                        #except: 
+                        #    pass
+                        
+                        #if self.buffer_in.level == 0:
+                        #    yield self.buffer_in.put(1)
+                        #    yield self.store_in.put(self.current_product)
+                        #else:
+                        #    pass
                         self.broken = False
                         self.operating = False
-                    # if done_in==0:
-                    #     self.operating = False
-                    #     self.parts_done = self.parts_done +1
-                    #     self.parts_done_shift = self.parts_done_shift+1
+                    if done_in==0:
+                        self.operating = False
+                        self.parts_done = self.parts_done +1
+                        self.parts_done_shift = self.parts_done_shift+1
 
 
 class Robot:
