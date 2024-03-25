@@ -526,7 +526,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         print('Efficiency = ', machine_efficiency_rate)
         print('Availability 1 = ', machines_util)
         print('Utilization 2 = ', machine_available_percentage)
-        print("Breakdowns = ", [ float(m.n_breakdowns) for m in manuf_line.list_machines])
+        print("Breakdowns = ", np.sum([ float(m.n_breakdowns) for m in manuf_line.list_machines]))
         for item in manuf_line.product_references:
             print("Items of  = ", [m.ref_produced.count(item)  for m in manuf_line.list_machines])
             print("Ref = " + item + " - " + str(manuf_line.inventory_out.items.count(item)))
