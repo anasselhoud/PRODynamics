@@ -253,7 +253,7 @@ class ManufLine:
             else:
                 self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process(False))
         #TODO: fix problem of reset shift with multi references
-        self.env.process(self.reset_shift())
+        #self.env.process(self.reset_shift())
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
 
@@ -408,6 +408,8 @@ class ManufLine:
         while True:
             if isinstance(self.refill_time, list):
                 refill_time = int(random.uniform(self.refill_time[0], self.refill_time[1]))
+                if ref == "Ref A":
+                   refill_time = int(random.uniform(1600, 2000))
             elif isinstance(self.refill_time, float):
                 refill_time = self.refill_time
             try:
