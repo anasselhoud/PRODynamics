@@ -544,7 +544,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         
         fig_m.tight_layout()
 
-
+        
         # Plot of Machine Breakdowns
         breakdown_values = [m.n_breakdowns for m in manuf_line.list_machines]
         starvation_times = [m.waiting_time[0] for m in manuf_line.list_machines]

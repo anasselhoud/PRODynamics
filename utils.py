@@ -912,6 +912,8 @@ class Robot:
         self.schedule.append(transport_task)
             
 
+    # TODO: Fix the problem of the robot not being able to transport from a machine to another after shift reset
+        # DO we need shift reset of buffers??
     def transport(self, from_entity, to_entity, time=10):
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             if not self.busy:
