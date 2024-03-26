@@ -319,7 +319,6 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.refill_time_input.delete(0, END)
                 
                 self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
-                #self.repairmen_N_input.insert(0, str(config_data_gloabl[4][2]))
                 self.safety_stock_input.delete(0, END)
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)

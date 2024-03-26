@@ -97,9 +97,6 @@ class ManufLine:
         #     previous_machine = machine
         #     self.list_machines.append(machine)    
 
-    # def set_up_input_output():
-    #     self.supermarket_in.capacity = self.manuf_line.stock_capacity
-    #     self.supermarket_in.init = self.manuf_line.stock_initial
 
     def get_index_of_item(self, list_of_lists, item):
         for index, sublist in enumerate(list_of_lists):
@@ -124,13 +121,6 @@ class ManufLine:
             for entry, finished in zip(machine.entry_times, machine.finished_times):
                 ct_machine.append(finished-entry)
             CTs.append(np.mean(ct_machine))
-
-        # print("Mean Machine Idle Times = ", idle_times)
-        # print("Waiting Time of Machines", [machine.waiting_time for machine in self.list_machines])
-        # print("Downtime of Machines = ", [machine.n_breakdowns for machine in self.list_machines])
-        # print("Mean CT of Machines = ", CTs)
-        # print("Parts done --", self.shop_stock_out.level)
-        # print("Cycle Time --", self.sim_time/self.shop_stock_out.level)
 
         if save and track:
             csv_file_path = "./results/forecast_data.csv"
@@ -826,8 +816,8 @@ class Machine:
                         deterministic_time = np.sum([task.machine_time+task.manual_time for task in self.assigned_tasks])
 
                 num_samples = int(1/float(self.config["hazard_delays"]["probability"]))
-                # + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
-                done_in =  deterministic_time 
+                # 
+                done_in =  deterministic_time + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
                 start = self.env.now
                 self.buffer_tracks.append((self.env.now, self.buffer_out.level))
                 
@@ -860,12 +850,7 @@ class Machine:
                                 self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
                         
                         
-                        # with self.manuf_line.robots_list[0].robots_res.request(priority=self.prio) as req:
-                        #     print(f'{self.ID} requesting unload at {self.env.now} with priority={self.prio}')
-                        #     yield req
-                        #     print(f'{self.ID} got  unload resource at {self.env.now}')
-                        #     yield from self.manuf_line.robots_list[0].unload_machine(self)
-                        #     yield self.env.timeout(0)
+
                         done_in = 0
                         
                         print("Machine " + self.ID + " - finished operating - produced part.")
