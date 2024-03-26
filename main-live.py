@@ -194,13 +194,19 @@ class SettingWindow(customtkinter.CTkToplevel):
                                  variable=self.switch_var, onvalue="on", offvalue="off")
         
         self.switch.grid(row=1, column=0, padx=20, pady=20)
-        # self.choices_breakdowns = ["All Machines"]
-        # self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
-        # self.label_break4 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="To-be Broken Machines")
-        # self.label_break4.grid(row=0, column=3, padx=20, pady=20)
-        # self.choices_breakdowns_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Breakdowns"), dynamic_resizing=False,
-        #                                                 values=self.choices_breakdowns)
-        # self.choices_breakdowns_menu.grid(row=1, column=3, padx=20, pady=20)
+
+        self.n_repairmen_label = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Number of Repairmen")
+        self.n_repairmen_label.grid(row=0,column=1, padx=(10,10), pady=(10,10))
+        self.n_repairmen_input = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="Input number of repairmen", width=100)
+        self.n_repairmen_input.grid(row=1,column=1, padx=(10,10), pady=(10,10))
+
+        self.switch_var_rand = customtkinter.StringVar(value="off")
+        self.label_break1_rand = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Random Seed")
+        self.label_break1_rand.grid(row=0, column=2, padx=20, pady=20)
+        self.switch_rand = customtkinter.CTkSwitch(self.tabview_footer.tab("Breakdowns"), text="Enabled",
+                                 variable=self.switch_var_rand, onvalue="on", offvalue="off")
+
+        self.switch_rand.grid(row=1, column=2, padx=20, pady=20)
 
         self.switch_delays_var = customtkinter.StringVar(value="on")
         self.label_delays1 = customtkinter.CTkLabel(self.tabview_footer.tab("Delays"), text="Hazardous delays")
@@ -217,7 +223,6 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.choices_delays_menu.grid(row=1, column=3, padx=20, pady=20)
 
         ## Default
-
         self.sim_time_input.insert(0, "3600*24*200")
         self.takt_time_input.insert(0, "100000")
         self.stock_capacity_input.insert(0, "100")
@@ -226,6 +231,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.refill_time_input.insert(0, "120")
         self.refill_size_input.insert(0, "100")
         self.n_robots_input.insert(0, "1")
+        self.n_repairmen_input.insert(0, "3")
 
 
 
@@ -318,8 +324,11 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)
                 self.refill_size_input.insert(0, str(config_data_gloabl[6][2]))
+                self.n_repairmen_input.delete(0, END)
+                self.n_repairmen_input.insert(0, str(config_data_gloabl[11][2]))
                 self.n_robots_input.delete(0, END)
-                self.n_robots_input.insert(0, str(config_data_gloabl[11][2]))
+                self.n_robots_input.insert(0, str(config_data_gloabl[12][2]))
+                
                 return config_data
             except Exception as e:
                 print(f"Error reading Excel file: {e}")
@@ -344,6 +353,11 @@ class SettingWindow(customtkinter.CTkToplevel):
             self.manuf_line.breakdowns_switch = True
         else:
             self.manuf_line.breakdowns_switch = False
+        
+        if self.switch_var_rand.get() == "on":
+            self.manuf_line.randomseed = True
+        else:
+            self.manuf_line.randomseed = False
 
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
@@ -361,7 +375,9 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.manuf_line.safety_stock = float(self.safety_stock_input.get())
         self.manuf_line.refill_size = float(self.refill_size_input.get())
         self.manuf_line.n_robots = float(self.n_robots_input.get())
+        self.manuf_line.n_repairmen = int(self.n_repairmen_input.get())
         self.manuf_line.robot_strategy = int(available_strategies.index(self.strategy_dropdown.get()))
+        self.manuf_line.repairmen = simpy.PreemptiveResource(env, capacity=int(self.n_repairmen_input.get()))
 
 
         self.manuf_line.supermarket_in = simpy.Container(env, capacity=self.manuf_line.stock_capacity, init=self.manuf_line.stock_initial)
@@ -475,7 +491,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
         print("Shop_stock_out = ", manuf_line.shop_stock_out.level)
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
-        efficiency_rate = 100*(assembly_line.takt_time/CT_line)
+        efficiency_rate = 100*(manuf_line.takt_time/CT_line)
 
         simulated_prod_time_str = format_time(manuf_line.sim_time)
         self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
@@ -530,7 +546,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         for item in manuf_line.product_references:
             print("Items of  = ", [m.ref_produced.count(item)  for m in manuf_line.list_machines])
             print("Ref = " + item + " - " + str(manuf_line.inventory_out.items.count(item)))
-        oee_100quality = 100*np.sum([m.ct + 2*abs(m.move_robot_time) for m in manuf_line.list_machines])/np.sum([ct for ct in machines_CT])
+        oee_100quality = 100*np.mean([(m.ct + 2*abs(m.move_robot_time))/ct for m, ct in zip(manuf_line.list_machines, machines_CT)])
       
 
         self.oee_label.configure(text = f'{oee_100quality:.1f} %')
@@ -1108,7 +1124,6 @@ if __name__ == "__main__":
     #df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
     #tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
     tasks = []
-    
     config_file = 'config.yaml'
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
     assembly_line = ManufLine(env, tasks, config_file=config_file)
@@ -1116,7 +1131,7 @@ if __name__ == "__main__":
 
     ## Compile with OEE diagram modifs + parallel machines + robots transport 
     
-    
+    random.seed(10)
     app = App(assembly_line)
     
     #app.open_setting_window()
