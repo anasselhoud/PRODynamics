@@ -774,12 +774,6 @@ class Machine:
         self.op_fatigue = config["fatigue_model"]["enabled"]
         self.current_product = None
        
-        #self.process = self.env.process(self.machine_process())
-        #env.process(self.break_down())
-        
-        #self.env.process(self.manual_process())
-        # if previous_machine:
-        #     self.buffer_in = previous_machine.buffer_out
     
     def time_to_failure(self):
         """Return time until next failure for a machine."""
