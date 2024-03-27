@@ -401,7 +401,6 @@ class ManufLine:
         while True:
             if isinstance(self.refill_time, list):
                 refill_time = int(random.uniform(self.refill_time[0], self.refill_time[1]))
-                   
             elif isinstance(self.refill_time, float):
                 refill_time = self.refill_time
             try:
@@ -816,18 +815,17 @@ class Machine:
                         deterministic_time = np.sum([task.machine_time+task.manual_time for task in self.assigned_tasks])
 
                 num_samples = int(1/float(self.config["hazard_delays"]["probability"]))
-                # 
-                done_in =  deterministic_time + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
+                # + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
+                done_in =  deterministic_time 
                 start = self.env.now
                 self.buffer_tracks.append((self.env.now, self.buffer_out.level))
                 
-                
+                entry = self.env.now
+                self.entry_times.append(entry)
                 # Get best machine to get from
                 while done_in > 0:
                     try:
-                        entry = self.env.now
-                        self.entry_times.append(entry)
-
+                        
                         if self.manuf_line.local:
                             while self.buffer_in.level == 0 :
                                 yield self.env.timeout(10)
@@ -856,18 +854,11 @@ class Machine:
                         print("Machine " + self.ID + " - finished operating - produced part.")
                         #yield self.env.timeout(0)
                         yield self.buffer_out.put(1) and self.store_out.put(product)
-                        self.finished_times.append(self.env.now-entry)
                         self.ref_produced.append(product)
-                        self.operating = False
-                        self.parts_done = self.parts_done +1
-                        self.parts_done_shift = self.parts_done_shift+1
 
-                    except simpy.Interrupt:
-
-                        
+                    except simpy.Interrupt:                        
                         self.broken = True
                         done_in -= self.env.now - start
-                        
                         # try:
                         with self.manuf_line.repairmen.request(priority=1) as req:
                             yield req
@@ -885,7 +876,10 @@ class Machine:
                         self.operating = False
                     
                 
-                
+                self.finished_times.append(self.env.now-entry)
+                self.operating = False
+                self.parts_done = self.parts_done +1
+                self.parts_done_shift = self.parts_done_shift+1
 
 
 class Robot:
