@@ -11,6 +11,7 @@ from typing import Union, Tuple, Optional
 import copy
 import ast
 import csv
+import re
 
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
@@ -48,7 +49,9 @@ class ManufLine:
         self.reset_shift_bool = False
 
         ### Multi reference
-        self.product_references = ["Ref A", "Ref B"]
+        self.references_config = None
+        self.n_product_references = ["Ref A", "Ref B"]
+        self.product_references = {}
         self.inventory_in = simpy.Store(env)
         self.inventory_out = simpy.Store(env)
 
@@ -231,7 +234,7 @@ class ManufLine:
             m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
 
-        for ref in self.product_references:
+        for ref in list(self.references_config.keys()):
             print("Reference confirmed = ", ref)
             self.env.process(self.refill_market(ref))
 
@@ -397,12 +400,20 @@ class ManufLine:
 
         Note: This function uses the `self.env` attribute as the simulation environement.
         """
+        pattern = r'^(\d+)-(\d+)$'
+        match = re.match(pattern, str(self.references_config[ref][0]))
+        if match:
+            value1 = int(match.group(1))
+            value2 = int(match.group(2))
+            refill_time_ref = [value1, value2]
+        else:
+            refill_time_ref = float(self.references_config[ref][0])
 
         while True:
-            if isinstance(self.refill_time, list):
-                refill_time = int(random.uniform(self.refill_time[0], self.refill_time[1]))
-            elif isinstance(self.refill_time, float):
-                refill_time = self.refill_time
+            if isinstance(refill_time_ref, list):
+                refill_time = int(random.uniform(refill_time_ref[0], refill_time_ref[1]))
+            elif isinstance(refill_time_ref, float):
+                refill_time = refill_time_ref
             try:
                 yield self.env.timeout(refill_time)
                 yield self.supermarket_in.put(self.refill_size) 
@@ -477,7 +488,6 @@ class ManufLine:
         print("HEre 1 : ", all([not np.isnan(list_machines_config[i][10])  for i in range(len(list_machines_config))]) )
         print("Here 2 : ", all([not np.isnan(list_machines_config[i][12])  for i in range(len(list_machines_config))]))
         
-        #TODO: Fix problems of transport when more than one robots are used
         self.robots_list = []
         if all([not np.isnan(list_machines_config[i][10])  for i in range(len(list_machines_config))]) and all([not np.isnan(list_machines_config[i][12])  for i in range(len(list_machines_config))]):
             print("List of robots = ", [list_machines_config[j][12] for j in  range(len(list_machines_config))])
@@ -720,6 +730,7 @@ class Machine:
         self.move_robot_time = 0
         self.same_machine = None
         self.ref_produced = []
+        self.loaded_bol = False
         
 
         if self.manuf_line.robots_list == []:
@@ -816,29 +827,53 @@ class Machine:
 
                 num_samples = int(1/float(self.config["hazard_delays"]["probability"]))
                 # + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
-                done_in =  deterministic_time 
-                start = self.env.now
+              
                 self.buffer_tracks.append((self.env.now, self.buffer_out.level))
-                
-                entry = self.env.now
-                self.entry_times.append(entry)
-                # Get best machine to get from
-                while done_in > 0:
-                    try:
-                        
-                        if self.manuf_line.local:
-                            while self.buffer_in.level == 0 :
-                                yield self.env.timeout(10)
-                                self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]
-                        
-                        
+                entry0 = self.env.now
+                self.entry_times.append(entry0)
+                self.loaded_bol = False
+                while not self.loaded_bol :
+                    try: 
+                        product = None
+                        # Get best machine to get from
+                        if self.buffer_in.level <= 0 :
+                            if self.manuf_line.local:
+                                while self.buffer_in.level == 0 :
+                                    yield self.env.timeout(10)
+                                    self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]      
                         yield self.buffer_in.get(1)
                         product = yield self.store_in.get()
+                        #done_in = deterministic_time 
+                        done_in = self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1]
+                        start = self.env.now
+                        self.loaded_bol = True
+
+                    except simpy.Interrupt:                        
+                        self.broken = True
+
+                        # try:
+                        with self.manuf_line.repairmen.request(priority=1) as req:
+                            yield req
+                            print(self.ID +" broken with  buffer in level " + str(self.buffer_in.level) + " time to repair = "+ str(self.MTTR))
+                            yield self.env.timeout(self.MTTR) #Time to repair
+                        #done_in = 0
+                        
+                        #if self.buffer_in.level < self.buffer_in.capacity :
+                        self.buffer_in.put(1)
+                        if product is not None:
+                            self.store_in.put(product)
+                        self.broken = False
+                        self.operating = False
+                        self.loaded_bol = False
+                
+                real_done_in = done_in
+                while done_in > 0:
+                    try:
+                        entry = self.env.now
                         self.current_product = product
-                        print("Machine " + self.ID + " - start operating" + " - product = " + str(self.current_product))
+                        print("Machine " + self.ID + " - start operating" + " - product = " + str(self.current_product) +" with time = " + str(done_in))
                         exit_t = self.env.now
                         self.exit_times.append(exit_t-entry)
-                    
                         self.operating = True
                         yield self.env.timeout(done_in)
                         entry2 = self.env.now
@@ -846,15 +881,12 @@ class Machine:
                             while self.buffer_out.level == self.buffer_out.capacity:
                                 yield self.env.timeout(10)
                                 self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
-                        
-                        
-
-                        done_in = 0
-                        
-                        print("Machine " + self.ID + " - finished operating - produced part.")
-                        #yield self.env.timeout(0)
                         yield self.buffer_out.put(1) and self.store_out.put(product)
                         self.ref_produced.append(product)
+                        
+                        done_in = 0
+                        self.loaded_bol = False
+                        yield self.env.timeout(0)
 
                     except simpy.Interrupt:                        
                         self.broken = True
@@ -864,19 +896,14 @@ class Machine:
                             yield req
                             print(self.ID +" broken with  buffer in level " + str(self.buffer_in.level) + " time to repair = "+ str(self.MTTR))
                             yield self.env.timeout(self.MTTR) #Time to repair
-                        # except: 
-                        #     pass
-                        #yield self.env.timeout(self.MTTR) #Time to repair
-
-                        # if self.buffer_in.level == 0:
-                        #     yield self.buffer_in.put(1) 
-                        #     self.store_in.put(self.current_product)
 
                         self.broken = False
                         self.operating = False
-                    
                 
-                self.finished_times.append(self.env.now-entry)
+
+                self.ref_produced.append(product)
+                self.current_product = None
+                self.finished_times.append(real_done_in)
                 self.operating = False
                 self.parts_done = self.parts_done +1
                 self.parts_done_shift = self.parts_done_shift+1

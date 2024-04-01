@@ -200,7 +200,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.n_repairmen_input = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="Input number of repairmen", width=100)
         self.n_repairmen_input.grid(row=1,column=1, padx=(10,10), pady=(10,10))
 
-        self.switch_var_rand = customtkinter.StringVar(value="off")
+        self.switch_var_rand = customtkinter.StringVar(value="on")
         self.label_break1_rand = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Random Seed")
         self.label_break1_rand.grid(row=0, column=2, padx=20, pady=20)
         self.switch_rand = customtkinter.CTkSwitch(self.tabview_footer.tab("Breakdowns"), text="Enabled",
@@ -301,6 +301,9 @@ class SettingWindow(customtkinter.CTkToplevel):
             try:
                 config_data = pd.read_excel(file_path, sheet_name="Line Data")
                 config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
+                config_multi_ref_table = pd.read_excel(file_path, sheet_name="Multi-Ref")
+                self.manuf_line.references_config = config_multi_ref_table.set_index('Machine').to_dict(orient='list')
+
                 print("Excel file uploaded and read successfully.")
                 config_data_gloabl = config_line_globa_data.values.tolist()
                 self.machine_data[1:] = config_data.values.tolist()
@@ -513,7 +516,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
                     ct_machine.append(0)
                 else:
                     ct_machine.append(finished)
-            machines_CT.append(np.mean(ct_machine))
+            machines_CT.append(np.sum(ct_machine))
 
             for time in machine.exit_times:
                 idle_times_machine.append(time)
@@ -528,10 +531,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
             print("Waiting time Robot = ", 100*manuf_line.robots_list[ri].waiting_time/manuf_line.sim_time)
         machines_prod_rate = [manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines]
 
-        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
+        #machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
+        machine_efficiency_rate =[100*np.sum([m.ref_produced.count(item)*manuf_line.references_config[item][manuf_line.list_machines.index(m)+1] for item in list(manuf_line.references_config.keys())])/manuf_line.sim_time for m in manuf_line.list_machines]
         machines_util = [m.ct* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
 
-        machine_available_percentage = [100*m.ct* m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
+       # machine_available_percentage = [100*m.ct* m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
+        machine_available_percentage = [100*ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines,machines_CT) ]
         #waiting_time_percentage = [100*(m.waiting_time[0] + m.waiting_time[1])/manuf_line.sim_time   for m in manuf_line.list_machines]
         breakdown_percentage = [100*float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
 
@@ -542,11 +547,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
         print('Availability 1 = ', machines_util)
         print('Utilization 2 = ', machine_available_percentage)
         print("Breakdowns = ", np.sum([ float(m.n_breakdowns) for m in manuf_line.list_machines]))
-        for item in manuf_line.product_references:
+        for item in list(manuf_line.references_config.keys()):
             print("Items of  = ", [m.ref_produced.count(item)  for m in manuf_line.list_machines])
             print("Ref = " + item + " - " + str(manuf_line.inventory_out.items.count(item)))
-        oee_100quality = 100*np.mean([(m.ct + 2*abs(m.move_robot_time))/ct for m, ct in zip(manuf_line.list_machines, machines_CT)])
-      
+        #oee_100quality = 100*np.mean([(m.ct + 2*abs(m.move_robot_time))/ct for m, ct in zip(manuf_line.list_machines, machines_CT)])
+        oee_100quality = 100*np.mean([ct/manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)])
+
 
         self.oee_label.configure(text = f'{oee_100quality:.1f} %')
 
