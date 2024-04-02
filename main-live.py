@@ -406,7 +406,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         
        
         super().__init__()
-        self.geometry("1260x720")
+        self.geometry(f"{1920}x{1080}")
         self.loading_window = None
         global simulation_number
 
@@ -418,12 +418,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
         simulation_number+=1
         self.grid_columnconfigure((1), weight=1)
         #self.grid_columnconfigure((0), weight=1)
-        self.grid_rowconfigure((1), weight=1)
+        #self.grid_rowconfigure((1,2), weight=1)
         #self.resizable(width=False, height=False)
         self.textbox = customtkinter.CTkTextbox(master=self, width=450, height=250, corner_radius=0, font=("Arial", 18), wrap="word")
         self.textbox.grid_remove()
-        self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250)
-        self.frame_data.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
+        self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250, height=1000)
+        self.frame_data.grid(rowspan=3, column=0, pady = 10, padx=10, sticky="nsew")
         self.simulated_prod_time_btn = customtkinter.CTkButton(self.frame_data, text="Simulation Time", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
         self.simulated_prod_time_btn.grid(row=0, column=1, padx=20, pady=10)
         self.simulated_prod_time_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
@@ -452,8 +452,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.save_setting_btn.grid(row=10, column=1, padx=20, pady=10)
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(row=0, column=1, pady = 10, padx=10, sticky="nsew")
-        self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
-        self.frame_br.grid(row=1, column=1, pady = 10, padx=10, sticky="nsew")
+        self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20)
+        self.frame_br.grid(row=1, column=1, pady = 5, padx=10, sticky="nsew")
         
         # Prep Plot of Machine Avg. Cycle Time
         fig_m, ax_m = plt.subplots(nrows=1, ncols=1, figsize=(9, 4), sharex=True, facecolor="#282C34")
@@ -471,15 +471,16 @@ class ReportingWindow(customtkinter.CTkToplevel):
 
         # Prep Plot of Machine Breakdowns
 
-        fig_br, ax_br = plt.subplots(nrows=1, ncols=1, figsize=(9, 4), sharex=True, facecolor="#282C34")
+        fig_br, ax_br = plt.subplots(nrows=2, ncols=1, figsize=(12, 6), sharex=True, facecolor="#282C34")
         fig_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
-        ax_br.clear()
-        ax_br.set_ylabel('Idle Time (s)', color=fg_color)
-        ax_br.set_title('Idle Time of Machines per type of waiting', color=fg_color)
-        ax_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
-        ax_br.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
-        ax_br.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+        for i in range(len(ax_br)):
+            ax_br[i].clear()
+            ax_br[i].set_ylabel('Idle Time (s)', color=fg_color)
+            ax_br[i].set_title('Idle Time of Machines per type of waiting', color=fg_color)
+            ax_br[i].set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
+            ax_br[i].yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+            ax_br[i].xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
         canvas_fig_br = FigureCanvasTkAgg(fig_br, master=self.frame_br)
         canvas_fig_widget__br = canvas_fig_br.get_tk_widget()
         canvas_fig_widget__br.pack(expand=True, fill=tk.BOTH)
@@ -553,7 +554,6 @@ class ReportingWindow(customtkinter.CTkToplevel):
         #oee_100quality = 100*np.mean([(m.ct + 2*abs(m.move_robot_time))/ct for m, ct in zip(manuf_line.list_machines, machines_CT)])
         oee_100quality = 100*np.mean([ct/manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)])
 
-
         self.oee_label.configure(text = f'{oee_100quality:.1f} %')
 
         bars1 = ax_m.bar(machines_names, machine_available_percentage, label='Operating', color="green")
@@ -575,14 +575,23 @@ class ReportingWindow(customtkinter.CTkToplevel):
         bar_width = 0.35
         index = range(num_machines)
 
-        bar_starv = ax_br.bar(index, starvation_times, bar_width, label='Starvation Time')
-        bar_block = ax_br.bar([i + bar_width for i in index], blockage_times,bar_width, label='Blockage Time')
+        bar_starv = ax_br[0].bar(index, starvation_times, bar_width, label='Starvation Time')
+        bar_block = ax_br[0].bar([i + bar_width for i in index], blockage_times,bar_width, label='Blockage Time')
 
-        ax_br.set_xticks([i + bar_width / 2 for i in index])  # Set machine names as x-tick positions
-        ax_br.set_xticklabels(machines_names)
+        ax_br[0].set_xticks([i + bar_width / 2 for i in index])  # Set machine names as x-tick positions
+        ax_br[0].set_xticklabels(machines_names)
 
-        ax_br.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+        ax_br[0].legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
           fancybox=True, shadow=True, ncol=2)
+        
+        for idx, item in enumerate(list(manuf_line.references_config.keys())):
+            items = [m.ref_produced.count(item)  for m in manuf_line.list_machines]
+            ax_br[1].bar([x + bar_width * idx for x,_ in enumerate(manuf_line.list_machines)], items, width=0.4, label=item, align='center')
+
+        ax_br[1].set_xlabel('Machine IDs')
+        ax_br[1].set_ylabel('Parts Produced')
+        ax_br[1].set_title('Parts Passed through Machine per Reference')
+        ax_br[1].legend()
         fig_br.tight_layout()
 
     def longest_repetitive_pattern(self, sequence):
