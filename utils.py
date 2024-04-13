@@ -50,8 +50,6 @@ class ManufLine:
 
         ### Multi reference
         self.references_config = None
-        self.n_product_references = ["Ref A", "Ref B"]
-        self.product_references = {}
         self.inventory_in = simpy.Store(env)
         self.inventory_out = simpy.Store(env)
 
@@ -79,26 +77,7 @@ class ManufLine:
         self.list_machines = []
         self.machines_breakdown = []
         self.sim_times_track = []
-        # self.list_operators = [Operator(operators_assignement[i]) for i in range(len(operators_assignement))]
-
-        # previous_machine = None
-        # for i in range(n_machines):
-           
-        #     assigned_tasks = list(np.array(tasks)[machine_indices[i]])
-            
-        #     first, last = False, False
-        #     if i == n_machines-1:
-        #         last = True
-        #     if i == 0:
-        #         first = True
-
-        #     assigned_operator_index = self.get_index_of_item([operator.assigned_machines for operator in self.list_operators], i+1)
-            
-        #     machine = Machine(self, env, "M"+str(i+1), assigned_tasks, self.config, operator=self.list_operators[assigned_operator_index], previous_machine=previous_machine, first=first, last=last, breakdowns=self.breakdowns['enabled'], mean_time_to_failure=eval(config['breakdowns']['mttf']), hazard_delays=config['hazard_delays']['enabled'])
-        #     if machine.first:
-        #         self.first_machine = machine
-        #     previous_machine = machine
-        #     self.list_machines.append(machine)    
+        self.output_tracks = []
 
 
     def get_index_of_item(self, list_of_lists, item):
@@ -199,6 +178,12 @@ class ManufLine:
         plt.show()
         return self.list_machines
 
+
+    def track_output(self):
+        while True:
+            yield self.env.timeout(self.sim_time/100)
+            self.output_tracks.append((self.env.now,self.shop_stock_out.level))
+
     def track_sim(self, robot_state):
         """
         Tracks the simulation by recording various states and metrics.
@@ -255,8 +240,10 @@ class ManufLine:
                 self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process(False))
         #TODO: fix problem of reset shift with multi references
         #self.env.process(self.reset_shift())
+        self.env.process(self.track_output())
+        print("Starting the sim now.")
         self.env.run(until=self.sim_time)
-        print("")
+
         #print(f"Current simulation time at the end: {self.env.now}")
 
     def reset(self):
@@ -415,13 +402,17 @@ class ManufLine:
         else:
             refill_time_ref = float(self.references_config[ref][0])
 
+        print("refill market info = ", refill_time_ref)
         while True:
+            
             if isinstance(refill_time_ref, list):
                 refill_time = int(random.uniform(refill_time_ref[0], refill_time_ref[1]))
             elif isinstance(refill_time_ref, float):
                 refill_time = refill_time_ref
             try:
+
                 yield self.env.timeout(refill_time)
+                print("refilling the market ++ " + str(self.supermarket_in.capacity) +" - level = "  + str(self.supermarket_in.level))
                 yield self.supermarket_in.put(self.refill_size) 
                 yield self.inventory_in.put(ref)
                 # if self.supermarket_in.level < self.stock_capacity:
@@ -491,24 +482,24 @@ class ManufLine:
         self.list_machines = []
 
         # If only one cell of "Robot Transport Time" is NaN (empty), means we are not using a robot to transport components.
-        print("HEre 1 : ", all([not np.isnan(list_machines_config[i][10])  for i in range(len(list_machines_config))]) )
-        print("Here 2 : ", all([not np.isnan(list_machines_config[i][12])  for i in range(len(list_machines_config))]))
+        print("HEre 1 : ", all([not np.isnan(list_machines_config[i][7])  for i in range(len(list_machines_config))]) )
+        print("Here 2 : ", all([not np.isnan(list_machines_config[i][9])  for i in range(len(list_machines_config))]))
         
         self.robots_list = []
-        if all([not np.isnan(list_machines_config[i][10])  for i in range(len(list_machines_config))]) and all([not np.isnan(list_machines_config[i][12])  for i in range(len(list_machines_config))]):
-            print("List of robots = ", [list_machines_config[j][12] for j in  range(len(list_machines_config))])
-            for i in range(int(max([list_machines_config[j][12] for j in  range(len(list_machines_config))]))):
+        if all([not np.isnan(list_machines_config[i][7])  for i in range(len(list_machines_config))]) and all([not np.isnan(list_machines_config[i][9])  for i in range(len(list_machines_config))]):
+            print("List of robots = ", [list_machines_config[j][9] for j in  range(len(list_machines_config))])
+            for i in range(int(max([list_machines_config[j][9] for j in  range(len(list_machines_config))]))):
                 self.robot = Robot(self, self.env)
                 #print("ORder inside = ", [list_machines_config[j][11]  for j in range(len(list_machines_config)) if list_machines_config[j][11] == int(i+1)])
-                self.robot.order = [list_machines_config[j][11] for j in range(len(list_machines_config)) if (list_machines_config[j][12] == int(i+1))]
-                self.robot.in_transport_times = [list_machines_config[j][10] for j in range(len(list_machines_config)) if (list_machines_config[j][12] == int(i+1))]
+                self.robot.order = [list_machines_config[j][8] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
+                self.robot.in_transport_times = [list_machines_config[j][7] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
                 self.robots_list.append(self.robot)
         
-        notfirst_list = [list_machines_config[i][5] for i in range(len(list_machines_config))]
+        notfirst_list = [list_machines_config[i][2] for i in range(len(list_machines_config))]
         notfirst_list1 = [item.strip("'")  for item in notfirst_list]
 
-        self.full_transport_times = [list_machines_config[j][10] for j in range(len(list_machines_config))]
-        self.full_order = [list_machines_config[j][11] for j in range(len(list_machines_config))]
+        self.full_transport_times = [list_machines_config[j][7] for j in range(len(list_machines_config))]
+        self.full_order = [list_machines_config[j][8] for j in range(len(list_machines_config))]
         # if isinstance(item, str) else item for sublist in notfirst_list
         lists = [eval(item) if item.startswith('[') else [item] for item in notfirst_list1]
 
@@ -517,7 +508,7 @@ class ManufLine:
 
         #  Remove duplicates
         unique_list = list(set(flattened_list))
-
+        print("unique list = ", unique_list)
         for i in range(len(list_machines_config)):
             try:
                 assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
@@ -526,22 +517,22 @@ class ManufLine:
             first, last = False, False
             # if i == len(list_machines_config) - 1 :
             #     last = True
-            if list_machines_config[i][5] == "END":
+            if list_machines_config[i][2] == "END":
                 last = True
             if list_machines_config[i][0] not in unique_list:
                 first = True    
 
             try: 
-                mttf = eval(str(list_machines_config[i][8]))
-                mttr = eval(str(list_machines_config[i][9]))
-                buffer_capacity = list_machines_config[i][6]
-                initial_buffer = list_machines_config[i][7]
+                mttf = eval(str(list_machines_config[i][5]))
+                mttr = eval(str(list_machines_config[i][6]))
+                buffer_capacity = list_machines_config[i][3]
+                initial_buffer = list_machines_config[i][4]
 
             except:
-                mttf = float(list_machines_config[i][8])
-                mttr = float(list_machines_config[i][9])
-                buffer_capacity = list_machines_config[i][6]
-                initial_buffer = list_machines_config[i][7]
+                mttf = float(list_machines_config[i][5])
+                mttr = float(list_machines_config[i][6])
+                buffer_capacity = list_machines_config[i][3]
+                initial_buffer = list_machines_config[i][4]
                         
             try:
                 machine = Machine(self, self.env, list_machines_config[i][0], list_machines_config[i][1], self.config, assigned_tasks=assigned_tasks, first=first, last=last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'])
@@ -558,8 +549,8 @@ class ManufLine:
 
         l = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
-            if not str(list_machines_config[i][13]) =="nan":
-                indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][13]))
+            if not str(list_machines_config[i][10]) =="nan":
+                indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][7]))
                 machine.same_machine = self.list_machines[indexmachine]
             if machine.first:
                 machine.previous_machine = self.supermarket_in
@@ -571,9 +562,9 @@ class ManufLine:
                 # Process if robot is NOT used
                 try:
                     try:
-                        link_cell_data = eval(list_machines_config[i][5])
+                        link_cell_data = eval(list_machines_config[i][2])
                     except:
-                        link_cell_data = list_machines_config[i][5]
+                        link_cell_data = list_machines_config[i][2]
 
                     # If the machine delivers to many machine 
                     if type(link_cell_data) is list:
@@ -615,57 +606,15 @@ class ManufLine:
                                 machine.store_out = machine.next_machine.store_in
                         except:
                             pass
-                    # try:
-                    #     link_cell_data = eval(list_machines_config[i][5])
-                    # except:
-                    #     link_cell_data = list_machines_config[i][5]
-
-                    # # If the machine delivers to many machine 
-                    # if type(link_cell_data) is list:
-                    #     for m_i in link_cell_data:
-                    #         # Machine that never appeared before
-                    #         if l.index(m_i) not in index_next:
-                    #             index_next.append(l.index(m_i))
-                    #             machine.next_machine = self.list_machines[index_next[-1]]
-                    #             self.list_machines[index_next[-1]].previous_machine = machine
-                    #             self.list_machines[index_next[-1]].previous_machines.append(machine)
-                    #             machine.next_machines.append(self.list_machines[index_next[-1]])
-                    #             self.list_machines[index_next[-1]].buffer_in = machine.buffer_out
-                    #         else:
-                    #             machine.next_machine = self.list_machines[l.index(m_i)]
-                    #             self.list_machines[l.index(m_i)].previous_machine = machine
-                    #             machine.next_machines.append(self.list_machines[l.index(m_i)])
-                    #             self.list_machines[l.index(m_i)].previous_machines.append(machine)
-                    #             machine.buffer_out = machine.next_machine.buffer_in
-                
-                    # # If the machine delivers to only one machine 
-                    # else:
-                    #     try:
-                    #         if l.index(link_cell_data) not in index_next:
-                    #             index_next.append(l.index(link_cell_data))
-                    #             machine.next_machine = self.list_machines[index_next[-1]]
-                    #             self.list_machines[index_next[-1]].previous_machine = machine
-                    #             self.list_machines[index_next[-1]].previous_machines.append(machine)
-                    #             machine.next_machines.append(self.list_machines[index_next[-1]])
-                    #             self.list_machines[index_next[-1]].buffer_in = machine.buffer_out
-                    #         else:
-                    #             machine.next_machine = self.list_machines[l.index(link_cell_data)]
-                    #             self.list_machines[l.index(link_cell_data)].previous_machine = machine
-                    #             machine.next_machines.append(self.list_machines[l.index(link_cell_data)])
-                    #             self.list_machines[l.index(link_cell_data)].previous_machines.append(machine)
-                    #             machine.buffer_out = machine.next_machine.buffer_in
-                            
-                    #     except:
-                    #         pass
                 except:
                     pass
             else:
                 machine.move_robot_time = self.full_transport_times[i]
                 # Process if robot is used                
                 try:
-                    link_cell_data = eval(list_machines_config[i][5])
+                    link_cell_data = eval(list_machines_config[i][2])
                 except:
-                    link_cell_data = list_machines_config[i][5]
+                    link_cell_data = list_machines_config[i][2]
                 
                 # If the machine delivers to many machine 
                 if type(link_cell_data) is list:
@@ -817,7 +766,6 @@ class Machine:
                 other_process_operating = self.same_machine.operating
             else:
                 other_process_operating = False
-
             if not self.operating and not other_process_operating:
                 if any([m.ct != 0 for m in self.manuf_line.list_machines]):
                     if self.op_fatigue:
@@ -833,7 +781,6 @@ class Machine:
 
                 num_samples = int(1/float(self.config["hazard_delays"]["probability"]))
                 # + self.hazard_delays*np.mean(weibull_min.rvs(bias_shape, scale=bias_scale, size=num_samples))
-              
                 self.buffer_tracks.append((self.env.now, self.buffer_out.level))
                 entry0 = self.env.now
                 self.entry_times.append(entry0)
@@ -850,7 +797,8 @@ class Machine:
                         yield self.buffer_in.get(1)
                         product = yield self.store_in.get()
                         #done_in = deterministic_time 
-                        done_in = self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1]
+                        
+                        done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
                         start = self.env.now
                         self.loaded_bol = True
 
@@ -871,7 +819,6 @@ class Machine:
                         self.broken = False
                         self.operating = False
                         self.loaded_bol = False
-                
                 real_done_in = done_in
                 if real_done_in == 0:
                     if self.manuf_line.local:
@@ -889,7 +836,6 @@ class Machine:
                         try:
                             entry = self.env.now
                             self.current_product = product
-                            print("Machine " + self.ID + " - start operating" + " - product = " + str(self.current_product) +" with time = " + str(done_in))
                             exit_t = self.env.now
                             self.exit_times.append(exit_t-entry)
                             self.operating = True
@@ -918,7 +864,6 @@ class Machine:
                             self.broken = False
                             self.operating = False
                 
-
                 self.ref_produced.append(product)
                 self.current_product = None
                 self.finished_times.append(real_done_in)

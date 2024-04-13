@@ -116,25 +116,6 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.upload_data_m = customtkinter.CTkButton(master=self.tabview.tab("Machines"), text="Upload Config", font=('Arial', 15), width = 150, image=upload_img, command=self.upload_config, compound="left")
         self.upload_data_m.grid(row = 0, column=2, padx=(0, 10), pady=(0,10))   
         
-        # self.buffers_data = [["Buffer","Capacity","Initial"]]
-        # self.frame_buffer_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Buffers"), height=100, width=600)
-        # self.frame_buffer_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
-        # self.table_buffers = CTkTable(self.frame_buffer_list, row=8, column=3, values=self.buffers_data, header_color="deepskyblue4")
-        # self.tabview.tab("Buffers").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
-        # self.tabview.tab("Buffers").grid_rowconfigure((1), weight=1)
-        # #table.grid(row=0, column=0)
-        # self.table_buffers.pack(expand=True)
-        # self.add_buffer = customtkinter.CTkButton(master=self.tabview.tab("Buffers"), text="+ Add new", width=150, command=self.add_buffer)
-        # self.add_buffer.grid(row = 0, column=0, pady=(0,10), padx=(0, 10))
-        # self.delete_buffer = customtkinter.CTkButton(master=self.tabview.tab("Buffers"), text="- Delete last", fg_color="brown3", width=150, command=self.delete_buffer)
-        # self.delete_buffer.grid(row = 0, column=1, padx=(0, 10), pady=(0,10))    
-
-        #self.buffers_data = [["Buffer","Capacity","Initial"]]
-        # self.frame_stock_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Stock"), height=150, width=600)
-        # self.frame_stock_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
-        # self.table_buffers = CTkTable(self.frame_buffer_list, row=8, column=3, values=self.buffers_data, header_color="deepskyblue4")
-        # self.tabview.tab("Stock").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
-        # self.tabview.tab("Stock").grid_rowconfigure((1), weight=1)
 
         self.stock_capacity_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Input Sock Capacity")
         self.stock_capacity_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
@@ -161,31 +142,12 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.refill_size_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Size", width=200)
         self.refill_size_input.grid(row=3,column=1, padx=(10,10), pady=(10,10))
 
-        
-        # #table.grid(row=0, column=0)
-        # self.table_buffers.pack(expand=True)
-        
-        # self.middle_frame = customtkinter.CTkFrame(master=self, corner_radius=20, height=400, width=600)
-        # self.middle_frame.grid(row=1, column=0, columnspan=3, padx=10, pady = 5, sticky="nsew" )
-
-        # self.footer = customtkinter.CTkFrame(master=self, corner_radius=20)
-        # self.footer.grid(row=1, column=1, padx=10, pady = 5, sticky="nsew" )
 
         self.tabview_footer = customtkinter.CTkTabview(self, corner_radius=20, width=500, height=250)
         self.tabview_footer.grid(row=1, column=1, padx=10, pady = 5, sticky="nsew" )
         self.tabview_footer.add("Breakdowns")
         self.tabview_footer.add("Delays")
         self.tabview_footer.add("Manual Models")
-
-        # self.label_break2 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Failure")
-        # self.label_break2.grid(row=0, column=1, padx=20, pady=20)
-        # self.mttf_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTF")
-        # self.mttf_label.grid(row=1, column=1, padx=20, pady=20)
-
-        # self.label_break3 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Repair")
-        # self.label_break3.grid(row=0, column=2, padx=20, pady=20)
-        # self.mttr_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTR")
-        # self.mttr_label.grid(row=1, column=2, padx=20, pady=20)
 
         self.switch_var = customtkinter.StringVar(value="on")
         self.label_break1 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Machine Breakdown")
@@ -544,6 +506,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         # Calculate machine available percentage, breakdown percentage, and waiting time percentage
         waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
         #machine_available_percentage = [100 - waiting_percentage - breakdown_percentage for waiting_percentage, breakdown_percentage in zip(waiting_time_percentage, breakdown_percentage)] 
+        print("Refernces = ", self.manuf_line.references_config)
         print('Efficiency = ', machine_efficiency_rate)
         print('Availability 1 = ', machines_util)
         print('Utilization 2 = ', machine_available_percentage)

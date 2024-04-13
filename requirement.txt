@@ -10,3 +10,4 @@ matplotlib
 ipywidgets>=7.0.0 
 customtkinter
 openpyxl
+streamlit
