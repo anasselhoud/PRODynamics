@@ -77,6 +77,14 @@ class PRODynamicsApp:
                 st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=1)
                 st.session_state.configuration["strategy"] = st.selectbox("Robot's Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"])
 
+            with columns[1]:
+                # Breakdowns Configuration
+                st.header("Breakdowns Configuration")
+                st.session_state.configuration["enable_breakdowns"] = st.checkbox("Enable Machines Breakdown", value=True)
+                st.session_state.configuration["n_repairmen"] = st.number_input("Number of Repairmen", value=3)
+                st.session_state.configuration["enable_random_seed"] = st.checkbox("Enable Random Seed", value=True)
+                st.session_state.configuration["probability_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution"])
+
         # Stock Configuration
         with tab2:
             columns = st.columns(2)
@@ -88,13 +96,7 @@ class PRODynamicsApp:
                 st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value="20")
                 st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value="1")
             
-            with columns[1]:
-                # Breakdowns Configuration
-                st.header("Breakdowns Configuration")
-                st.session_state.configuration["enable_breakdowns"] = st.checkbox("Enable Machines Breakdown", value=True)
-                st.session_state.configuration["n_repairmen"] = st.number_input("Number of Repairmen", value=3)
-                st.session_state.configuration["enable_random_seed"] = st.checkbox("Enable Random Seed", value=True)
-                st.session_state.configuration["probability_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution"])
+           
 
         if st.button("Confirm"):
             
@@ -113,9 +115,10 @@ class PRODynamicsApp:
             st.subheader('@FORVIA')
         row3_spacer1, row3_1, row3_spacer2 = st.columns((.1, 3.2, .1))
         with row3_1:
-            st.markdown("Hello there! Have you ever spent your weekend watching the German Bundesliga and had your friends complain about how 'players definitely used to run more' ? However, you did not want to start an argument because you did not have any stats at hand? Well, this interactive application containing Bundesliga data from season 2013/2014 to season 2019/2020 allows you to discover just that! If you're on a mobile device, I would recommend switching over to landscape for viewing ease.")
-            st.markdown("You can find the source code in the [BuLiAn GitHub Repository](https://github.com/tdenzl/BuLiAn)")
-            st.markdown("If you are interested in how this app was developed check out my [Medium article](https://tim-denzler.medium.com/is-bayern-m%C3%BCnchen-the-laziest-team-in-the-german-bundesliga-770cfbd989c7)")
+            st.markdown("PRODynamics is an all-in-one solution for streamlining the evaluation and optimization of production lines. From configuration to simulation and optimization, we've got you covered.")
+            st.markdown("The evaluation of production line performance within PRODynamics is grounded in a comprehensive understanding of the  dynamics and stochastic behaviors inherent in manufacturing operationss, ranging from machine breakdowns and delays to micro-stops and resource constraints.")
+
+            st.markdown("This work is a culmination of an Idustrial PhD Project (CIFRE) conducted by [Anass ELHOUD](https://elhoud.me), aimed at harnessing the power of digital technologies and artificial intelligence to expedite the design and optimization of manufacturing process lines. ")
             
         # Create a row layout
         c1, c2= st.columns(2)
@@ -239,24 +242,7 @@ class PRODynamicsApp:
         with col[4]:
             global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
             st.metric(label="# OEE / TRS", value=int(global_cycle_time), delta=str(100*(float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
-        # # Production Flow Rate
-        # st.subheader("Production Flow Rate")
-        # production_rate_str = "N/A"
-        # st.write(production_rate_str)
 
-        # # Efficiency Rate
-        # st.subheader("Efficiency Rate")
-        # efficiency_rate_str = "N/A"
-        # st.write(efficiency_rate_str)
-
-        # # OEE / TRS
-        # st.subheader("OEE / TRS")
-        # oee_str = "N/A"
-        # st.write(oee_str)
-
-        # # Save Sequence button
-        # if st.button("Save Sequence"):
-        #     pass
         machines_names = [m.ID for m in manuf_line.list_machines]
         idle_times = []
         machines_CT = []
@@ -448,12 +434,14 @@ class PRODynamicsApp:
         with st.sidebar:
             selected = option_menu(
             menu_title = "Prodynamics",
-            options = ["Home","Global Settings","Process Data","Simulation & Results","Storage","Contact Us"],
+            options = ["Home","Global Settings","Process Data","Simulation & Results Lab","Storage","Contact Us"],
             icons = ["house","gear","activity","play-circle-fill","envelope", "question-circle-fill"],
             menu_icon = "cast",
             default_index = 0,
             #orientation = "horizontal",
         )
+            
+
 
         if selected == "Home":
             self.home()
@@ -461,7 +449,7 @@ class PRODynamicsApp:
             self.global_configuration()
         elif selected == "Process Data":
             self.process_data()
-        elif selected == "Simulation & Results":
+        elif selected == "Simulation & Results Lab":
             self.simulation_page()
         elif selected == "Storage":
             # Add the content for the "Storage" section here
