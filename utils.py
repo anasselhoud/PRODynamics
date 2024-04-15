@@ -46,7 +46,7 @@ class ManufLine:
         self.safety_stock = 0
         self.refill_time = None
         self.refill_size = 1
-        self.reset_shift_bool = False
+        self.reset_shift_dec = False
 
         ### Multi reference
         self.references_config = None
@@ -66,7 +66,7 @@ class ManufLine:
         self.robots_list = []
         self.n_robots = 1
         self.robot_strategy = 0
-
+        self.reset_shift_bool = False
         self.local = True
 
         self.buffer_tracks = []
@@ -239,7 +239,9 @@ class ManufLine:
                 #self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process_unique(False))
                 self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process(False))
         #TODO: fix problem of reset shift with multi references
-        #self.env.process(self.reset_shift())
+        print("Resetting shift = ", self.reset_shift_dec)
+        if self.reset_shift_dec:
+            self.env.process(self.reset_shift())
         self.env.process(self.track_output())
         print("Starting the sim now.")
         self.env.run(until=self.sim_time)
@@ -357,8 +359,11 @@ class ManufLine:
         """
         if self.breakdowns_switch:
             while True:
-                yield self.env.timeout(machine.time_to_failure())
                 if not machine.broken:
+                    time_to_break = machine.time_to_failure()
+                    if time_to_break < machine.MTTF:
+                        time_to_break = 2*machine.MTTF
+                    yield self.env.timeout(time_to_break)
                     self.operationg = False
                     ##print("Machine " + machine.ID + " - Broken")
                     machine.n_breakdowns += 1
@@ -440,7 +445,7 @@ class ManufLine:
             while done_in:
                 # Retry the job until it is done.
                 # Its priority is lower than that of machine repairs.
-                with self.repairmen.request(priority=3) as req:
+                with self.repairmen.request(priority=3, preempt=False) as req:
                     yield req
                     start = self.env.now
                     try:
@@ -725,18 +730,27 @@ class Machine:
         self.prio = 1
         self.broken = False
         self.breakdowns = breakdowns
+        self.real_repair_time = []
         self.hazard_delays = 1 if hazard_delays else 0
         self.op_fatigue = config["fatigue_model"]["enabled"]
         self.current_product = None
-       
+
+
     
     def time_to_failure(self):
         """Return time until next failure for a machine."""
         #deterioration_factor = 1 + (self.env.now / self.simulation_duration)  # Adjust this factor as needed
         #adjusted_MTTF = self.MTTF / deterioration_factor
         if self.manuf_line.randomseed:
-            random.seed(10)
-        val = random.expovariate(1/self.MTTF)
+            random.seed(10+int(self.manuf_line.list_machines.index(self)))
+
+        self.breakdown_law = ""
+        self.shape_parameter = 3
+        if self.breakdown_law == "Weibull":
+            scale_parameter = self.MTTF / (np.log(2))**(1/self.shape_parameter)
+            val = random.weibullvariate(self.shape_parameter, scale_parameter)
+        else:
+            val = random.expovariate(1/self.MTTF)
         return val
     
     def fatigue_model(self, elapsed_time, base_time):
@@ -804,12 +818,18 @@ class Machine:
 
                     except simpy.Interrupt:                        
                         self.broken = True
+                        print(self.ID +" broken  at  = "+ str(self.env.now))
 
                         # try:
-                        with self.manuf_line.repairmen.request(priority=1) as req:
+                        repair_in = self.env.now
+                        with self.manuf_line.repairmen.request(priority=1, preempt=False) as req:
                             yield req
-                            print(self.ID +" broken with  buffer in level " + str(self.buffer_in.level) + " time to repair = "+ str(self.MTTR))
+                            print(self.ID +" broken to be repaired now " + str(self.buffer_in.level) + " time to repair = "+ str(self.MTTR))
                             yield self.env.timeout(self.MTTR) #Time to repair
+                            print("here we finished repairing " + self.ID + " with time " + str(self.env.now - repair_in))
+                            repair_end = self.env.now
+                            self.real_repair_time.append(float(repair_end - repair_in))
+
                         #done_in = 0
                         
                         #if self.buffer_in.level < self.buffer_in.capacity :
@@ -819,6 +839,7 @@ class Machine:
                         self.broken = False
                         self.operating = False
                         self.loaded_bol = False
+
                 real_done_in = done_in
                 if real_done_in == 0:
                     if self.manuf_line.local:
@@ -856,11 +877,14 @@ class Machine:
                             self.broken = True
                             done_in -= self.env.now - start
                             # try:
-                            with self.manuf_line.repairmen.request(priority=1) as req:
+                            repair_in = self.env.now
+                            with self.manuf_line.repairmen.request(priority=1, preempt=False) as req:
                                 yield req
                                 print(self.ID +" broken with  buffer in level " + str(self.buffer_in.level) + " time to repair = "+ str(self.MTTR))
+                                repair_end = self.env.now
                                 yield self.env.timeout(self.MTTR) #Time to repair
-
+                                print("here we finished repairing " + self.ID + " with time " + str(repair_end - repair_in + float(self.MTTR)))
+                                self.real_repair_time.append(float(repair_end - repair_in + float(self.MTTR)))
                             self.broken = False
                             self.operating = False
                 
