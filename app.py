@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -10,13 +9,13 @@ import seaborn as sns
 from streamlit_option_menu import option_menu
 from utils import *
 import plotly.graph_objects as go
-
+import threading
 
 st.set_page_config(page_title="PRODynamics", page_icon="⚙️", layout="wide")
 #st.image('surviz_black_long.png')
-import threading
 
-# 
+
+ 
 # if selected == "Simulation & Results":
 #     with st.spinner(text='In progress'):
 #         time.sleep(3)
@@ -28,25 +27,17 @@ import threading
 class PRODynamicsApp:
     def __init__(self):
 
-        # if "multi_ref_data" not in st.session_state:
-        #     st.session_state.multi_ref_data = None
-        # if "line_data" not in st.session_state:
-        #     st.session_state.line_data = None
-
-
         if 'line_data' not in st.session_state:  
-            st.session_state.line_data = "" 
+            st.session_state.line_data = pd.read_excel("./LineData.xlsx", sheet_name="Line Data")
         if 'multi_ref_data' not in st.session_state:  
-            st.session_state.multi_ref_data = ""
+            st.session_state.multi_ref_data =  pd.read_excel("./LineData.xlsx", sheet_name="Multi-Ref")
         if "configuration" not in st.session_state:
             st.session_state.configuration = {}
 
 
         self.all_prepared = False
         self.selected = None
-
-
-        
+    
 
     def global_configuration(self):
 
@@ -56,6 +47,7 @@ class PRODynamicsApp:
         "takt_time": None,
         "n_robots": None,
         "strategy": None,
+        "reset_shift": None,
         "stock_capacity": None,
         "initial_stock": None,
         "refill_time": None,
@@ -73,9 +65,10 @@ class PRODynamicsApp:
             with columns[0]:
                 st.header("Simulation Data")
                 st.session_state.configuration["sim_time"] = st.text_input("Simulation Time (s)", value="3600*24*7")
-                st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value="100000")
+                st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value="10000")
                 st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=1)
                 st.session_state.configuration["strategy"] = st.selectbox("Robot's Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"])
+                st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=False)
 
             with columns[1]:
                 # Breakdowns Configuration
@@ -148,7 +141,7 @@ class PRODynamicsApp:
             chart_data = pd.DataFrame(np.random.randn(20, 3),columns=['a', 'b', 'c'])
 
     def process_data(self):
-        uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls"])
+        uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
         tab1, tab2 = st.tabs(["Production Line Data", "Product Reference Data"])
         with tab1:
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
@@ -158,33 +151,51 @@ class PRODynamicsApp:
                 if not st.session_state.line_data.equals(updated_df):
                     st.session_state.line_data = updated_df.copy()
             else:
-                if uploaded_file_line_data is not None:
-                    st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                    st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-                
+                with st.spinner('Simulation in progress...'):        
+                    if uploaded_file_line_data is not None:
+                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
+                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+
+                        if uploaded_file_line_data.name.endswith('.csv'):
+                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
+                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
+                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
+                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                        else:
+                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+
+
         with tab2:
-            
+            st.subheader("Product Reference Data")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                st.subheader("Multi-Reference Data")
-                updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+                updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
                 if not st.session_state.multi_ref_data.equals(updated_refs):
                     st.session_state.multi_ref_data = updated_refs.copy()
             else:
+                
                 if uploaded_file_line_data is not None:
-                    st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                    st.subheader("Multi-Reference Data")
+                    if uploaded_file_line_data.name.endswith('.csv'):
+                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
+                    elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
+                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                    else:
+                        st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                    # st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                    # st.subheader("Multi-Reference Data")
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
-            
-        if st.button("Confirm"):
-            print(st.session_state.multi_ref_data)
-            st.session_state.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-            print(st.session_state.line_data.values.tolist())
-            st.session_state.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
-            st.session_state.manuf_line.create_machines(st.session_state.line_data.values.tolist())
-      
-            self.all_prepared = True
-                
+            new_ref_name = st.text_input("Enter new reference name")
+            if st.button("+ Add Reference", key="add_new_ref"):
+                if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                    if new_ref_name:
+                        st.session_state.multi_ref_data[new_ref_name] = ""
+                        st.rerun()
+                    else:
+                        st.warning("Please enter a column name")
+                    st.subheader("Product Reference Data")
+                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+
 
     def simulation_page(self):
         print(st.session_state.line_data.values.tolist())
@@ -240,8 +251,8 @@ class PRODynamicsApp:
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
 
         with col[4]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
-            st.metric(label="# OEE / TRS", value=int(global_cycle_time), delta=str(100*(float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
+            oee =manuf_line.takt_time/global_cycle_time
+            st.metric(label="# OEE / TRS", value=f"{oee:.2%}")
 
         machines_names = [m.ID for m in manuf_line.list_machines]
         idle_times = []
@@ -269,7 +280,7 @@ class PRODynamicsApp:
         # Display plots
         st.header("Plots")
         c11, c12, c13= st.columns([0.5,0.3,0.2])
-        c3, c4= st.columns(2)
+        c3, c4= st.columns([0.5,0.5])
         with c11:
             # st.subheader("Additional Plot 1")
             # chart_data = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
@@ -281,9 +292,24 @@ class PRODynamicsApp:
 
             # Create a Plotly figure
             fig = go.Figure()
+            for i, machine in enumerate(manuf_line.list_machines):
+                idle_times_machine = []
+                
+                #for entry, exit in zip(machine.entry_times, machine.exit_times):
+                ct_machine = []
+                for finished in machine.finished_times:
+                    if finished is None:
+                        ct_machine.append(0)
+                    else:
+                        ct_machine.append(finished)
+                machines_CT.append(ct_machine)
+                #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
+                fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
+
 
             # Add a line trace for the cycle time
-            fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
+            #x=time_points, y=cycle_times
+            #fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
 
             # Update layout
             fig.update_layout(
@@ -299,9 +325,31 @@ class PRODynamicsApp:
 
 
         with c12:
+
             st.subheader("Additional Plot 2")
-            chart_data = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
-            st.area_chart(chart_data)
+            # chart_data = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
+            # st.area_chart(chart_data)
+            fig3 = go.Figure()
+            buffer_out = [t[1] for t in manuf_line.output_tracks]
+            print("buffer out = ", max(buffer_out))
+            times = [t[0] for t in manuf_line.output_tracks]
+            fig3.add_trace(go.Scatter(x=times, y=buffer_out, mode='lines'))
+
+
+            # Add a line trace for the cycle time
+            #x=time_points, y=cycle_times
+            #fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
+
+            # Update layout
+            fig3.update_layout(
+                title='Evolution of Cycle Time',
+                xaxis_title='Time',
+                yaxis_title='Cycle Time',
+                margin=dict(l=0, r=0, t=30, b=20)
+            )
+
+            # Display the Plotly figure
+            st.plotly_chart(fig3, use_container_width=True)
 
         with c13:
             items_per_reference = []
@@ -312,6 +360,7 @@ class PRODynamicsApp:
             reference_names = list(manuf_line.references_config.keys())
             item_counts = items_per_reference
 
+  
             # Create the Plotly figure
             fig = go.Figure()
 
@@ -336,12 +385,15 @@ class PRODynamicsApp:
             # ax_m.set_title('Machine Utilization Rate')
             
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
-            print("Mahcines = ", manuf_line.list_machines)
-            print("References = ", manuf_line.references_config)
-            print(" ALL problem = ", [m.ref_produced.count('Ref A')  for m in manuf_line.list_machines])
+
             machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1]) * m.ref_produced.count(item) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
             machine_available_percentage2 = [100 * ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)]
-            breakdown_percentage = [100 * float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
+            #breakdown_percentage = [100 * float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
+            print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
+            print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
+            print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
+            
+            breakdown_percentage = [100 * float(np.sum(m.real_repair_time)) / manuf_line.sim_time for m in manuf_line.list_machines]
             print('Breakdowns = ', breakdown_percentage)
             waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
 
@@ -378,7 +430,7 @@ class PRODynamicsApp:
                 xanchor="center",  # Anchor legend to the right
                 x=0.5  # Adjust horizontal position of the legend
             ),
-            margin=dict(l=0, r=0, t=30, b=20)
+            margin=dict(l=0, r=0, t=30, b=30)
             )
 
 
@@ -419,7 +471,7 @@ class PRODynamicsApp:
                 xanchor="center",  # Anchor legend to the right
                 x=0.5  # Adjust horizontal position of the legend
             ),
-            margin=dict(l=0, r=0, t=30, b=20)
+            margin=dict(l=0, r=0, t=30, b=30)
             )
 
             st.plotly_chart(fig2)
@@ -434,8 +486,8 @@ class PRODynamicsApp:
         with st.sidebar:
             selected = option_menu(
             menu_title = "Prodynamics",
-            options = ["Home","Global Settings","Process Data","Simulation & Results Lab","Storage","Contact Us"],
-            icons = ["house","gear","activity","play-circle-fill","envelope", "question-circle-fill"],
+            options = ["Home","Global Settings","Process Data","Simulation Lab","Optimization Lab","Contact Us"],
+            icons = ["house","gear","activity","play-circle-fill","bar-chart-line-fill", "question-circle-fill"],
             menu_icon = "cast",
             default_index = 0,
             #orientation = "horizontal",
@@ -449,9 +501,9 @@ class PRODynamicsApp:
             self.global_configuration()
         elif selected == "Process Data":
             self.process_data()
-        elif selected == "Simulation & Results Lab":
+        elif selected == "Simulation Lab":
             self.simulation_page()
-        elif selected == "Storage":
+        elif selected == "Optimization Lab":
             # Add the content for the "Storage" section here
             pass
         elif selected == "Contact Us":
@@ -477,6 +529,7 @@ class PRODynamicsApp:
 
         manuf_line.stock_capacity = float(configuration["stock_capacity"])
         manuf_line.stock_initial = float(configuration["initial_stock"])
+        manuf_line.reset_shift_dec = bool(configuration["reset_shift"])
         # if value1-value2, then the refill time is random between two values
         pattern = r'^(\d+)-(\d+)$'
         match = re.match(pattern, str(configuration["refill_time"]))
