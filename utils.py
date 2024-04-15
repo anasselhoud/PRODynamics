@@ -372,6 +372,10 @@ class ManufLine:
                 #     time_to_break = 2*machine.MTTF
                 yield self.env.timeout(time_to_break)
                 if not machine.broken:
+                    time_to_break = machine.time_to_failure()
+                    if time_to_break < machine.MTTF:
+                        time_to_break = 2*machine.MTTF
+                    yield self.env.timeout(time_to_break)
                     self.operationg = False
                     print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
                     machine.n_breakdowns += 1

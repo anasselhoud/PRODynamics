@@ -166,6 +166,21 @@ class PRODynamicsApp:
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
 
 
+                with st.spinner('Simulation in progress...'):        
+                    if uploaded_file_line_data is not None:
+                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
+                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+
+                        if uploaded_file_line_data.name.endswith('.csv'):
+                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
+                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
+                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
+                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                        else:
+                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+
+
         with tab2:
             st.subheader("Product Reference Data")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
