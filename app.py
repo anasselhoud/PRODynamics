@@ -10,7 +10,7 @@ from streamlit_option_menu import option_menu
 from utils import *
 import plotly.graph_objects as go
 import threading
-
+from scipy.stats import weibull_min, expon, norm, gamma
 st.set_page_config(page_title="PRODynamics", page_icon="⚙️", layout="wide")
 #st.image('surviz_black_long.png')
 
@@ -56,7 +56,7 @@ class PRODynamicsApp:
         "n_repairmen": None,
         "enable_random_seed": None,
         "enable_breakdowns": None,
-        "probability_distribution": None
+        "breakdown_dist_distribution": None
     }
     
         with tab1:
@@ -76,7 +76,7 @@ class PRODynamicsApp:
                 st.session_state.configuration["enable_breakdowns"] = st.checkbox("Enable Machines Breakdown", value=True)
                 st.session_state.configuration["n_repairmen"] = st.number_input("Number of Repairmen", value=3)
                 st.session_state.configuration["enable_random_seed"] = st.checkbox("Enable Random Seed", value=True)
-                st.session_state.configuration["probability_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution"])
+                st.session_state.configuration["breakdown_dist_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution", "Exponential Distribution", "Normal Distribution", "Gamma Distribution"])
 
         # Stock Configuration
         with tab2:
@@ -106,6 +106,7 @@ class PRODynamicsApp:
         with row0_2:
             st.text("")
             st.subheader('@FORVIA')
+            
         row3_spacer1, row3_1, row3_spacer2 = st.columns((.1, 3.2, .1))
         with row3_1:
             st.markdown("PRODynamics is an all-in-one solution for streamlining the evaluation and optimization of production lines. From configuration to simulation and optimization, we've got you covered.")
@@ -114,31 +115,88 @@ class PRODynamicsApp:
             st.markdown("This work is a culmination of an Idustrial PhD Project (CIFRE) conducted by [Anass ELHOUD](https://elhoud.me), aimed at harnessing the power of digital technologies and artificial intelligence to expedite the design and optimization of manufacturing process lines. ")
             
         # Create a row layout
+        st.markdown('## Documentation')
         c1, c2= st.columns(2)
         c3, c4= st.columns(2)
 
-        with st.container():
-            c1.write("c1")
-            c2.write("c2")
+
 
         with st.container():
-            c3.write("c3")
-            c4.write("c4")
+            c1.subheader("Weibull Distribution")
+            c1.write("This distribution is versatile and exhibits a range of failure characteristics, including increasing, decreasing, or constant failure rates.")
+
+            c2.subheader("Exponential Distribution")
+            c2.write("This is a memoryless distribution: the probability of failure in the next time interval remains constant regardless of how much time has passed.")
+
+
+        with st.container():
+            c3.subheader("Normal Distribution")
+            c3.write("The Normal distribution generates failure events in a symmertrically distributed way around MTTF.")
+
+            c4.subheader("Gamma Distribution")
+            c4.write("The Gamma distribution is memory-based, the probability of failure in the next time interval changes regarding of how much time has passed.")
 
         with c1:
-            chart_data = pd.DataFrame(np.random.randn(20, 3),columns=['a', 'b', 'c'])
-            st.area_chart(chart_data)
+            c11, c12= st.columns(2)
+            with c11:
+                # MTTF (Mean Time To Failure) in hours
+                MTTF =  st.slider('MTTF (days)', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="mttf_weibull")
+            with c12:
+                beta = st.slider('Beta Parameter', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="beta_weibull")
+            
+            eta = MTTF
+            x_weib = np.linspace(0, 3*MTTF, 1000) 
+            pdf_weib = weibull_min.pdf(x_weib, beta, scale=eta)
+
+            # Visualize Weibull distribution function using line chart 
+            data_weib = pd.DataFrame({'Days': x_weib, 'Probability': pdf_weib})
+            st.line_chart(data_weib, x="Days", y="Probability")
+
             
         with c2:
-            chart_data = pd.DataFrame(np.random.randn(20, 3),columns=["a", "b", "c"])
-            st.bar_chart(chart_data)
+            MTTF = st.slider('MTTF (days)', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="tau_expo")
+            
+            lambda_param = 1 / MTTF
+            x_exp = np.linspace(0, 3*MTTF, 1000) # Compute Weibull distribution function 
+            
+            exp_pdf =expon.pdf(x_exp, scale=lambda_param, loc=MTTF)
+            data_exp = pd.DataFrame({'Days': x_exp, 'Probability': exp_pdf})
+            st.line_chart(data_exp, x="Days", y="Probability")
+            #st.hist(random_values, bins=50, density=True, alpha=0.6, color='g')
 
         with c3:
-            chart_data = pd.DataFrame(np.random.randn(20, 3),columns=['a', 'b', 'c'])
-            st.line_chart(chart_data)
+            c31, c32= st.columns(2)
+            with c31:
+                # MTTF (Mean Time To Failure) in hours
+                MTTF =  st.slider('MTTF (days)', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="mttf_normal")
+            with c32:
+                dev = st.slider('Deviation', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="std_dev_normal")
+
+            if dev == 0:
+                std_dev = 0
+            else:
+                std_dev = MTTF / dev
+            norm_x = np.linspace(0, 3*MTTF, 1000) 
+            norm_pdf = norm.pdf(norm_x, loc=MTTF, scale=std_dev)
+            data_norm = pd.DataFrame({'Days': norm_x, 'Probability': norm_pdf})
+            st.line_chart(data_norm, x="Days", y="Probability")
+                
 
         with c4:
-            chart_data = pd.DataFrame(np.random.randn(20, 3),columns=['a', 'b', 'c'])
+            c41, c42= st.columns(2)
+            with c41:
+                # MTTF (Mean Time To Failure) in hours
+                MTTF =  st.slider('MTTF (days)', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="mttf_gamma")
+            with c42:
+                k = st.slider('Lifespan', min_value=0.0, max_value=30.0, value=1.0, step=1.0, key="k_gamma")
+
+            #theta = MTTF  # Scale parameter (mean time between breakdowns)
+
+            # Generate values for the Gamma distribution
+            gamma_x = np.linspace(0, 3*MTTF, 1000)  # Assuming a range of 3 times the mean time between breakdowns
+            gamma_pdf = gamma.pdf(gamma_x, k, scale=MTTF)
+            data_gamma = pd.DataFrame({'Days': gamma_x, 'Probability': gamma_pdf})
+            st.line_chart(data_gamma, x="Days", y="Probability")
 
     def process_data(self):
         uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
@@ -151,7 +209,7 @@ class PRODynamicsApp:
                 if not st.session_state.line_data.equals(updated_df):
                     st.session_state.line_data = updated_df.copy()
             else:
-                with st.spinner('Simulation in progress...'):        
+                with st.spinner('Uploading in progress...'):        
                     if uploaded_file_line_data is not None:
                         # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
                         # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
@@ -166,7 +224,7 @@ class PRODynamicsApp:
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
 
 
-                with st.spinner('Simulation in progress...'):        
+                with st.spinner('Uploading  in progress...'):        
                     if uploaded_file_line_data is not None:
                         # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
                         # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
@@ -213,20 +271,42 @@ class PRODynamicsApp:
 
 
     def simulation_page(self):
-        print(st.session_state.line_data.values.tolist())
-        st.markdown("Simulation prepared")
+
+        st.markdown("##### Simulation Data Summary")
+
+        column1, column2, column3, column4 = st.columns(4)
+
+        # Print the values of the variables in each column
+        with column1:
+            st.write("Simulation Time (s):", format_time(eval(st.session_state.configuration["sim_time"])))
+            st.write("Expected Takt Time:", st.session_state.configuration["takt_time"])
+            st.write("Number of Machines : ", len(st.session_state.line_data.values.tolist()))
+
+        with column3:
+            st.write("Machines Breakdown:", st.session_state.configuration["enable_breakdowns"])
+            st.write("Probability Law: ", st.session_state.configuration["breakdown_dist_distribution"].replace(" Distribution", ""))
+            st.write("Number of Repairmen:", st.session_state.configuration["n_repairmen"])
+            
+        with column2:
+            st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
+            st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
+        
+        with column4:
+            st.write("Number of References : ", len(st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')))
+            st.write("Shift Reset:", st.session_state.configuration["reset_shift"])
+            st.write("Enable Random Seed:", st.session_state.configuration["enable_random_seed"])
+        
+        st.markdown("""---""")
+
+        c1, c2 = st.columns(2)
         if st.button("Run Simulation"):
             env = simpy.Environment()
             tasks = []
             config_file = 'config.yaml'
             self.manuf_line = ManufLine(env, tasks, config_file=config_file)
             self.save_global_settings(self.manuf_line)
-            
-            
-            print("Line info sim time = ", self.manuf_line.sim_time)
-            print(st.session_state.multi_ref_data)
+        
             self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-            print(st.session_state.line_data.values.tolist())
             self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
             self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
         
@@ -235,18 +315,20 @@ class PRODynamicsApp:
             # simulation_thread = threading.Thread(target=self.run_simulation, args=(self.manuf_line,))
             # simulation_thread.start()
 
+
+
     def run_simulation(self, manuf_line):
-        print("Simulation started...")
-        with st.spinner('Wait for it...'):
+        with st.spinner('Simulation in progress...'):
             manuf_line.run()
         st.success('Simulation completed!')
+
+        st.markdown("""---""")
         st.header("Key Performance Indicators")
 
         # Global Cycle Time
 
         col = st.columns(5, gap='medium')
-        
-
+    
         with col[0]:
             global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
@@ -319,12 +401,12 @@ class PRODynamicsApp:
                         ct_machine.append(finished)
                 machines_CT.append(ct_machine)
                 #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
-                fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
+                #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
 
 
             # Add a line trace for the cycle time
             #x=time_points, y=cycle_times
-            #fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
+            fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
 
             # Update layout
             fig.update_layout(
@@ -341,12 +423,11 @@ class PRODynamicsApp:
 
         with c12:
 
-            st.subheader("Additional Plot 2")
+            #st.subheader("Additional Plot 2")
             # chart_data = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
             # st.area_chart(chart_data)
             fig3 = go.Figure()
             buffer_out = [t[1] for t in manuf_line.output_tracks]
-            print("buffer out = ", max(buffer_out))
             times = [t[0] for t in manuf_line.output_tracks]
             fig3.add_trace(go.Scatter(x=times, y=buffer_out, mode='lines'))
 
@@ -357,9 +438,9 @@ class PRODynamicsApp:
 
             # Update layout
             fig3.update_layout(
-                title='Evolution of Cycle Time',
+                title='Evolution of Production Rate',
                 xaxis_title='Time',
-                yaxis_title='Cycle Time',
+                yaxis_title='Produced Parts',
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
@@ -545,6 +626,7 @@ class PRODynamicsApp:
         manuf_line.stock_capacity = float(configuration["stock_capacity"])
         manuf_line.stock_initial = float(configuration["initial_stock"])
         manuf_line.reset_shift_dec = bool(configuration["reset_shift"])
+        manuf_line.breakdown_law = str(configuration["breakdown_dist_distribution"])
         # if value1-value2, then the refill time is random between two values
         pattern = r'^(\d+)-(\d+)$'
         match = re.match(pattern, str(configuration["refill_time"]))
@@ -568,6 +650,7 @@ class PRODynamicsApp:
         manuf_line.sim_time = eval(str(configuration["sim_time"]))
         print("sim time first = ",  manuf_line.sim_time)
         manuf_line.takt_time = eval(str(configuration["takt_time"]))
+  
 
 
         

@@ -38,6 +38,7 @@ class ManufLine:
         self.machine_config_data = []
         self.breakdowns = self.config['breakdowns']
         self.breakdowns_switch = self.config['breakdowns']["enabled"]
+        self.breakdown_law = ""
         self.n_repairmen = 3
         self.repairmen = simpy.PreemptiveResource(env, capacity=self.n_repairmen)
         self.first_machine = None
@@ -666,6 +667,7 @@ class ManufLine:
         
         
 
+
 class Machine:
     def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False):
         self.mt = 0
@@ -744,24 +746,63 @@ class Machine:
         self.hazard_delays = 1 if hazard_delays else 0
         self.op_fatigue = config["fatigue_model"]["enabled"]
         self.current_product = None
+        
 
 
     
     def time_to_failure(self):
-        """Return time until next failure for a machine."""
+        """Return time until next failure for a machine.
+        
+        
+        
+        The interpretation that the exponential distribution is good to simulate machine breakdowns, 
+        with the rate parameter ( � λ) being the inverse of the Mean Time To Failure (MTTF), 
+        arises from several characteristics of the exponential distribution: Memoryless property: 
+        The exponential distribution exhibits the memoryless property, which means that the probability 
+        of failure in the next time interval remains constant regardless of how much time has passed. 
+        In the context of machine breakdowns, this property implies that the time until the next breakdown is 
+        independent of how long the machine has been operational since the last breakdown. This property aligns
+        well with the behavior of many types of machines in real-world scenarios. Simple and mathematically tractable: 
+        The exponential distribution is mathematically simple and tractable, making it convenient for modeling and 
+        analysis. Its probability density function ( � ( � ; � ) = � � − � � f(x;λ)=λe −λx ) involves only one 
+        parameter ( � λ), which can be directly related to the MTTF ( � = 1 MTTF λ= MTTF 1 ​ ). 
+        Frequent in reliability engineering: Exponential distribution is commonly used in reliability 
+        engineering to model the time until failure for various systems, including machines. 
+        It serves as a reasonable approximation for systems with constant failure rates over time, 
+        which is often the case for many mechanical and electronic systems. Applicability to repairable systems: 
+        While the exponential distribution is often associated with non-repairable systems (where the failure is irreversible), 
+        it can also be applied to model the time between repairs in repairable systems. In such cases, the rate parameter ( � λ) 
+        represents the failure rate of the system. Overall, using the exponential distribution to simulate machine breakdowns with 
+        1 MTTF MTTF 1 ​ as the rate parameter provides a straightforward and realistic way to model the time until failure for machines, 
+        assuming constant failure rates over time. However, it's important to note that while the exponential distribution is a useful
+          approximation in many cases, it might not capture all the nuances of real-world systems, 
+        and more complex distributions may be necessary for certain applications.
+        """
         #deterioration_factor = 1 + (self.env.now / self.simulation_duration)  # Adjust this factor as needed
         #adjusted_MTTF = self.MTTF / deterioration_factor
-        # if self.manuf_line.randomseed:
-        #     random.seed(10+int(self.manuf_line.list_machines.index(self)))
+        
+        if self.manuf_line.randomseed:
+            random.seed(10+int(self.manuf_line.list_machines.index(self)))
+        
+        if self.manuf_line.breakdown_law == "Weibull Distribution":
+            
+            self.shape_parameter = 5
+            val = random.weibullvariate(self.MTTF, self.shape_parameter)
 
-        self.breakdown_law = ""
-        self.shape_parameter = 3
-        if self.breakdown_law == "Weibull":
-            scale_parameter = self.MTTF / (np.log(2))**(1/self.shape_parameter)
-            val = random.weibullvariate(self.shape_parameter, scale_parameter)
-        else:
-            #val = self.MTTF
+        elif self.manuf_line.breakdown_law == "Exponential Distribution":
             val = random.expovariate(1/self.MTTF)
+
+        elif self.manuf_line.breakdown_law == "Normal Distribution":     
+            val = random.normalvariate(self.MTTF, self.MTTF/2)
+
+        elif self.manuf_line.breakdown_law == "Gamma Distribution":
+
+            rate_of_decrease = 0.1
+            machine_age = self.MTTF  
+            initial_k = 5      
+            k = max(1, initial_k - rate_of_decrease * machine_age)
+
+            val = random.gammavariate(k, self.MTTF)
 
         return val
     
@@ -861,7 +902,6 @@ class Machine:
                 real_done_in = done_in
                 start = self.env.now
                 if real_done_in == 0:
-                    print("real done zero")
                     if self.manuf_line.local:
                         while self.buffer_out.level == self.buffer_out.capacity:
                             yield self.env.timeout(10)
