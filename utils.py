@@ -420,9 +420,9 @@ class ManufLine:
         else:
             refill_time_ref = float(self.references_config[ref][0])
 
-        print("refill market info = ", refill_time_ref)
+        
         while True:
-            
+            print("refill market capacity = ", self.supermarket_in.capacity)
             if isinstance(refill_time_ref, list):
                 refill_time = int(random.uniform(refill_time_ref[0], refill_time_ref[1]))
             elif isinstance(refill_time_ref, float):
@@ -433,12 +433,7 @@ class ManufLine:
                 #print("refilling the market ++ " + str(self.supermarket_in.capacity) +" - level = "  + str(self.supermarket_in.level))
                 yield self.supermarket_in.put(self.refill_size) 
                 yield self.inventory_in.put(ref)
-                # if self.supermarket_in.level < self.stock_capacity:
-                #     yield self.supermarket_in.put(self.refill_size)
-                # else: 
-                #     pass
-                #yield self.inventory_in.put(ref)
-                #print("Refill market = ", ref)
+
                 self.supermarket_n_refills += 1
             except:
                 pass
@@ -902,13 +897,13 @@ class Machine:
                 real_done_in = done_in
                 start = self.env.now
                 if real_done_in == 0:
+                    print("Passed zero no process = " + product + " In " + self.ID)
                     if self.manuf_line.local:
                         while self.buffer_out.level == self.buffer_out.capacity:
                             yield self.env.timeout(10)
                             self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
                     yield self.buffer_out.put(1) 
                     yield self.store_out.put(product)
-                    self.ref_produced.append(product)
                     done_in = 0
                     self.loaded_bol = False
                     yield self.env.timeout(0)
@@ -935,7 +930,6 @@ class Machine:
                             print(self.ID +" have put in buffer now  " + str(self.env.now))
 
                             yield self.store_out.put(product)
-                            self.ref_produced.append(product)
                             done_in = 0
                             self.loaded_bol = False
                             yield self.env.timeout(0)

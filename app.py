@@ -83,9 +83,9 @@ class PRODynamicsApp:
             columns = st.columns(2)
             with columns[0]:
                 st.header("Stock Configuration")
-                st.session_state.configuration["stock_capacity"] = st.text_input("Input Stock Capacity", value="100")
-                st.session_state.configuration["initial_stock"] = st.text_input("Initial Input Stock", value="100")
-                st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value="120")
+                st.session_state.configuration["stock_capacity"] = st.text_input("Input Stock Capacity", value="1")
+                st.session_state.configuration["initial_stock"] = st.text_input("Initial Input Stock", value="0")
+                st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value="To be chosen later per product.", disabled=True)
                 st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value="20")
                 st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value="1")
             
@@ -481,8 +481,14 @@ class PRODynamicsApp:
             # ax_m.set_title('Machine Utilization Rate')
             
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
-
-            machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1]) * m.ref_produced.count(item) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
+            available_machines = []
+            for m in manuf_line.list_machines:
+                print("List of produced per machine = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
+                available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
+                #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
+                available_machines.append(100*available_machine)           
+            #machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1]) * m.ref_produced.count(ref) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
+            machine_available_percentage = available_machines
             machine_available_percentage2 = [100 * ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)]
             #breakdown_percentage = [100 * float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
             print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
@@ -628,16 +634,16 @@ class PRODynamicsApp:
         manuf_line.reset_shift_dec = bool(configuration["reset_shift"])
         manuf_line.breakdown_law = str(configuration["breakdown_dist_distribution"])
         # if value1-value2, then the refill time is random between two values
-        pattern = r'^(\d+)-(\d+)$'
-        match = re.match(pattern, str(configuration["refill_time"]))
-        if match:
-            value1 = int(match.group(1))
-            value2 = int(match.group(2))
-            manuf_line.refill_time = [value1, value2]
-            print("refill time 1 = ", manuf_line.refill_time)
-        else:
-            manuf_line.refill_time = float(configuration["refill_time"])
-        print("refill time 2= ", manuf_line.refill_time)
+        # pattern = r'^(\d+)-(\d+)$'
+        # match = re.match(pattern, str(configuration["refill_time"]))
+        # if match:
+        #     value1 = int(match.group(1))
+        #     value2 = int(match.group(2))
+        #     manuf_line.refill_time = [value1, value2]
+        #     print("refill time 1 = ", manuf_line.refill_time)
+        # else:
+        #     manuf_line.refill_time = float(configuration["refill_time"])
+        
         manuf_line.safety_stock = float(configuration["safety_stock"])
         manuf_line.refill_size = float(configuration["refill_size"])
         manuf_line.n_robots = float(configuration["n_robots"])
