@@ -828,22 +828,36 @@ class Machine:
                 entry0 = self.env.now
                 self.entry_times.append(entry0)
                 self.loaded_bol = False
+
+                entry_wait = self.env.now
+                #if self.store_in.items != []:
+                    #print("Here we are")
+                    #if float(self.manuf_line.references_config[self.store_in.items[0]][self.manuf_line.list_machines.index(self)+1]) !=0 :
+                self.to_be_passed = False
                 while not self.loaded_bol :
                     try: 
                         product = None
-                        # Get best machine to get from
-                        #if self.buffer_in.level <= 0 :
-                        #    if self.manuf_line.local:
-                        #        while self.buffer_in.level == 0 :
-                        #            yield self.env.timeout(10)
-                        #            self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]
-                        
-                        entry_wait = self.env.now
+
+                        if len(self.store_in.items) !=0:
+                            if float(self.manuf_line.references_config[self.store_in.items[0]][self.manuf_line.list_machines.index(self)+1]) ==0:
+                                self.to_be_passed = True
+                                yield self.buffer_in.get(1)
+                                product = yield self.store_in.get()
+                                break
+
                         yield self.buffer_in.get(1)
+                        print("before in " + self.ID + "= " +str(self.store_in.items) + " - PROD " )
                         product = yield self.store_in.get()
+                        print("after in " + self.ID + "= " +str(self.store_in.items) + " - PROD " + product)
+
+                        print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
+                        done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
+                        if done_in == 0:
+                            ## The product should not be processed in this machine and to be passed to the next
+                            self.to_be_passed = True
+                            break
                         self.waiting_time = [self.waiting_time[0] + self.env.now - entry_wait , self.waiting_time[1]]  
                         #done_in = deterministic_time 
-                        done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
                         #start = self.env.now
                         self.loaded_bol = True
 
@@ -861,93 +875,92 @@ class Machine:
                         print(self.ID +" repaired at loading at  = "+ str(self.env.now))
                         #done_in = 0
                         
-                        #if self.buffer_in.level < self.buffer_in.capacity :
-                        #print(self.ID + " start putting product back in buffer in " + str(self.env.now))
-                        ### This is what I added and has caused the problem to disappear but the breakdown are weird
                         if self.buffer_in.level == 0:
-                            #yield self.buffer_in.put(1)
                             self.loaded_bol = False
-                        #print(self.ID + " DONE putting product back in buffer in " + str(self.env.now))
                         if product is not None:
                             self.store_in.put(product)
                             self.loaded_bol = True
                             done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
+                            start = self.env.now
                         else:
                             self.loaded_bol = False
-                        #print(self.ID + " putting product back in store in "+ str(self.env.now))
+
                         self.broken = False
                         self.operating = False
-                        
-                real_done_in = done_in
-                start = self.env.now
-                if real_done_in == 0:
+                
+
+                #TODO: Skip robot when part not processed in the machine
+                while done_in >0 and not self.to_be_passed:
                     try:
-                        print("Passed zero no process = " + product + " In " + self.ID)
+                        entry = self.env.now
+                        self.current_product = product
+                        exit_t = self.env.now
+                        self.exit_times.append(exit_t-entry)
+                        self.operating = True
+                        yield self.env.timeout(done_in)
                         entry_wait = self.env.now
-                        yield self.buffer_out.put(1) and self.store_out.put(product)
-                        self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
-                        #yield self.store_out.put(product)
-                        self.passed_to_next = True
+                        yield self.buffer_out.put(1) 
+                        yield self.store_out.put(product)
+                        self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now - entry_wait]  
                         done_in = 0
                         self.loaded_bol = False
                         yield self.env.timeout(0)
-                    except simpy.Interrupt: 
-                        print("Passed zero no process = " + product + " In " + self.ID)
-                        if not self.passed_to_next:
+
+                    except simpy.Interrupt:                        
+                        self.broken = True
+                        done_in -= self.env.now - start
+                        # try:
+                        repair_in = self.env.now
+
+                        with self.manuf_line.repairmen.request(priority=1) as req:
+                            yield req
+                            repair_end = self.env.now
+                            yield self.env.timeout(self.MTTR) #Time to repair
+                            self.real_repair_time.append(float(repair_end - repair_in + float(self.MTTR)))
+                        print(self.ID +" repaired at operating  buffer in level at " + str(self.env.now))
+                        self.broken = False
+                        self.operating = False
+
+                if not self.to_be_passed:
+                    self.ref_produced.append(product)
+                    self.current_product = None
+                    self.finished_times.append(self.env.now-entry0)
+                    self.operating = False
+                    self.parts_done = self.parts_done +1
+                    self.parts_done_shift = self.parts_done_shift+1
+                    print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
+
+                else:
+                    real_done_in = done_in
+                    start = self.env.now
+                    if real_done_in == 0:
+                        try:
+                            print("Passed zero no process = " + product + " In " + self.ID + " at " + str(self.env.now))
                             entry_wait = self.env.now
                             yield self.buffer_out.put(1) and self.store_out.put(product)
                             self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
+                            #yield self.store_out.put(product)
+                            self.passed_to_next = True
                             done_in = 0
                             self.loaded_bol = False
-                            yield self.env.timeout(0) 
-                        else:
-                            yield self.env.timeout(0)   
-
-                else:
-                    while done_in >0:
-                        try:
-                            entry = self.env.now
-                            self.current_product = product
-                            exit_t = self.env.now
-                            self.exit_times.append(exit_t-entry)
-                            self.operating = True
-                            yield self.env.timeout(done_in)
-
-                            #if self.manuf_line.local:
-                            #    while self.buffer_out.level == self.buffer_out.capacity:
-                            #        yield self.env.timeout(10)
-                            #        self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
-                            entry_wait = self.env.now
-                            yield self.buffer_out.put(1) 
-                            yield self.store_out.put(product)
-                            self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now - entry_wait]  
-                            done_in = 0
-                            self.loaded_bol = False
+                            self.current_product = None
                             yield self.env.timeout(0)
-
-                        except simpy.Interrupt:                        
-                            self.broken = True
-                            done_in -= self.env.now - start
-                            # try:
-                            repair_in = self.env.now
-
-                            with self.manuf_line.repairmen.request(priority=1) as req:
-                                yield req
-                                repair_end = self.env.now
-                                yield self.env.timeout(self.MTTR) #Time to repair
-                                self.real_repair_time.append(float(repair_end - repair_in + float(self.MTTR)))
-                            print(self.ID +" repaired at operating  buffer in level at " + str(self.env.now))
-                            self.broken = False
-                            self.operating = False
+                        except simpy.Interrupt: 
+                            
+                            if not self.passed_to_next:
+                                print("Passed zero no process = " + product + " In " + self.ID)
+                                entry_wait = self.env.now
+                                yield self.buffer_out.put(1) and self.store_out.put(product)
+                                self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
+                                done_in = 0
+                                self.loaded_bol = False
+                                self.current_product = None
+                                yield self.env.timeout(0) 
+                            else:
+                                self.current_product = None
+                                yield self.env.timeout(0)   
                 
-                
-                self.ref_produced.append(product)
-                self.current_product = None
-                self.finished_times.append(self.env.now-entry0)
-                self.operating = False
-                self.parts_done = self.parts_done +1
-                self.parts_done_shift = self.parts_done_shift+1
-                print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
+                    
 
 
 

@@ -425,7 +425,7 @@ class PRODynamicsApp:
 
             # Add a line trace for the cycle time
             #x=time_points, y=cycle_times
-            fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
+            fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Global CT', marker_color='blue'))
 
             for ref_ind, ref in enumerate(manuf_line.references_config.keys()):
                 cycle_times_per_ref = [t[0] / t[1] for t in manuf_line.output_tracks_per_ref[ref_ind] if t[1] !=0]
@@ -434,14 +434,12 @@ class PRODynamicsApp:
             fig.update_layout(
                 title='Evolution of Cycle Time',
                 xaxis_title='Time',
-                yaxis_title='Cycle Time',
+                yaxis_title='Cycle Time (s)',
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
-
-
 
         with c12:
 
