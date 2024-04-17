@@ -67,16 +67,32 @@ class PRODynamicsApp:
                 st.session_state.configuration["sim_time"] = st.text_input("Simulation Time (s)", value="3600*24*7")
                 st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value="10000")
                 st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=1)
-                st.session_state.configuration["strategy"] = st.selectbox("Robot's Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"])
+                st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"])
                 st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=False)
 
             with columns[1]:
                 # Breakdowns Configuration
                 st.header("Breakdowns Configuration")
                 st.session_state.configuration["enable_breakdowns"] = st.checkbox("Enable Machines Breakdown", value=True)
+                st.session_state.configuration["breakdown_dist_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution", "Exponential Distribution", "Normal Distribution", "Gamma Distribution"])
                 st.session_state.configuration["n_repairmen"] = st.number_input("Number of Repairmen", value=3)
                 st.session_state.configuration["enable_random_seed"] = st.checkbox("Enable Random Seed", value=True)
-                st.session_state.configuration["breakdown_dist_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution", "Exponential Distribution", "Normal Distribution", "Gamma Distribution"])
+                form = st.form(key="form_settings")
+                expander = st.expander("Customize the breakdown distribution")
+                col1style, col2style = expander.columns([1,1])
+                
+                lifespan = col1style.number_input("Global Lifespan (s)")
+                if st.session_state.configuration["breakdown_dist_distribution"] == "Weibull Distribution":
+                    shape_param = col2style.number_input("Shape Parameter (k)")
+                    scale_param = col2style.number_input("Scale Parameter (λ)")
+                elif st.session_state.configuration["breakdown_dist_distribution"] == "Exponential Distribution":
+                    scale_param = col2style.number_input("Scale Parameter (λ)")
+                elif st.session_state.configuration["breakdown_dist_distribution"] == "Normal Distribution":
+                    mean_param = col2style.number_input("Mean")
+                    std_param = col2style.number_input("Standard Deviation")
+                elif st.session_state.configuration["breakdown_dist_distribution"] == "Gamma Distribution":
+                    shape_param = col2style.number_input("Shape Parameter (α)")
+                    scale_param = col2style.number_input("Scale Parameter (β)")
 
         # Stock Configuration
         with tab2:
@@ -89,23 +105,18 @@ class PRODynamicsApp:
                 st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value="20")
                 st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value="1")
             
-           
-
-        if st.button("Confirm"):
-            
-            #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
-            self.save_global_settings()
-            st.markdown("Simulation prepared")
+        
 
             
 
     def home(self):
         row0_spacer1, row0_1, row0_spacer2, row0_2, row0_spacer3 = st.columns((.1, 2.3, .1, 1.3, .1))
-        with row0_1:
-            st.title('PRODynamics')
-        with row0_2:
-            st.text("")
-            st.subheader('@FORVIA')
+        st.image('./assets/image_banner.png')
+        # with row0_1:
+        #     st.title('PRODynamics')
+        # with row0_2:
+        #     st.text("")
+        #     st.subheader('@FORVIA')
             
         row3_spacer1, row3_1, row3_spacer2 = st.columns((.1, 3.2, .1))
         with row3_1:
@@ -260,12 +271,15 @@ class PRODynamicsApp:
         with tab2:
             st.subheader("Product Reference Data")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                print("here problem? 1 ")
                 updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
-                if not st.session_state.multi_ref_data.equals(updated_refs):
-                    st.session_state.multi_ref_data = updated_refs.copy()
+                st.session_state.multi_ref_data = updated_refs.copy()
+                # if not st.session_state.multi_ref_data.equals(updated_refs):
+                #     print("here problem? 2 ")
+                #     st.session_state.multi_ref_data = updated_refs.copy()
             else:
-                
                 if uploaded_file_line_data is not None:
+                    print("here problem? 3 ")
                     if uploaded_file_line_data.name.endswith('.csv'):
                         st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
                     elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
@@ -274,6 +288,7 @@ class PRODynamicsApp:
                         st.error("Unsupported file format. Please upload a CSV or Excel file.")
                     # st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
                     # st.subheader("Multi-Reference Data")
+                    print("here problem? 4")
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
             new_ref_name = st.text_input("Enter new reference name")
