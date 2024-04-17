@@ -112,10 +112,28 @@ class PRODynamicsApp:
             st.markdown("PRODynamics is an all-in-one solution for streamlining the evaluation and optimization of production lines. From configuration to simulation and optimization, we've got you covered.")
             st.markdown("The evaluation of production line performance within PRODynamics is grounded in a comprehensive understanding of the  dynamics and stochastic behaviors inherent in manufacturing operationss, ranging from machine breakdowns and delays to micro-stops and resource constraints.")
 
-            st.markdown("This work is a culmination of an Idustrial PhD Project (CIFRE) conducted by [Anass ELHOUD](https://elhoud.me), aimed at harnessing the power of digital technologies and artificial intelligence to expedite the design and optimization of manufacturing process lines. ")
+            st.markdown("This work is a culmination of an Industrial PhD Project (CIFRE) conducted by [Anass ELHOUD](https://elhoud.me), aimed at harnessing the power of digital technologies and artificial intelligence to expedite the design and optimization of manufacturing process lines. ")
             
         # Create a row layout
         st.markdown('## Documentation')
+
+        st.markdown("### UI Walkthrough")
+        video, text= st.columns(2)
+        with video:
+            VIDEO_URL = "https://cdn.pixabay.com/video/2016/12/31/6962-197634410_large.mp4"
+            st.video(VIDEO_URL)
+        with text:
+            st.markdown("#### What's New?")
+            st.markdown("""
+            ##### V0.1 - Pre-Release:
+
+            * A new, more user-friendly and optimized interface
+            * Improved simulation performance
+            * Enhanced data visualization
+            * Introduction of new optimization tools
+            * Improved documentation
+            * Bug fixes and performance enhancements
+            """)
         c1, c2= st.columns(2)
         c3, c4= st.columns(2)
 
@@ -383,7 +401,8 @@ class PRODynamicsApp:
             # chart_data = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
             # st.bar_chart(chart_data)
             cycle_times = [t[0] / t[1] for t in manuf_line.output_tracks if t[1] !=0]
-
+            cycle_times_per_ref = []
+            
             # Create a list of time points for the x-axis
             time_points = list(range(len(cycle_times)))
 
@@ -408,6 +427,9 @@ class PRODynamicsApp:
             #x=time_points, y=cycle_times
             fig.add_trace(go.Scatter(x=time_points, y=cycle_times, mode='lines', name='Cycle Time', marker_color='blue'))
 
+            for ref_ind, ref in enumerate(manuf_line.references_config.keys()):
+                cycle_times_per_ref = [t[0] / t[1] for t in manuf_line.output_tracks_per_ref[ref_ind] if t[1] !=0]
+                fig.add_trace(go.Scatter(x=list(range(len(cycle_times_per_ref))), y=cycle_times_per_ref, mode='lines', name=ref))
             # Update layout
             fig.update_layout(
                 title='Evolution of Cycle Time',

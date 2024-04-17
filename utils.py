@@ -183,9 +183,12 @@ class ManufLine:
 
     def track_output(self):
         self.machines_output = [[] for _ in range(len(self.list_machines))]
+        self.output_tracks_per_ref = [[] for _ in range(len(self.references_config.keys()))]
         while True:
             yield self.env.timeout(self.sim_time/100)
             self.output_tracks.append((self.env.now,self.shop_stock_out.level))
+            for i, ref in enumerate(self.references_config.keys()):
+                self.output_tracks_per_ref[i].append((self.env.now,self.inventory_out.items.count(ref)))
             for i, m in enumerate(self.list_machines):
                 self.machines_output[i].append((self.env.now,m.parts_done))
 
@@ -422,16 +425,14 @@ class ManufLine:
 
         
         while True:
-            print("refill market capacity = ", self.supermarket_in.capacity)
             if isinstance(refill_time_ref, list):
                 refill_time = int(random.uniform(refill_time_ref[0], refill_time_ref[1]))
             elif isinstance(refill_time_ref, float):
                 refill_time = refill_time_ref
             try:
-
                 yield self.env.timeout(refill_time)
-                #print("refilling the market ++ " + str(self.supermarket_in.capacity) +" - level = "  + str(self.supermarket_in.level))
                 yield self.supermarket_in.put(self.refill_size) 
+                print("Refilled at = " + str(self.env.now) + "  with " + ref)         
                 yield self.inventory_in.put(ref)
 
                 self.supermarket_n_refills += 1
@@ -498,7 +499,7 @@ class ManufLine:
   
         self.robots_list = []
         if all([not np.isnan(list_machines_config[i][7])  for i in range(len(list_machines_config))]) and all([not np.isnan(list_machines_config[i][9])  for i in range(len(list_machines_config))]):
-            print("List of robots = ", [list_machines_config[j][9] for j in  range(len(list_machines_config))])
+
             for i in range(int(max([list_machines_config[j][9] for j in  range(len(list_machines_config))]))):
                 self.robot = Robot(self, self.env)
                 #print("ORder inside = ", [list_machines_config[j][11]  for j in range(len(list_machines_config)) if list_machines_config[j][11] == int(i+1)])
@@ -519,7 +520,6 @@ class ManufLine:
 
         #  Remove duplicates
         unique_list = list(set(flattened_list))
-        print("unique list = ", unique_list)
         for i in range(len(list_machines_config)):
             try:
                 assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
@@ -698,6 +698,7 @@ class Machine:
         self.same_machine = None
         self.ref_produced = []
         self.loaded_bol = False
+        self.current_ref = None
         
 
         if self.manuf_line.robots_list == []:
@@ -747,31 +748,6 @@ class Machine:
     
     def time_to_failure(self):
         """Return time until next failure for a machine.
-        
-        
-        
-        The interpretation that the exponential distribution is good to simulate machine breakdowns, 
-        with the rate parameter ( � λ) being the inverse of the Mean Time To Failure (MTTF), 
-        arises from several characteristics of the exponential distribution: Memoryless property: 
-        The exponential distribution exhibits the memoryless property, which means that the probability 
-        of failure in the next time interval remains constant regardless of how much time has passed. 
-        In the context of machine breakdowns, this property implies that the time until the next breakdown is 
-        independent of how long the machine has been operational since the last breakdown. This property aligns
-        well with the behavior of many types of machines in real-world scenarios. Simple and mathematically tractable: 
-        The exponential distribution is mathematically simple and tractable, making it convenient for modeling and 
-        analysis. Its probability density function ( � ( � ; � ) = � � − � � f(x;λ)=λe −λx ) involves only one 
-        parameter ( � λ), which can be directly related to the MTTF ( � = 1 MTTF λ= MTTF 1 ​ ). 
-        Frequent in reliability engineering: Exponential distribution is commonly used in reliability 
-        engineering to model the time until failure for various systems, including machines. 
-        It serves as a reasonable approximation for systems with constant failure rates over time, 
-        which is often the case for many mechanical and electronic systems. Applicability to repairable systems: 
-        While the exponential distribution is often associated with non-repairable systems (where the failure is irreversible), 
-        it can also be applied to model the time between repairs in repairable systems. In such cases, the rate parameter ( � λ) 
-        represents the failure rate of the system. Overall, using the exponential distribution to simulate machine breakdowns with 
-        1 MTTF MTTF 1 ​ as the rate parameter provides a straightforward and realistic way to model the time until failure for machines, 
-        assuming constant failure rates over time. However, it's important to note that while the exponential distribution is a useful
-          approximation in many cases, it might not capture all the nuances of real-world systems, 
-        and more complex distributions may be necessary for certain applications.
         """
         #deterioration_factor = 1 + (self.env.now / self.simulation_duration)  # Adjust this factor as needed
         #adjusted_MTTF = self.MTTF / deterioration_factor
@@ -780,7 +756,6 @@ class Machine:
             random.seed(10+int(self.manuf_line.list_machines.index(self)))
         
         if self.manuf_line.breakdown_law == "Weibull Distribution":
-            
             self.shape_parameter = 5
             val = random.weibullvariate(self.MTTF, self.shape_parameter)
 
@@ -789,16 +764,22 @@ class Machine:
 
         elif self.manuf_line.breakdown_law == "Normal Distribution":     
             val = random.normalvariate(self.MTTF, self.MTTF/2)
+           # print("Val Breakdown generated = " +  str(val) + " - Law "+ self.manuf_line.breakdown_law)
 
         elif self.manuf_line.breakdown_law == "Gamma Distribution":
 
             rate_of_decrease = 0.1
-            machine_age = self.MTTF  
-            initial_k = 5      
-            k = max(1, initial_k - rate_of_decrease * machine_age)
+            machine_age = self.env.now/self.MTTF
+            initial_k = 0.5
+            if initial_k !=1:
+                k = max(0.1, initial_k - rate_of_decrease * machine_age)
+            else:
+                k = initial_k
 
-            val = random.gammavariate(k, self.MTTF)
-
+            val = random.gammavariate(0.3, self.MTTF)
+        
+        else:
+            print("No law given. ")
         return val
     
     def fatigue_model(self, elapsed_time, base_time):
@@ -851,13 +832,16 @@ class Machine:
                     try: 
                         product = None
                         # Get best machine to get from
-                        if self.buffer_in.level <= 0 :
-                            if self.manuf_line.local:
-                                while self.buffer_in.level == 0 :
-                                    yield self.env.timeout(10)
-                                    self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]      
+                        #if self.buffer_in.level <= 0 :
+                        #    if self.manuf_line.local:
+                        #        while self.buffer_in.level == 0 :
+                        #            yield self.env.timeout(10)
+                        #            self.waiting_time = [self.waiting_time[0] + 10 , self.waiting_time[1]]
+                        
+                        entry_wait = self.env.now
                         yield self.buffer_in.get(1)
                         product = yield self.store_in.get()
+                        self.waiting_time = [self.waiting_time[0] + self.env.now - entry_wait , self.waiting_time[1]]  
                         #done_in = deterministic_time 
                         done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
                         #start = self.env.now
@@ -897,16 +881,27 @@ class Machine:
                 real_done_in = done_in
                 start = self.env.now
                 if real_done_in == 0:
-                    print("Passed zero no process = " + product + " In " + self.ID)
-                    if self.manuf_line.local:
-                        while self.buffer_out.level == self.buffer_out.capacity:
-                            yield self.env.timeout(10)
-                            self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
-                    yield self.buffer_out.put(1) 
-                    yield self.store_out.put(product)
-                    done_in = 0
-                    self.loaded_bol = False
-                    yield self.env.timeout(0)
+                    try:
+                        print("Passed zero no process = " + product + " In " + self.ID)
+                        entry_wait = self.env.now
+                        yield self.buffer_out.put(1) and self.store_out.put(product)
+                        self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
+                        #yield self.store_out.put(product)
+                        self.passed_to_next = True
+                        done_in = 0
+                        self.loaded_bol = False
+                        yield self.env.timeout(0)
+                    except simpy.Interrupt: 
+                        print("Passed zero no process = " + product + " In " + self.ID)
+                        if not self.passed_to_next:
+                            entry_wait = self.env.now
+                            yield self.buffer_out.put(1) and self.store_out.put(product)
+                            self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
+                            done_in = 0
+                            self.loaded_bol = False
+                            yield self.env.timeout(0) 
+                        else:
+                            yield self.env.timeout(0)   
 
                 else:
                     while done_in >0:
@@ -917,19 +912,15 @@ class Machine:
                             self.exit_times.append(exit_t-entry)
                             self.operating = True
                             yield self.env.timeout(done_in)
-                            entry2 = self.env.now
-                            print(self.ID +" trying putting in buffer now  " + str(self.env.now))
-                            print("Buffer state now = " +  str(self.buffer_out.level) + " with capacity = ", self.buffer_out.capacity )
-                            if self.manuf_line.local:
-                                while self.buffer_out.level == self.buffer_out.capacity:
-                                    yield self.env.timeout(10)
-                                    self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
-                                
-                            yield self.buffer_out.put(1) 
-                            print("Buffer state now = ", self.buffer_out.level)
-                            print(self.ID +" have put in buffer now  " + str(self.env.now))
 
+                            #if self.manuf_line.local:
+                            #    while self.buffer_out.level == self.buffer_out.capacity:
+                            #        yield self.env.timeout(10)
+                            #        self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + 10]
+                            entry_wait = self.env.now
+                            yield self.buffer_out.put(1) 
                             yield self.store_out.put(product)
+                            self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now - entry_wait]  
                             done_in = 0
                             self.loaded_bol = False
                             yield self.env.timeout(0)
@@ -939,7 +930,6 @@ class Machine:
                             done_in -= self.env.now - start
                             # try:
                             repair_in = self.env.now
-                            print(self.ID +" broken at operating  buffer in level at " + str(self.env.now))
 
                             with self.manuf_line.repairmen.request(priority=1) as req:
                                 yield req
@@ -957,7 +947,7 @@ class Machine:
                 self.operating = False
                 self.parts_done = self.parts_done +1
                 self.parts_done_shift = self.parts_done_shift+1
-                print("Part produced by " + self.ID  + " at " +  str(self.env.now))
+                print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
 
 
 
@@ -1262,6 +1252,70 @@ class Robot:
                     # to_entity = self.which_machine_to_feed(from_entity)
                     # yield from self.transport(from_entity, to_entity)
 
+    def robot_process_ref(self, entities_order, first=True):
+        """
+        entities_order = [input_entity, machine1, machine2, machine3, output_entity]
+        times = [10, 10, 10, 10, 10] len(entities_order)
+        """
+        while True:
+            try:
+                if first:
+                # Policy 1 => Follow everytime the same order, if not feasible pass to next 
+                    for  i, m in enumerate([m for m in self.manuf_line.list_machines if m.first]):
+                        if m.buffer_in.level < m.buffer_in.capacity:
+                            yield from self.transport(m.previous_machine, m)
+                        else:
+                            if m.next_machine.buffer_in.level < m.next_machine.buffer_in.capacity:
+                                yield from self.transport(m, m.next_machine)
+                            else: 
+                                pass
+                for i in range(len(entities_order)):
+                    from_entity = entities_order[i]
+                    to_entity = self.which_machine_to_feed(from_entity)
+                    
+
+                    if self.manuf_line.reset_shift_bool:
+                        self.manuf_line.reset_shift_bool = False
+                        print("Reseting Robot Process.")
+                        break
+
+                    try:
+                        if to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
+                            yield from self.transport(from_entity, to_entity)
+                        elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and (from_entity.operating and not from_entity.broken):
+                            yield from self.transport(from_entity, to_entity)
+                        elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and (not from_entity.operating or  from_entity.broken):
+                            yield from self.handle_empty_buffer(from_entity, to_entity)
+                        elif to_entity.buffer_in.level == to_entity.buffer_in.capacity:
+                            yield from self.transport(to_entity, self.which_machine_to_feed(to_entity))
+                        else:
+                            continue
+                
+                    except Exception as e:
+                        try:
+                            if to_entity.level < to_entity.capacity and from_entity.buffer_out.level > 0:
+                                yield from self.transport(from_entity, to_entity)
+                            elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
+                                yield from self.transport(from_entity, to_entity)
+                                #continue
+                            elif to_entity.level < to_entity.capacity and from_entity.buffer_out.level == 0 and (not from_entity.operating or  from_entity.broken):
+                                yield from self.handle_empty_buffer(from_entity, to_entity)
+                            elif  from_entity.broken or  from_entity.broken:
+                                continue
+                            else:
+                                continue
+                        except Exception as e2:
+                            if to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level > 0:
+                                yield from self.transport(from_entity, to_entity)
+                            elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and from_entity.operating:
+                                yield from self.transport(from_entity, to_entity)
+                            elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and not from_entity.operating:
+                                yield from self.handle_empty_buffer(from_entity, to_entity)
+                            else:
+                                continue
+            except simpy.Interrupt:
+                print("Reseting Robot Process.")
+                yield self.env.timeout(0)      
 
     def robot_process(self, first=True):
         """
@@ -1284,13 +1338,7 @@ class Robot:
                     from_entity = self.entities_order[i]
                     to_entity = self.which_machine_to_feed(from_entity)
                     
-                    # if  isinstance(to_entity, Machine) :
-                    #     if to_entity.broken:
-                    #         continue
-                    
-                    # if isinstance(from_entity, Machine):
-                    #     if from_entity.broken:
-                    #         continue
+
                     if self.manuf_line.reset_shift_bool:
                         self.manuf_line.reset_shift_bool = False
                         print("Reseting Robot Process.")
