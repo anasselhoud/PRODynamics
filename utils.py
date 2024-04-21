@@ -160,8 +160,9 @@ class ManufLine:
                 print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
                 writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
             return waiting_times, cycle_time, breakdowns
-        if not save:
-            waiting_times = [machine.waiting_time for machine in self.list_machines]
+        
+        if not save and not track:
+            waiting_times = [machine.parts_done for machine in self.list_machines]
             breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
             if self.shop_stock_out.level != 0:
                 cycle_time = self.sim_time/self.shop_stock_out.level

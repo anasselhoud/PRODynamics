@@ -13,3 +13,4 @@ openpyxl
 streamlit
 plotly
 streamlit_option_menu
+joblib
