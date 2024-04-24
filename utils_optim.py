@@ -4,7 +4,6 @@ import random
 import numpy as np
 from scipy.stats import weibull_min
 import matplotlib.pyplot as plt
-import tkinter as tk
 from typing import Union, Tuple, Optional
 import copy
 import ast
