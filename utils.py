@@ -382,8 +382,6 @@ class ManufLine:
                 yield self.env.timeout(time_to_break)
                 if not machine.broken:
                     time_to_break = machine.time_to_failure()
-                    if time_to_break < machine.MTTF:
-                        time_to_break = 2*machine.MTTF
                     yield self.env.timeout(time_to_break)
                     self.operationg = False
                     print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
@@ -739,7 +737,7 @@ class Machine:
         self.operator = None  # Assign the operator to the machine
     
         self.loaded = 0
-
+        self.done_bool = False
         self.last = last
         self.first = first
         self.prio = 1
@@ -835,7 +833,7 @@ class Machine:
                 entry0 = self.env.now
                 self.entry_times.append(entry0)
                 self.loaded_bol = False
-
+                self.done_bool = False
                 entry_wait = self.env.now
                 #if self.store_in.items != []:
                     #print("Here we are")
@@ -915,6 +913,7 @@ class Machine:
                         self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now - entry_wait]  
                         done_in = 0
                         self.loaded_bol = False
+                        self.done_bool = True
                         yield self.env.timeout(0)
 
                     except simpy.Interrupt:                        
@@ -932,7 +931,7 @@ class Machine:
                         self.broken = False
                         self.operating = False
 
-                if not self.to_be_passed:
+                if not self.to_be_passed and self.done_bool:
                     self.ref_produced.append(product)
                     self.current_product = None
                     self.finished_times.append(self.env.now-entry0)
@@ -940,6 +939,7 @@ class Machine:
                     self.parts_done = self.parts_done +1
                     self.parts_done_shift = self.parts_done_shift+1
                     self.loaded_bol = False
+                    self.done_bool = False
                     print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
 
                 else:
@@ -1016,7 +1016,7 @@ class Robot:
                 if to_entity.broken or from_entity.broken:
                     print("To entity is broken, skipping remaining instructions")
                     self.busy = False
-                    yield self.env.timeout(1) 
+                    yield self.env.timeout(10) 
                     return
 
                 while from_entity.buffer_out.level == 0:
@@ -1024,7 +1024,7 @@ class Robot:
                     if from_entity.broken or to_entity.broken:
                         print("From entity is broken, skipping remaining instructions")
                         self.busy = False
-                        yield self.env.timeout(1)
+                        yield self.env.timeout(10)
                         return
 
                 
@@ -1040,7 +1040,7 @@ class Robot:
                     if to_entity.broken:
                         print("From entity is broken, skipping remaining instructions")
                         self.busy = False
-                        yield self.env.timeout(1)
+                        yield self.env.timeout(10)
                         return 
 
                 yield to_entity.buffer_in.put(1)
@@ -1062,7 +1062,7 @@ class Robot:
                 if to_entity.broken:
                     print("To entity is broken, skipping remaining instructions")
                     self.busy = False
-                    yield self.env.timeout(1) 
+                    yield self.env.timeout(10) 
                     return
                 
                 yield from_entity.get(1)

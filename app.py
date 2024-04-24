@@ -32,7 +32,22 @@ class PRODynamicsApp:
         if 'multi_ref_data' not in st.session_state:  
             st.session_state.multi_ref_data =  pd.read_excel("./LineData.xlsx", sheet_name="Multi-Ref")
         if "configuration" not in st.session_state:
-            st.session_state.configuration = {}
+            st.session_state.configuration = {
+                "sim_time": "3600*24*7",
+                "takt_time": "10000",
+                "n_robots": 1,
+                "strategy": "Balanced Strategy",
+                "reset_shift": False,
+                "stock_capacity": "1",
+                "initial_stock": "0",
+                "refill_time": None,
+                "safety_stock": "1",
+                "refill_size": "1",
+                "n_repairmen": 3,
+                "enable_random_seed": True,
+                "enable_breakdowns": True,
+                "breakdown_dist_distribution": "Weibull Distribution"
+            }
 
 
         self.all_prepared = False
@@ -42,69 +57,56 @@ class PRODynamicsApp:
     def global_configuration(self):
 
         tab1, tab2 = st.tabs(["Simulation Data", "Stock Configuration"])
-        st.session_state.configuration = {
-        "sim_time": None,
-        "takt_time": None,
-        "n_robots": None,
-        "strategy": None,
-        "reset_shift": None,
-        "stock_capacity": None,
-        "initial_stock": None,
-        "refill_time": None,
-        "safety_stock": None,
-        "refill_size": None,
-        "n_repairmen": None,
-        "enable_random_seed": None,
-        "enable_breakdowns": None,
-        "breakdown_dist_distribution": None
-    }
     
         with tab1:
             columns = st.columns(2)
-            # Machine Configuration
             with columns[0]:
                 st.header("Simulation Data")
-                st.session_state.configuration["sim_time"] = st.text_input("Simulation Time (s)", value="3600*24*7")
-                st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value="10000")
-                st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=1)
-                st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"])
-                st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=False)
+                st.session_state.configuration["sim_time"] = st.text_input("Simulation Time (s)", value=st.session_state.configuration.get("sim_time", "3600*24*7"))
+                st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value=st.session_state.configuration.get("takt_time", "10000"))
+                st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=st.session_state.configuration.get("n_robots", 1))
+                st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"], index=0 if st.session_state.configuration.get("strategy") == "Balanced Strategy" else 1)
+                st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration.get("reset_shift", False))
 
             with columns[1]:
-                # Breakdowns Configuration
                 st.header("Breakdowns Configuration")
-                st.session_state.configuration["enable_breakdowns"] = st.checkbox("Enable Machines Breakdown", value=True)
-                st.session_state.configuration["breakdown_dist_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution", "Exponential Distribution", "Normal Distribution", "Gamma Distribution"])
-                st.session_state.configuration["n_repairmen"] = st.number_input("Number of Repairmen", value=3)
-                st.session_state.configuration["enable_random_seed"] = st.checkbox("Enable Random Seed", value=True)
-                form = st.form(key="form_settings")
-                expander = st.expander("Customize the breakdown distribution")
-                col1style, col2style = expander.columns([1,1])
-                
-                lifespan = col1style.number_input("Global Lifespan (s)")
-                if st.session_state.configuration["breakdown_dist_distribution"] == "Weibull Distribution":
-                    shape_param = col2style.number_input("Shape Parameter (k)")
-                    scale_param = col2style.number_input("Scale Parameter (λ)")
-                elif st.session_state.configuration["breakdown_dist_distribution"] == "Exponential Distribution":
-                    scale_param = col2style.number_input("Scale Parameter (λ)")
-                elif st.session_state.configuration["breakdown_dist_distribution"] == "Normal Distribution":
-                    mean_param = col2style.number_input("Mean")
-                    std_param = col2style.number_input("Standard Deviation")
-                elif st.session_state.configuration["breakdown_dist_distribution"] == "Gamma Distribution":
-                    shape_param = col2style.number_input("Shape Parameter (α)")
-                    scale_param = col2style.number_input("Scale Parameter (β)")
+                st.session_state.configuration["enable_breakdowns"] = st.checkbox("Enable Machines Breakdown", value=st.session_state.configuration.get("enable_breakdowns", True))
+                st.session_state.configuration["breakdown_dist_distribution"] = st.selectbox("Probability Distribution", ["Weibull Distribution", "Exponential Distribution", "Normal Distribution", "Gamma Distribution"], index=["Weibull Distribution", "Exponential Distribution", "Normal Distribution", "Gamma Distribution"].index(st.session_state.configuration.get("breakdown_dist_distribution", "Weibull Distribution")))
+                st.session_state.configuration["n_repairmen"] = st.number_input("Number of Repairmen", value=st.session_state.configuration.get("n_repairmen", 3))
+                st.session_state.configuration["enable_random_seed"] = st.checkbox("Enable Random Seed", value=st.session_state.configuration.get("enable_random_seed", True))
+                if st.session_state.configuration["breakdown_dist_distribution"]:
+                    with st.expander("Customize the breakdown distribution"):
+                        col1style, col2style = st.columns([1,1])
+                        if st.session_state.configuration["breakdown_dist_distribution"] == "Weibull Distribution":
+                            lifespan = col1style.number_input("Global Lifespan (s)")
+                            shape_param = col2style.number_input("Shape Parameter (k)", value=st.session_state.configuration.get("shape_param", 1.5))
+                            scale_param = col2style.number_input("Scale Parameter (λ)", value=st.session_state.configuration.get("scale_param", 1000))
+                            st.session_state.configuration["shape_param"] = shape_param
+                            st.session_state.configuration["scale_param"] = scale_param
+                        elif st.session_state.configuration["breakdown_dist_distribution"] == "Exponential Distribution":
+                            scale_param = col2style.number_input("Scale Parameter (λ)", value=st.session_state.configuration.get("scale_param", 1000))
+                            st.session_state.configuration["scale_param"] = scale_param
+                        elif st.session_state.configuration["breakdown_dist_distribution"] == "Normal Distribution":
+                            mean_param = col2style.number_input("Mean", value=st.session_state.configuration.get("mean_param", 500))
+                            std_param = col2style.number_input("Standard Deviation", value=st.session_state.configuration.get("std_param", 100))
+                            st.session_state.configuration["mean_param"] = mean_param
+                            st.session_state.configuration["std_param"] = std_param
+                        elif st.session_state.configuration["breakdown_dist_distribution"] == "Gamma Distribution":
+                            shape_param = col2style.number_input("Shape Parameter (α)", value=st.session_state.configuration.get("shape_param", 2))
+                            scale_param = col2style.number_input("Scale Parameter (β)", value=st.session_state.configuration.get("scale_param", 500))
+                            st.session_state.configuration["shape_param"] = shape_param
+                            st.session_state.configuration["scale_param"] = scale_param
 
-        # Stock Configuration
         with tab2:
             columns = st.columns(2)
             with columns[0]:
                 st.header("Stock Configuration")
-                st.session_state.configuration["stock_capacity"] = st.text_input("Input Stock Capacity", value="1")
-                st.session_state.configuration["initial_stock"] = st.text_input("Initial Input Stock", value="0")
-                st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value="To be chosen later per product.", disabled=True)
-                st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value="20")
-                st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value="1")
-            
+                st.session_state.configuration["stock_capacity"] = st.text_input("Input Stock Capacity", value=st.session_state.configuration.get("stock_capacity", "1"))
+                st.session_state.configuration["initial_stock"] = st.text_input("Initial Input Stock", value=st.session_state.configuration.get("initial_stock", "0"))
+                st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value=st.session_state.configuration.get("refill_time", "To be chosen later per product."), disabled=True)
+                st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value=st.session_state.configuration.get("safety_stock", "20"))
+                st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value=st.session_state.configuration.get("refill_size", "1"))
+
 
     def home(self):
         row0_spacer1, row0_1, row0_spacer2, row0_2, row0_spacer3 = st.columns((.1, 2.3, .1, 1.3, .1))
