@@ -8,7 +8,6 @@ tk
 Pillow
 matplotlib
 ipywidgets>=7.0.0 
-tkinter
 customtkinter
 openpyxl
 streamlit
