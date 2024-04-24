@@ -116,25 +116,6 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.upload_data_m = customtkinter.CTkButton(master=self.tabview.tab("Machines"), text="Upload Config", font=('Arial', 15), width = 150, image=upload_img, command=self.upload_config, compound="left")
         self.upload_data_m.grid(row = 0, column=2, padx=(0, 10), pady=(0,10))   
         
-        # self.buffers_data = [["Buffer","Capacity","Initial"]]
-        # self.frame_buffer_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Buffers"), height=100, width=600)
-        # self.frame_buffer_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
-        # self.table_buffers = CTkTable(self.frame_buffer_list, row=8, column=3, values=self.buffers_data, header_color="deepskyblue4")
-        # self.tabview.tab("Buffers").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
-        # self.tabview.tab("Buffers").grid_rowconfigure((1), weight=1)
-        # #table.grid(row=0, column=0)
-        # self.table_buffers.pack(expand=True)
-        # self.add_buffer = customtkinter.CTkButton(master=self.tabview.tab("Buffers"), text="+ Add new", width=150, command=self.add_buffer)
-        # self.add_buffer.grid(row = 0, column=0, pady=(0,10), padx=(0, 10))
-        # self.delete_buffer = customtkinter.CTkButton(master=self.tabview.tab("Buffers"), text="- Delete last", fg_color="brown3", width=150, command=self.delete_buffer)
-        # self.delete_buffer.grid(row = 0, column=1, padx=(0, 10), pady=(0,10))    
-
-        #self.buffers_data = [["Buffer","Capacity","Initial"]]
-        # self.frame_stock_list = customtkinter.CTkScrollableFrame(master=self.tabview.tab("Stock"), height=150, width=600)
-        # self.frame_stock_list.grid(row=1, column=0, columnspan=2, padx=0, pady=0)
-        # self.table_buffers = CTkTable(self.frame_buffer_list, row=8, column=3, values=self.buffers_data, header_color="deepskyblue4")
-        # self.tabview.tab("Stock").grid_columnconfigure((0,1), weight=1)  # configure grid of individual tabs
-        # self.tabview.tab("Stock").grid_rowconfigure((1), weight=1)
 
         self.stock_capacity_label = customtkinter.CTkLabel(self.tabview.tab("Stock"), text="Input Sock Capacity")
         self.stock_capacity_label.grid(row=0,column=0, padx=(10,10), pady=(10,10))
@@ -161,31 +142,12 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.refill_size_input = customtkinter.CTkEntry(self.tabview.tab("Stock"), placeholder_text="Refill Size", width=200)
         self.refill_size_input.grid(row=3,column=1, padx=(10,10), pady=(10,10))
 
-        
-        # #table.grid(row=0, column=0)
-        # self.table_buffers.pack(expand=True)
-        
-        # self.middle_frame = customtkinter.CTkFrame(master=self, corner_radius=20, height=400, width=600)
-        # self.middle_frame.grid(row=1, column=0, columnspan=3, padx=10, pady = 5, sticky="nsew" )
-
-        # self.footer = customtkinter.CTkFrame(master=self, corner_radius=20)
-        # self.footer.grid(row=1, column=1, padx=10, pady = 5, sticky="nsew" )
 
         self.tabview_footer = customtkinter.CTkTabview(self, corner_radius=20, width=500, height=250)
         self.tabview_footer.grid(row=1, column=1, padx=10, pady = 5, sticky="nsew" )
         self.tabview_footer.add("Breakdowns")
         self.tabview_footer.add("Delays")
         self.tabview_footer.add("Manual Models")
-
-        # self.label_break2 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Failure")
-        # self.label_break2.grid(row=0, column=1, padx=20, pady=20)
-        # self.mttf_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTF")
-        # self.mttf_label.grid(row=1, column=1, padx=20, pady=20)
-
-        # self.label_break3 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Mean Time to Repair")
-        # self.label_break3.grid(row=0, column=2, padx=20, pady=20)
-        # self.mttr_label = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="MTTR")
-        # self.mttr_label.grid(row=1, column=2, padx=20, pady=20)
 
         self.switch_var = customtkinter.StringVar(value="on")
         self.label_break1 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Machine Breakdown")
@@ -194,13 +156,19 @@ class SettingWindow(customtkinter.CTkToplevel):
                                  variable=self.switch_var, onvalue="on", offvalue="off")
         
         self.switch.grid(row=1, column=0, padx=20, pady=20)
-        # self.choices_breakdowns = ["All Machines"]
-        # self.choices_breakdowns = self.choices_breakdowns + self.machine_data[1:]
-        # self.label_break4 = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="To-be Broken Machines")
-        # self.label_break4.grid(row=0, column=3, padx=20, pady=20)
-        # self.choices_breakdowns_menu = customtkinter.CTkOptionMenu(self.tabview_footer.tab("Breakdowns"), dynamic_resizing=False,
-        #                                                 values=self.choices_breakdowns)
-        # self.choices_breakdowns_menu.grid(row=1, column=3, padx=20, pady=20)
+
+        self.n_repairmen_label = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Number of Repairmen")
+        self.n_repairmen_label.grid(row=0,column=1, padx=(10,10), pady=(10,10))
+        self.n_repairmen_input = customtkinter.CTkEntry(self.tabview_footer.tab("Breakdowns"), placeholder_text="Input number of repairmen", width=100)
+        self.n_repairmen_input.grid(row=1,column=1, padx=(10,10), pady=(10,10))
+
+        self.switch_var_rand = customtkinter.StringVar(value="on")
+        self.label_break1_rand = customtkinter.CTkLabel(self.tabview_footer.tab("Breakdowns"), text="Random Seed")
+        self.label_break1_rand.grid(row=0, column=2, padx=20, pady=20)
+        self.switch_rand = customtkinter.CTkSwitch(self.tabview_footer.tab("Breakdowns"), text="Enabled",
+                                 variable=self.switch_var_rand, onvalue="on", offvalue="off")
+
+        self.switch_rand.grid(row=1, column=2, padx=20, pady=20)
 
         self.switch_delays_var = customtkinter.StringVar(value="on")
         self.label_delays1 = customtkinter.CTkLabel(self.tabview_footer.tab("Delays"), text="Hazardous delays")
@@ -217,7 +185,6 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.choices_delays_menu.grid(row=1, column=3, padx=20, pady=20)
 
         ## Default
-
         self.sim_time_input.insert(0, "3600*24*200")
         self.takt_time_input.insert(0, "100000")
         self.stock_capacity_input.insert(0, "100")
@@ -226,6 +193,7 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.refill_time_input.insert(0, "120")
         self.refill_size_input.insert(0, "100")
         self.n_robots_input.insert(0, "1")
+        self.n_repairmen_input.insert(0, "3")
 
 
 
@@ -295,6 +263,9 @@ class SettingWindow(customtkinter.CTkToplevel):
             try:
                 config_data = pd.read_excel(file_path, sheet_name="Line Data")
                 config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
+                config_multi_ref_table = pd.read_excel(file_path, sheet_name="Multi-Ref")
+                self.manuf_line.references_config = config_multi_ref_table.set_index('Machine').to_dict(orient='list')
+
                 print("Excel file uploaded and read successfully.")
                 config_data_gloabl = config_line_globa_data.values.tolist()
                 self.machine_data[1:] = config_data.values.tolist()
@@ -313,13 +284,15 @@ class SettingWindow(customtkinter.CTkToplevel):
                 self.refill_time_input.delete(0, END)
                 
                 self.refill_time_input.insert(0, str(config_data_gloabl[4][2]))
-                #self.repairmen_N_input.insert(0, str(config_data_gloabl[4][2]))
                 self.safety_stock_input.delete(0, END)
                 self.safety_stock_input.insert(0, str(config_data_gloabl[5][2]))
                 self.refill_size_input.delete(0, END)
                 self.refill_size_input.insert(0, str(config_data_gloabl[6][2]))
+                self.n_repairmen_input.delete(0, END)
+                self.n_repairmen_input.insert(0, str(config_data_gloabl[11][2]))
                 self.n_robots_input.delete(0, END)
-                self.n_robots_input.insert(0, str(config_data_gloabl[11][2]))
+                self.n_robots_input.insert(0, str(config_data_gloabl[12][2]))
+                
                 return config_data
             except Exception as e:
                 print(f"Error reading Excel file: {e}")
@@ -344,6 +317,11 @@ class SettingWindow(customtkinter.CTkToplevel):
             self.manuf_line.breakdowns_switch = True
         else:
             self.manuf_line.breakdowns_switch = False
+        
+        if self.switch_var_rand.get() == "on":
+            self.manuf_line.randomseed = True
+        else:
+            self.manuf_line.randomseed = False
 
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.manuf_line.stock_capacity = float(self.stock_capacity_input.get())
@@ -361,7 +339,9 @@ class SettingWindow(customtkinter.CTkToplevel):
         self.manuf_line.safety_stock = float(self.safety_stock_input.get())
         self.manuf_line.refill_size = float(self.refill_size_input.get())
         self.manuf_line.n_robots = float(self.n_robots_input.get())
+        self.manuf_line.n_repairmen = int(self.n_repairmen_input.get())
         self.manuf_line.robot_strategy = int(available_strategies.index(self.strategy_dropdown.get()))
+        self.manuf_line.repairmen = simpy.PreemptiveResource(env, capacity=int(self.n_repairmen_input.get()))
 
 
         self.manuf_line.supermarket_in = simpy.Container(env, capacity=self.manuf_line.stock_capacity, init=self.manuf_line.stock_initial)
@@ -388,7 +368,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         
        
         super().__init__()
-        self.geometry("1260x720")
+        self.geometry(f"{1920}x{1080}")
         self.loading_window = None
         global simulation_number
 
@@ -400,12 +380,12 @@ class ReportingWindow(customtkinter.CTkToplevel):
         simulation_number+=1
         self.grid_columnconfigure((1), weight=1)
         #self.grid_columnconfigure((0), weight=1)
-        self.grid_rowconfigure((1), weight=1)
+        #self.grid_rowconfigure((1,2), weight=1)
         #self.resizable(width=False, height=False)
         self.textbox = customtkinter.CTkTextbox(master=self, width=450, height=250, corner_radius=0, font=("Arial", 18), wrap="word")
         self.textbox.grid_remove()
-        self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250)
-        self.frame_data.grid(rowspan=2, column=0, pady = 10, padx=10, sticky="nsew")
+        self.frame_data = customtkinter.CTkFrame(master=self, corner_radius=20, width = 250, height=1000)
+        self.frame_data.grid(rowspan=3, column=0, pady = 10, padx=10, sticky="nsew")
         self.simulated_prod_time_btn = customtkinter.CTkButton(self.frame_data, text="Simulation Time", width = 250, fg_color="grey", text_color_disabled= "white", state="disabled", font=('Arial', 15))
         self.simulated_prod_time_btn.grid(row=0, column=1, padx=20, pady=10)
         self.simulated_prod_time_label = customtkinter.CTkLabel(master=self.frame_data, text="N/A", font=('Arial', 16))
@@ -434,8 +414,8 @@ class ReportingWindow(customtkinter.CTkToplevel):
         self.save_setting_btn.grid(row=10, column=1, padx=20, pady=10)
         self.frame = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
         self.frame.grid(row=0, column=1, pady = 10, padx=10, sticky="nsew")
-        self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20, width = 300)
-        self.frame_br.grid(row=1, column=1, pady = 10, padx=10, sticky="nsew")
+        self.frame_br = customtkinter.CTkFrame(master=self, corner_radius=20)
+        self.frame_br.grid(row=1, column=1, pady = 5, padx=10, sticky="nsew")
         
         # Prep Plot of Machine Avg. Cycle Time
         fig_m, ax_m = plt.subplots(nrows=1, ncols=1, figsize=(9, 4), sharex=True, facecolor="#282C34")
@@ -453,15 +433,16 @@ class ReportingWindow(customtkinter.CTkToplevel):
 
         # Prep Plot of Machine Breakdowns
 
-        fig_br, ax_br = plt.subplots(nrows=1, ncols=1, figsize=(9, 4), sharex=True, facecolor="#282C34")
+        fig_br, ax_br = plt.subplots(nrows=2, ncols=1, figsize=(12, 6), sharex=True, facecolor="#282C34")
         fig_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
         fg_color = 'white' if app.appearence_mode == "Dark" else 'black'
-        ax_br.clear()
-        ax_br.set_ylabel('Idle Time (s)', color=fg_color)
-        ax_br.set_title('Idle Time of Machines per type of waiting', color=fg_color)
-        ax_br.set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
-        ax_br.yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
-        ax_br.xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+        for i in range(len(ax_br)):
+            ax_br[i].clear()
+            ax_br[i].set_ylabel('Idle Time (s)', color=fg_color)
+            ax_br[i].set_title('Idle Time of Machines per type of waiting', color=fg_color)
+            ax_br[i].set_facecolor('#282C34' if app.appearence_mode == "Dark" else 'white')
+            ax_br[i].yaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
+            ax_br[i].xaxis.set_tick_params(color=fg_color, labelcolor=fg_color)
         canvas_fig_br = FigureCanvasTkAgg(fig_br, master=self.frame_br)
         canvas_fig_widget__br = canvas_fig_br.get_tk_widget()
         canvas_fig_widget__br.pack(expand=True, fill=tk.BOTH)
@@ -475,7 +456,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         print("Machins products = ", [m.parts_done for m in manuf_line.list_machines])
         print("Shop_stock_out = ", manuf_line.shop_stock_out.level)
         CT_line = manuf_line.sim_time/manuf_line.shop_stock_out.level
-        efficiency_rate = 100*(assembly_line.takt_time/CT_line)
+        efficiency_rate = 100*(manuf_line.takt_time/CT_line)
 
         simulated_prod_time_str = format_time(manuf_line.sim_time)
         self.simulated_prod_time_label.configure(text=simulated_prod_time_str)
@@ -498,7 +479,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
                     ct_machine.append(0)
                 else:
                     ct_machine.append(finished)
-            machines_CT.append(np.mean(ct_machine))
+            machines_CT.append(np.sum(ct_machine))
 
             for time in machine.exit_times:
                 idle_times_machine.append(time)
@@ -513,22 +494,28 @@ class ReportingWindow(customtkinter.CTkToplevel):
             print("Waiting time Robot = ", 100*manuf_line.robots_list[ri].waiting_time/manuf_line.sim_time)
         machines_prod_rate = [manuf_line.sim_time / m.parts_done if m.parts_done != 0 else 0 for m in manuf_line.list_machines]
 
-        machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
+        #machine_efficiency_rate =[int(100*m.parts_done/(manuf_line.sim_time/m.ct)) for m in manuf_line.list_machines]
+        machine_efficiency_rate =[100*np.sum([m.ref_produced.count(item)*manuf_line.references_config[item][manuf_line.list_machines.index(m)+1] for item in list(manuf_line.references_config.keys())])/manuf_line.sim_time for m in manuf_line.list_machines]
         machines_util = [m.ct* m.parts_done / manuf_line.sim_time for i,m in enumerate(manuf_line.list_machines)]
 
-        machine_available_percentage = [100*m.ct* m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
+       # machine_available_percentage = [100*m.ct* m.parts_done / manuf_line.sim_time for m in manuf_line.list_machines]
+        machine_available_percentage = [100*ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines,machines_CT) ]
         #waiting_time_percentage = [100*(m.waiting_time[0] + m.waiting_time[1])/manuf_line.sim_time   for m in manuf_line.list_machines]
         breakdown_percentage = [100*float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
 
         # Calculate machine available percentage, breakdown percentage, and waiting time percentage
         waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
         #machine_available_percentage = [100 - waiting_percentage - breakdown_percentage for waiting_percentage, breakdown_percentage in zip(waiting_time_percentage, breakdown_percentage)] 
+        print("Refernces = ", self.manuf_line.references_config)
         print('Efficiency = ', machine_efficiency_rate)
         print('Availability 1 = ', machines_util)
         print('Utilization 2 = ', machine_available_percentage)
-        
-        oee_100quality = 100*np.sum([m.ct + 2*abs(m.move_robot_time) for m in manuf_line.list_machines])/np.sum([ct for ct in machines_CT])
-      
+        print("Breakdowns = ", np.sum([ float(m.n_breakdowns) for m in manuf_line.list_machines]))
+        for item in list(manuf_line.references_config.keys()):
+            print("Items of  = ", [m.ref_produced.count(item)  for m in manuf_line.list_machines])
+            print("Ref = " + item + " - " + str(manuf_line.inventory_out.items.count(item)))
+        #oee_100quality = 100*np.mean([(m.ct + 2*abs(m.move_robot_time))/ct for m, ct in zip(manuf_line.list_machines, machines_CT)])
+        oee_100quality = 100*np.mean([ct/manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)])
 
         self.oee_label.configure(text = f'{oee_100quality:.1f} %')
 
@@ -541,7 +528,7 @@ class ReportingWindow(customtkinter.CTkToplevel):
         
         fig_m.tight_layout()
 
-
+        
         # Plot of Machine Breakdowns
         breakdown_values = [m.n_breakdowns for m in manuf_line.list_machines]
         starvation_times = [m.waiting_time[0] for m in manuf_line.list_machines]
@@ -551,14 +538,23 @@ class ReportingWindow(customtkinter.CTkToplevel):
         bar_width = 0.35
         index = range(num_machines)
 
-        bar_starv = ax_br.bar(index, starvation_times, bar_width, label='Starvation Time')
-        bar_block = ax_br.bar([i + bar_width for i in index], blockage_times,bar_width, label='Blockage Time')
+        bar_starv = ax_br[0].bar(index, starvation_times, bar_width, label='Starvation Time')
+        bar_block = ax_br[0].bar([i + bar_width for i in index], blockage_times,bar_width, label='Blockage Time')
 
-        ax_br.set_xticks([i + bar_width / 2 for i in index])  # Set machine names as x-tick positions
-        ax_br.set_xticklabels(machines_names)
+        ax_br[0].set_xticks([i + bar_width / 2 for i in index])  # Set machine names as x-tick positions
+        ax_br[0].set_xticklabels(machines_names)
 
-        ax_br.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
+        ax_br[0].legend(loc='upper center', bbox_to_anchor=(0.5, -0.2),
           fancybox=True, shadow=True, ncol=2)
+        
+        for idx, item in enumerate(list(manuf_line.references_config.keys())):
+            items = [m.ref_produced.count(item)  for m in manuf_line.list_machines]
+            ax_br[1].bar([x + bar_width * idx for x,_ in enumerate(manuf_line.list_machines)], items, width=0.4, label=item, align='center')
+
+        ax_br[1].set_xlabel('Machine IDs')
+        ax_br[1].set_ylabel('Parts Produced')
+        ax_br[1].set_title('Parts Passed through Machine per Reference')
+        ax_br[1].legend()
         fig_br.tight_layout()
 
     def longest_repetitive_pattern(self, sequence):
@@ -1105,7 +1101,6 @@ if __name__ == "__main__":
     #df_tasks = pd.read_xml('./workplan_TestIsostatique_modified.xml', xpath=".//weldings//welding")
     #tasks = known_tasks(df_tasks["cycleTime"].astype(int).tolist())
     tasks = []
-    
     config_file = 'config.yaml'
     #task_assignement = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3,  3, 3, 3, 3, 3, 3, 3 ]
     assembly_line = ManufLine(env, tasks, config_file=config_file)
@@ -1113,7 +1108,7 @@ if __name__ == "__main__":
 
     ## Compile with OEE diagram modifs + parallel machines + robots transport 
     
-    
+    random.seed(10)
     app = App(assembly_line)
     
     #app.open_setting_window()

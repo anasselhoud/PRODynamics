@@ -15,8 +15,5 @@ COPY . .
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirement.txt
 
-# Set the environment variable for the GUI
-ENV DISPLAY=:0.0
-
 # Run main-live.py when the container launches
-CMD ["python", "main-live.py"]
+CMD ["streamlit run", "app.py"]
