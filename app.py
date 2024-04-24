@@ -8,9 +8,12 @@ from  matplotlib.ticker import FuncFormatter
 import seaborn as sns
 from streamlit_option_menu import option_menu
 from utils import *
+from utils_optim import *
 import plotly.graph_objects as go
 import threading
 from scipy.stats import weibull_min, expon, norm, gamma
+from joblib import Parallel, delayed
+from scipy.optimize import minimize
 st.set_page_config(page_title="PRODynamics", page_icon="⚙️", layout="wide")
 #st.image('surviz_black_long.png')
 
@@ -298,9 +301,7 @@ class PRODynamicsApp:
 
 
     def simulation_page(self):
-
         st.markdown("##### Simulation Data Summary")
-
         column1, column2, column3, column4 = st.columns(4)
 
         # Print the values of the variables in each column
@@ -341,6 +342,98 @@ class PRODynamicsApp:
             self.run_simulation(self.manuf_line)
             # simulation_thread = threading.Thread(target=self.run_simulation, args=(self.manuf_line,))
             # simulation_thread.start()
+
+
+    def optimization_page(self):
+
+        st.markdown("##### Line Data Summary")
+
+        column1, column2, column3, column4 = st.columns(4)
+
+        # Print the values of the variables in each column
+        with column1:
+            st.write("Simulation Time (s):", format_time(eval(st.session_state.configuration["sim_time"])))
+            st.write("Expected Takt Time:", st.session_state.configuration["takt_time"])
+            st.write("Number of Machines : ", len(st.session_state.line_data.values.tolist()))
+
+        with column3:
+            st.write("Machines Breakdown:", st.session_state.configuration["enable_breakdowns"])
+            st.write("Probability Law: ", st.session_state.configuration["breakdown_dist_distribution"].replace(" Distribution", ""))
+            st.write("Number of Repairmen:", st.session_state.configuration["n_repairmen"])
+            
+        with column2:
+            st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
+            st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
+        
+        with column4:
+            st.write("Number of References : ", len(st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')))
+            st.write("Shift Reset:", st.session_state.configuration["reset_shift"])
+            st.write("Enable Random Seed:", st.session_state.configuration["enable_random_seed"])
+        
+        st.markdown("""---""")
+
+        c1, c2 = st.columns(2)
+
+        if st.button("Run Optimization"):
+            reference_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            line_data = st.session_state.line_data.values.tolist()
+            configuration = st.session_state.configuration
+            buffer_capacities = []
+            
+            num_buffers = 13
+            step_size = 1
+            max_capacity = 10
+
+            
+            progress_text = "Operation in progress. Please wait."
+            my_bar = st.progress(0, text=progress_text)
+            combinations = []
+
+            for i in range(num_buffers):
+                for capacity in range(1, max_capacity + 1, step_size):
+                    current_combination = [1] * num_buffers  
+                    current_combination[i] = capacity  
+                    combinations.append(current_combination)
+
+            costs = []
+            for i, candidate in enumerate(combinations):
+                total_cost = function_to_optimize(candidate, configuration, reference_config, line_data)
+                costs.append(total_cost)
+                my_bar.progress((i + 1) /len(combinations))
+
+            fig = go.Figure()
+            st.write("Plot:")
+            
+            coeffs_all = []
+            def objective_function(bc, coeffs):
+                return coeffs[0]*bc**3 + coeffs[1]*bc**2 + coeffs[2]*bc + coeffs[3]
+
+            for i in range(num_buffers):
+                capacities = [x_buffers[i] for x_buffers in combinations][i*int(max_capacity/step_size):(i+1)*int(max_capacity/step_size)]
+                results = [result[i] for result in costs][i*int(max_capacity/step_size):(i+1)*int(max_capacity/step_size)]
+                x = np.array(capacities)
+                y = np.array(results)
+                coeffs = np.polyfit(x, y, 3)
+                coeffs_all.append(coeffs)
+                y_pred = [np.sum([coeffs[i]*x_ex**(len(coeffs)-i-1) for i in range(len(coeffs))]) for x_ex in x ]
+                bounds = [(1, None)]
+                result = minimize(objective_function, x0=1, args=(coeffs), bounds=bounds)
+                optimum_x = result.x[0]
+                print("Optimal = ", optimum_x)
+                fig.add_trace(go.Scatter(x=capacities, y=results))
+                fig.add_trace(go.Scatter(x=capacities, y=y_pred, mode='lines', name=f'Buffer {i + 1}'))
+
+
+            fig.update_layout(
+                title='Evolution of Cycle Time',
+                xaxis_title='Time',
+                yaxis_title='Cycle Time (s)',
+                margin=dict(l=0, r=0, t=30, b=20)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+
+
 
 
 
@@ -636,6 +729,7 @@ class PRODynamicsApp:
             self.simulation_page()
         elif selected == "Optimization Lab":
             # Add the content for the "Storage" section here
+            self.optimization_page()
             pass
         elif selected == "Contact Us":
             # Add the content for the "Contact Us" section here
