@@ -291,8 +291,12 @@ class ManufLine:
         for i, m in enumerate(self.list_machines):
             m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
+
+        self.expected_refill_time = [0 for _ in range(len(self.references_config.keys()))]
+        for ref in list(self.references_config.keys()):
+            print("Reference confirmed = ", ref)
+            self.env.process(self.refill_market(ref))
         
-        self.env.process(self.refill_market())
         self.env.process(self.reset_shift())
 
     def run_action(self, action):
@@ -301,7 +305,7 @@ class ManufLine:
         """
         print('Going from ' + str(action[0]) + " " + str(action[1]) )
         self.robot.process = self.env.process(self.robot.robot_process_local(action[0], action[1]))
-        self.env.run(until=self.env.now + 30)
+        self.env.run(until=self.env.now + 1000)
 
 
     def reset_shift(self):
@@ -1021,6 +1025,7 @@ class Robot:
 
                 while from_entity.buffer_out.level == 0:
                     yield self.env.timeout(10)
+                    
                     if from_entity.broken or to_entity.broken:
                         print("From entity is broken, skipping remaining instructions")
                         self.busy = False
@@ -1065,10 +1070,10 @@ class Robot:
                     yield self.env.timeout(10) 
                     return
                 
+                print("Start to wait at - ", self.env.now)
                 yield from_entity.get(1)
-
                 product = yield self.manuf_line.inventory_in.get() 
-                
+                print("Ready  at - ", self.env.now)
                 to_entity.loaded +=1
                 self.waiting_time += self.env.now-entry
                 yield self.env.timeout(abs(to_entity.move_robot_time)+self.loadunload_time)

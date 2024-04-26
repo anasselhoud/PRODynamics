@@ -43,11 +43,20 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
         #try:
         config_data = pd.read_excel(file_path, sheet_name="Line Data")
         config_line_globa_data = pd.read_excel(file_path, sheet_name="Config")
+        multi_ref_data = pd.read_excel(file_path, sheet_name="Multi-Ref")
         config_data_gloabl = config_line_globa_data.values.tolist()
         print("Capacity = ", config_data_gloabl[2][2])
         assembly_line.stock_capacity = float(config_data_gloabl[2][2])
         assembly_line.stock_initial = float(config_data_gloabl[3][2])
-        assembly_line.refill_time = float(config_data_gloabl[4][2])
+        pattern = r'^(\d+)-(\d+)$'
+        match = re.match(pattern, str(config_data_gloabl[4][2]))
+        if match:
+            value1 = int(match.group(1))
+            value2 = int(match.group(2))
+            assembly_line.refill_time = [value1, value2]
+            print("refill time 1 = ", assembly_line.refill_time)
+        else:
+            assembly_line.refill_time = float(config_data_gloabl[4][2])
         assembly_line.safety_stock = float(config_data_gloabl[5][2])
         assembly_line.refill_size = float(config_data_gloabl[6][2])
 
@@ -57,10 +66,8 @@ def upload_config_test(assembly_line, buffer_size_list=[]):
 
         
         machine_data = config_data.values.tolist()
-        if buffer_size_list != []:
-            for i in range(len(machine_data)):
-                machine_data[i][5] = buffer_size_list[i]
         
+        assembly_line.references_config = multi_ref_data.set_index('Machine').to_dict(orient='list')
 
         assembly_line.create_machines(machine_data)
         try:
@@ -271,8 +278,6 @@ if __name__ == "__main__":
             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
             print("Level = ",assembly_line.shop_stock_out.level)
 
-
-    
 
     # cycle_times = []
     # for i in range(100):

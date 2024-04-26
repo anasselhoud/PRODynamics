@@ -432,9 +432,40 @@ class PRODynamicsApp:
             )
             st.plotly_chart(fig, use_container_width=True)
 
+        
+        if st.button("Run Action"):
+            reference_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            line_data = st.session_state.line_data.values.tolist()
+            configuration = st.session_state.configuration
+            env = simpy.Environment()
+            tasks = []
+            config_file = 'config.yaml'
+            self.manuf_line = ManufLine(env, tasks, config_file=config_file)
+            self.save_global_settings(self.manuf_line)
+        
+            self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+            self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+            # self.manuf_line.initialize()
 
-
-
+    
+            actions = [
+                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
+                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[1]],
+                [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
+                [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
+                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
+                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
+                [self.manuf_line.list_machines[2], self.manuf_line.list_machines[3]],
+                [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
+                [self.manuf_line.list_machines[3], self.manuf_line.list_machines[4]],]
+            
+            for action in actions:
+                # Run each action
+                self.manuf_line.run_action(action)
+                for m in self.manuf_line.list_machines:
+                    print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
+                    print("Level = ",self.manuf_line.shop_stock_out.level)
 
 
     def run_simulation(self, manuf_line):
