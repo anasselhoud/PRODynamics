@@ -1,0 +1,98 @@
+<workplan name="WP-2579479X-A.1" timestamp="2022-01-27-13-31-46">
+   <ebom workContent="" machineTime="">
+      <parts>
+         <part ref="4391567" cycleTime="4" PartFamily="FCM COLD END ASSEMBLY" name="COLD END ASSEMBLY - 0.0 NO GENERIC APPLIED GM T1XX-2 L76 DUAL PASSIVE COLD END_5.7L 15743" weight="21018.9" id="4391567" thumb="FCM COLD END ASSEMBLY.png" />
+         <part ref="2057150X" cycleTime="4"  PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY - HALF SHELL SUB-ASSEMBLY T1XX - SPLITTER SUB-ASSEMBLY" weight="560" id="2057150X" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="2057151X" cycleTime="4"  PartFamily="FCM HALF SHELL" name="HALF SHELL - UPPER - IT0.0 ET1.5  " weight="280" id="2057151X" thumb="FCM HALF SHELL.png" />
+         <part ref="2057152X" cycleTime="4"  PartFamily="FCM HALF SHELL" name="HALF SHELL - LOWER - IT0.0 ET1.5  " weight="280" id="2057152X" thumb="FCM HALF SHELL.png" />
+         <part ref="2092564X" cycleTime="4"  PartFamily="FCM HANGER" name="HANGER - ROD D10.0 - L3B PU OUTLET PIPE BRACE B3 R20 R20 R45 L171.9" weight="100" id="2092564X" thumb="FCM HANGER.png" />
+         <part ref="2092567X" cycleTime="4"  PartFamily="FCM HANGER" name="HANGER - ROD D12.7 - L3B PU PICK UP PIPE HANGER B3 2R20 R46.35 L200.707" weight="210" id="2092567X" thumb="FCM HANGER.png" />
+         <part ref="2092568X" cycleTime="4"  PartFamily="FCM HANGER" name="HANGER - ROD D10.0 - L3B PU PICK UP PIPE BRACE B3 R20 R20 R45 L174.922" weight="110" id="2092568X" thumb="FCM HANGER.png" />
+         <part ref="2092573X" cycleTime="4"  PartFamily="FCM HANGER" name="HANGER - ROD D12.7 - L3B PU OUTLET PIPE HANGER B2 R20 R46.35 L239.688" weight="240" id="2092573X" thumb="FCM HANGER.png" />
+         <part ref="2239276X" cycleTime="4"  PartFamily="FCM FLEX" name="FLEX - InD88.2 L240.0 SJM AFT_L_301800_R0    " weight="810" id="2239276X" thumb="FCM FLEX.png" />
+         <part ref="2245899X" cycleTime="4"  PartFamily="FCM PIPE" name="PIPE - PIPE D65.0 T1.2 1R80.0 L103.3 LH SPLITTER OUTLET" weight="192.8546088" id="2245899X" thumb="FCM PIPE.png" />
+         <part ref="2247650X" cycleTime="4"  PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY - FLANGE SUB-ASSEMBLY FLANGE STUD ASSEMBLY" weight="279" id="2247650X" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="2246372X" cycleTime="4"  PartFamily="FCM FASTENER" name="FASTENER - STUD M8 X 1.25" weight="19" id="2246372X" thumb="FCM FASTENER.png" />
+         <part ref="2241306X" cycleTime="4"  PartFamily="FCM FLANGE" name="FLANGE - THICK FLANGE OTHER 1 2 65.7 PRESSED STUD FLANGE T1XX SPLIT DUALS" weight="231.107486" id="2241306X" thumb="FCM FLANGE.png" />
+         <part ref="2359825X" cycleTime="4"  PartFamily="FCM FLANGE" name="FLANGE -   STAMPED 1 2 80.6 FLANGE T1XX SPLIT DUALS" weight="496" id="2359825X" thumb="FCM FLANGE.png" />
+         <part ref="3899059" cycleTime="4" PartFamily="FCM HANGER" name="HANGER - ROD D12.7 WELDING CONFORM TO GENERICS T1XX-2 L76 SINGLE-COLD END INLET PIPE HANGER ROD B2 R20 L289.661" weight="292.7" id="3899059" thumb="FCM HANGER.png" />
+         <part ref="4010611" cycleTime="4" PartFamily="FCM VALVE" name="VALVE - PRESSURE PILOTED - - - - 80 DIA REVERSEDVALVE SUB-ASSEMBLY" weight="960" id="4010611" thumb="FCM VALVE.png" />
+         <part ref="4010612" cycleTime="4" PartFamily="FCM PIPE ASSEMBLY" name="PIPE ASSEMBLY -   REVERSABLE PIPE ASSEMBLY" weight="910" id="4010612" thumb="FCM PIPE ASSEMBLY.png" />
+         <part ref="4010613" cycleTime="4" PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY - VALVE SUB-ASSEMBLY PIPE BEARING HOUSINGS AND VALVE SUB-ASM" weight="630" id="4010613" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="2284057X" cycleTime="4"  PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY -   HOUSING AND BEARING ASSY 1 WITH LOCATOR" weight="72" id="2284057X" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="2283510X" cycleTime="4"  PartFamily="FCM HOUSING" name="HOUSING - CAP SIDE HOUSING" weight="60" id="2283510X" thumb="FCM HOUSING.png" />
+         <part ref="2179691X" cycleTime="4"  PartFamily="BEARING" name="BEARING - BEARING" weight="12" id="2179691X" thumb="BEARING.png" />
+         <part ref="4010617" cycleTime="4" PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY - BEARING HOUSING ASSEMBLY SPRING SIDE HOUSING AND BEARING ASSY 2 WITH LOCATOR" weight="69" id="4010617" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="4010619" cycleTime="4" PartFamily="BEARING" name="BEARING -   BEARING" weight="9" id="4010619" thumb="BEARING.png" />
+         <part ref="4010618" cycleTime="4" PartFamily="FCM HOUSING" name="HOUSING -   SPRING SIDE HOUSING" weight="60" id="4010618" thumb="FCM HOUSING.png" />
+         <part ref="4010620" cycleTime="4" PartFamily="FCM SHAFT" name="SHAFT - VALVE SHAFT D7.88  " weight="55" id="4010620" thumb="FCM SHAFT.png" />
+         <part ref="1920307X" cycleTime="4"  PartFamily="FCM PIPE" name="PIPE - PIPE D80.0 T1.9 0R0.0 L137.0 REVERSABLE PIPE D80.0" weight="490" id="1920307X" thumb="FCM PIPE.png" />
+         <part ref="1920306X" cycleTime="4"  PartFamily="FCM PIPE" name="PIPE - PIPE D80.0 T1.9 0R0.0 L137.0 RAW STICK" weight="490" id="1920306X" thumb="FCM PIPE.png" />
+         <part ref="1746120X" cycleTime="4"  PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY -    " weight="268" id="1746120X" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="1746117X" cycleTime="4"  PartFamily="FCM OTHER" name="OTHER - MASS FOR INERTIA - REVERSABLE ASSY" weight="209" id="1746117X" thumb="FCM OTHER.png" />
+         <part ref="1746118X" cycleTime="4"  PartFamily="FCM OTHER" name="OTHER - REVERSABLE VANE" weight="63" id="1746118X" thumb="FCM OTHER.png" />
+         <part ref="2257656X" cycleTime="4"  PartFamily="FCM SPRING RETAINER" name="SPRING RETAINER - INNER SPRING RETAINER" weight="20" id="2257656X" thumb="FCM SPRING RETAINER.png" />
+         <part ref="3067134" cycleTime="4" PartFamily="FCM SPRING" name="SPRING -   D32 ID0.0 L0.001 BIASED SPRING PROTO" weight="26" id="3067134" thumb="FCM SPRING.png" />
+         <part ref="2257658X" cycleTime="4"  PartFamily="FCM SPRING RETAINER" name="SPRING RETAINER - OUTER SPRING RETAINER" weight="20" id="2257658X" thumb="FCM SPRING RETAINER.png" />
+         <part ref="4296753" cycleTime="4" PartFamily="FCM TAIL PIPE ASSEMBLY" name="TAIL PIPE ASSEMBLY - NO GENERIC APPLIED  " weight="1440.61" id="4296753" thumb="FCM TAIL PIPE ASSEMBLY.png" />
+         <part ref="3656448" cycleTime="4" PartFamily="FCM TAIL PIPE TIP" name="TAIL PIPE TIP - ID  ED104.34X93.62 L123.92 - - - T1XX SUV L84 L87 REAR QUAD TIP POLISHED 304SS" weight="523" id="3656448" thumb="FCM TAIL PIPE TIP.png" />
+         <part ref="4296751" cycleTime="4" PartFamily="FCM HALF SHELL" name="HALF SHELL - UPPER OTHER IT0.0 ET1.2 NO GENERIC APPLIED  " weight="198.0819712" id="4296751" thumb="FCM HALF SHELL.png" />
+         <part ref="4296752" cycleTime="4" PartFamily="FCM HALF SHELL" name="HALF SHELL - LOWER - IT1.2 ET1.2 NO GENERIC APPLIED  " weight="196.5307344" id="4296752" thumb="FCM HALF SHELL.png" />
+         <part ref="4386844" cycleTime="4" PartFamily="FCM HANGER" name="HANGER - ROD D10.0 WELDING CONFORM TO GENERICS HANGER BRACE R20 L227.5" weight="138.6343334" id="4386844" thumb="FCM HANGER.png" />
+         <part ref="4296756" cycleTime="4" PartFamily="FCM PIPE" name="PIPE - FRONT PIPE D80.0 T1.2 0R0.0 L87.0 CONFORM TO GENERICS  " weight="208.2348647" id="4296756" thumb="FCM PIPE.png" />
+         <part ref="4386995" cycleTime="4" PartFamily="FCM HANGER" name="HANGER - ROD D12.7 WELDING NO GENERIC APPLIED HANGER #4 - R20  L274.7" weight="267.9738959" id="4386995" thumb="FCM HANGER.png" />
+         <part ref="4386994" cycleTime="4" PartFamily="FCM HANGER" name="HANGER - ROD D10.0 WELDING NO GENERIC APPLIED BRACE ROD FOR HANGER #4 - R20  L101.7" weight="61.98511232" id="4386994" thumb="FCM HANGER.png" />
+         <part ref="4300335" cycleTime="4" PartFamily="FCM SILENCER ASSEMBLY" name="SILENCER ASSEMBLY -   535.0 184 X 305 NO GENERIC APPLIED  " weight="8129" id="4300335" thumb="FCM SILENCER ASSEMBLY.png" />
+         <part ref="3871488" cycleTime="4" PartFamily="FCM SILENCER ASSEMBLY" name="SILENCER ASSEMBLY - 24.564 535 184X305 NO GENERIC APPLIED G4-5269" weight="7507" id="3871488" thumb="FCM SILENCER ASSEMBLY.png" />
+         <part ref="2192306X" cycleTime="4"  PartFamily="FCM WRAPPER" name="WRAPPER - IT0.0 ET1.2 D542.6 X 839.6 L542.6  " weight="4210" id="2192306X" thumb="FCM WRAPPER.png" />
+         <part ref="3871489" cycleTime="4" PartFamily="FCM BAFFLE" name="BAFFLE - SILENCER OVAL D184X305 T1.2   -  " weight="449" id="3871489" thumb="FCM BAFFLE.png" />
+         <part ref="3871490" cycleTime="4" PartFamily="FCM SILENCER INTERNAL SUB-ASSEMBLY" name="SILENCER INTERNAL SUB-ASSEMBLY - BAFFLE AND PIPE SUB ASSY" weight="630" id="3871490" thumb="FCM SILENCER INTERNAL SUB-ASSEMBLY.png" />
+         <part ref="3871491" cycleTime="4" PartFamily="FCM BAFFLE" name="BAFFLE - SILENCER OVAL D184 X 305 T1.2   -  " weight="443" id="3871491" thumb="FCM BAFFLE.png" />
+         <part ref="2335745X" cycleTime="4"  PartFamily="FCM PIPE" name="PIPE - PIPE D70.0 T1.0 0R0.0 L111.25 CONNECTOR" weight="187" id="2335745X" thumb="FCM PIPE.png" />
+         <part ref="3871492" cycleTime="4" PartFamily="FCM SILENCER INTERNAL SUB-ASSEMBLY" name="SILENCER INTERNAL SUB-ASSEMBLY - BAFFLE AND PIPE SUB ASSY" weight="995" id="3871492" thumb="FCM SILENCER INTERNAL SUB-ASSEMBLY.png" />
+         <part ref="3871493" cycleTime="4" PartFamily="FCM PIPE" name="PIPE - PIPE D75 T1 0R0.0 L337.5 CONNECTOR" weight="506" id="3871493" thumb="FCM PIPE.png" />
+         <part ref="3871494" cycleTime="4" PartFamily="FCM PIPE" name="PIPE - PIPE D70.0 T1.0 0R0.0 L473.75 CONNECTOR" weight="791" id="3871494" thumb="FCM PIPE.png" />
+         <part ref="3871495" cycleTime="4" PartFamily="FCM BAFFLE" name="BAFFLE - SILENCER OVAL D184X305 T1.2   -  " weight="449" id="3871495" thumb="FCM BAFFLE.png" />
+         <part ref="2481939X" cycleTime="4"  PartFamily="FCM HEAD" name="HEAD - OVAL D184 X 305 IT0.0 ET1.2 -  " weight="610" id="2481939X" thumb="FCM HEAD.png" />
+         <part ref="2481942X" cycleTime="4"  PartFamily="FCM HEAD" name="HEAD - OVAL D184 X 305 IT0.0 ET1.2 -  " weight="613" id="2481942X" thumb="FCM HEAD.png" />
+         <part ref="3653852" cycleTime="4" PartFamily="FCM HEAT SHIELD" name="HEAT SHIELD - SILENCER - SHIELD - MUFFLER BOX" weight="622" id="3653852" thumb="FCM HEAT SHIELD.png" />
+         <part ref="4300334" cycleTime="4" PartFamily="FCM PIPE" name="PIPE - INTERMEDIATE PIPE D80.0 T1.2 3R100.0 L595.4 CONFORM TO GENERICS  " weight="1364.320679" id="4300334" thumb="FCM PIPE.png" />
+         <part ref="4300759" cycleTime="4" PartFamily="FCM PIPE" name="PIPE - INTERMEDIATE PIPE D80.0 T1.2 2R100.0 L1342.7 CONFORM TO GENERICS  " weight="3102.228685" id="4300759" thumb="FCM PIPE.png" />
+         <part ref="2407633X" cycleTime="4"  PartFamily="FCM SUB-ASSEMBLY" name="SUB-ASSEMBLY -   PATCH ASSEMBLY DURCHMESSER 60" weight="31" id="2407633X" thumb="FCM SUB-ASSEMBLY.png" />
+         <part ref="2407634X" cycleTime="4"  PartFamily="FCM SHEET METAL" name="SHEET METAL - RAHMEN BLECH" weight="29" id="2407634X" thumb="FCM SHEET METAL.png" />
+         <part ref="2120433X" cycleTime="4"  PartFamily="FCM OTHER" name="OTHER - MPA SHEET" weight="1" id="2120433X" thumb="FCM OTHER.png" />
+         <part ref="4606571" cycleTime="4" PartFamily="FCM PIPE" name="PIPE - REAR INTERMEDIATE PIPE D65.0 T1.2 4R85.0 L1048.93 NO GENERIC APPLIED  " weight="1976" id="4606571" thumb="FCM PIPE.png" />
+      </parts>
+   <weldings>
+<welding id="Task0001" cycleTime="4.95" weight="3394.928685" thumb="" name="4" length="NaN" type="1" forbidden="" assy="3899059;4300759" precedency=""/>
+<welding id="Task0002" cycleTime="5.93" weight="431.3343334" thumb="" name="5" length="NaN" type="1" forbidden="" assy="3899059;4386844" precedency="Task0001"/>
+<welding id="Task0003" cycleTime="4.95" weight="3240.8630184" thumb="" name="6" length="NaN" type="1" forbidden="" assy="4386844;4300759" precedency="Task0001;Task0002"/>
+<welding id="Task0004" cycleTime="15.18" weight="704.2348647" thumb="" name="1" length="NaN" type="1" forbidden="" assy="2359825X;4296756" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0005" cycleTime="18.09" weight="1018.2348647" thumb="" name="2" length="NaN" type="1" forbidden="" assy="4296756;2239276X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0006" cycleTime="18.09" weight="3912.228685" thumb="" name="3" length="NaN" type="1" forbidden="" assy="2239276X;4300759" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0007" cycleTime="20.20" weight="8129" thumb="" name="8" length="NaN" type="1" forbidden="" assy="3653852;3871488" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0008" cycleTime="3.90" weight="2243.9738959" thumb="" name="32" length="NaN" type="1" forbidden="" assy="4386995;4606571" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0009" cycleTime="3.3" weight="329.95900822" thumb="" name="33" length="NaN" type="1" forbidden="" assy="4386995;4386994" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0010" cycleTime="2.7" weight="2037.98511232" thumb="" name="34" length="NaN" type="1" forbidden="" assy="4386994;4606571" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0011" cycleTime="18.68" weight="2172.5307344" thumb="" name="35" length="NaN" type="1" forbidden="" assy="4606571;4296752" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0012" cycleTime="16.58" weight="4062.228685" thumb="" name="36" length="NaN" type="1" forbidden="" assy="4300759;4010611" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0013" cycleTime="15.18" weight="8467" thumb="" name="37" length="NaN" type="1" forbidden="" assy="4010611;3871488" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0014" cycleTime="14.69" weight="9493.320679" thumb="" name="38" length="NaN" type="1" forbidden="" assy="4300335;4300334" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0015" cycleTime="4.58" weight="1604.320679" thumb="" name="39" length="NaN" type="1" forbidden="" assy="2092573X;4300334" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0016" cycleTime="2.85" weight="340" thumb="" name="40" length="NaN" type="1" forbidden="" assy="2092564X;2092573X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0017" cycleTime="3.08" weight="1464.320679" thumb="" name="41" length="NaN" type="1" forbidden="" assy="2092564X;4300334" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0018" cycleTime="4.58" weight="1574.320679" thumb="" name="42" length="NaN" type="1" forbidden="" assy="2092567X;4300334" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0019" cycleTime="2.33" weight="320" thumb="" name="43" length="NaN" type="1" forbidden="" assy="2092568X;2092567X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0020" cycleTime="3.15" weight="1474.320679" thumb="" name="44" length="NaN" type="1" forbidden="" assy="2092568X;4300334" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0021" cycleTime="18.29" weight="1924.320679" thumb="" name="45" length="NaN" type="1" forbidden="" assy="4300334;2057150X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0022" cycleTime="32.46" weight="560" thumb="" name="46" length="NaN" type="1" forbidden="" assy="2057151X;2057152X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0023" cycleTime="18.22" weight="752.8546088" thumb="" name="47" length="NaN" type="1" forbidden="" assy="2057150X;2245899X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0024" cycleTime="12.34" weight="423.9620948" thumb="" name="48" length="NaN" type="1" forbidden="" assy="2245899X;2241306X" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0025" cycleTime="14.81" weight="2536" thumb="" name="49" length="NaN" type="1" forbidden="" assy="2057150X;4606571" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0026" cycleTime="25.83" weight="2007" thumb="" name="50" length="NaN" type="1" forbidden="" assy="2407633X;4606571" precedency="Task0001;Task0002;Task0003"/>
+<welding id="Task0027" cycleTime="19.43" weight="2007" thumb="" name="51" length="NaN" type="1" forbidden="" assy="2407633X;4606571" precedency="Task0001;Task0002;Task0003"/>
+</weldings>
+<non_weldings>
+</non_weldings>
+</ebom>
+</workplan>

@@ -87,7 +87,7 @@ def function_to_optimize(buffer_capacities, configuration, references_config, li
         else:
             result_values.append(sim_results[i] + sim_results[i+1])
     
-    print(result_values)
+
     if buffer_capacities == []:
         buffer_capacities = [1 for _ in range(len(sim_results))]
     inventory_cost = [invent_cost*i for i in buffer_capacities]
@@ -97,4 +97,4 @@ def function_to_optimize(buffer_capacities, configuration, references_config, li
     total_cost = results_values_cost
     print("Total Cost : ", total_cost)
 
-    return total_cost
+    return total_cost, result_values

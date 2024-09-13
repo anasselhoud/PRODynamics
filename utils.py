@@ -37,7 +37,7 @@ class ManufLine:
         self.machine_config_data = []
         self.breakdowns = self.config['breakdowns']
         self.breakdowns_switch = self.config['breakdowns']["enabled"]
-        self.breakdown_law = ""
+        self.breakdown_law = "Weibull Distribution"
         self.n_repairmen = 3
         self.repairmen = simpy.PreemptiveResource(env, capacity=self.n_repairmen)
         self.first_machine = None
@@ -122,7 +122,7 @@ class ManufLine:
                 machines_ct = self.machines_CT
                 tracksim = False
                 cycle_time = self.sim_time/self.shop_stock_out.level
-                if buffer_tracks != [] or tracksim:
+                if  tracksim:
                     print("Printed track sim")
                     if experiment_number == 1:
                         writer.writerow(["Sim Instant", "Robot State", "Machines State", "Machine CT", "Machines Breakdowns", "Machines Idle Time", "Buffers State"])
@@ -669,8 +669,6 @@ class ManufLine:
                     except:
                         pass
         
-        
-
 
 class Machine:
     def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False):
@@ -752,8 +750,6 @@ class Machine:
         self.op_fatigue = config["fatigue_model"]["enabled"]
 
         
-
-
     
     def time_to_failure(self):
         """Return time until next failure for a machine.
@@ -976,9 +972,6 @@ class Machine:
                                 self.current_product = None
                                 yield self.env.timeout(0)   
                 
-                    
-
-
 
 class Robot:
     """
@@ -1538,7 +1531,7 @@ def format_time(seconds):
     months, seconds = divmod(seconds, 2592000)   # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 30.44 days/month
     days, seconds = divmod(seconds, 86400)      # 60 seconds/minute * 60 minutes/hour * 24 hours/day
     hours, seconds = divmod(seconds, 3600)       # 60 seconds/minute * 60 minutes/hour
-    minutes, seconds = divmod(seconds, 60)       # 60 seconds/minute
+    minutes, seconds = divmod(seconds, 60)       # 60 seconds/minute 
 
     time_str = ""
     non_zero_parts = 0
