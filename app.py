@@ -52,7 +52,7 @@ class PRODynamicsApp:
                 "breakdown_dist_distribution": "Weibull Distribution"
             }
         if 'mbom_data' not in st.session_state:
-            st.session_state.mbom_data = pd.read_excel("assets\\inputs\\240426_EBOM_4391567_01.xlsx", 0, skiprows=5)
+            st.session_state.mbom_data = pd.read_excel(".\\assets\\inputs\\240426_EBOM_4391567_01.xlsx", 0, skiprows=5)
 
         st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
@@ -276,7 +276,6 @@ class PRODynamicsApp:
         with tab2:
             st.subheader("Product Reference Data")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                print("here problem? 1 ")
                 updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
                 st.session_state.multi_ref_data = updated_refs.copy()
                 # if not st.session_state.multi_ref_data.equals(updated_refs):
@@ -284,16 +283,13 @@ class PRODynamicsApp:
                 #     st.session_state.multi_ref_data = updated_refs.copy()
             else:
                 if uploaded_file_line_data is not None:
-                    print("here problem? 3 ")
                     if uploaded_file_line_data.name.endswith('.csv'):
                         st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
                     elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
                         st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
                     else:
                         st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                    # st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                    # st.subheader("Multi-Reference Data")
-                    print("here problem? 4")
+
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
             new_ref_name = st.text_input("Enter new reference name")
