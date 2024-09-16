@@ -52,7 +52,7 @@ class PRODynamicsApp:
                 "breakdown_dist_distribution": "Weibull Distribution"
             }
         if 'mbom_data' not in st.session_state:
-            st.session_state.mbom_data = pd.read_excel(".\\assets\\inputs\\240426_EBOM_4391567_01.xlsx", 0, skiprows=5)
+            st.session_state.mbom_data = pd.read_excel("./assets\\inputs\\240426_EBOM_4391567_01.xlsx", 0, skiprows=5)
 
         st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
