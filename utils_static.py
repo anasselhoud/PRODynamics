@@ -446,7 +446,7 @@ class QLearning:
 def read_prepare_mbom(file_path):
 
     ebom = pd.read_excel(file_path, 0, skiprows=5)
-    df = pd.read_xml('..\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
+    #df = pd.read_xml('..\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
     df_parts = pd.read_xml('..\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//parts//part")
     # set parameters
     precedence_weight = 0.5 # set the weight for precedence relationships
