@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<!--[if lt IE 7 ]><html class="ie ie6" lang="en"> <![endif]-->
+<!--[if IE 7 ]><html class="ie ie7" lang="en"> <![endif]-->
+<!--[if IE 8 ]><html class="ie ie8" lang="en"> <![endif]-->
+<!--[if (gte IE 9)|!(IE)]><!-->
+<html lang="en">
+<!--<![endif]-->
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="keywords" content="">
+
+    <title>PRODynamics| Documentation </title>
+
+    <link rel="shortcut icon" href="images/favicon.ico" type="image/x-icon">
+
+    <link rel="stylesheet" type="text/css" href="fonts/font-awesome-4.3.0/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="css/stroke.css">
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="css/animate.css">
+    <link rel="stylesheet" type="text/css" href="css/prettyPhoto.css">
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+
+    <link rel="stylesheet" type="text/css" href="js/syntax-highlighter/styles/shCore.css" media="all">
+    <link rel="stylesheet" type="text/css" href="js/syntax-highlighter/styles/shThemeRDark.css" media="all">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.0.3/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+    <!-- CUSTOM -->
+    <link rel="stylesheet" type="text/css" href="css/custom.css">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+</head>
+
+<body>
+    <button onclick="topFunction()" id="myBtn" title="Go to top"><i class="fa fa-chevron-up" aria-hidden="true"></i></button>
+
+    <script>
+        var mybutton = document.getElementById("myBtn");
+        window.onscroll = function() {scrollFunction()};
+        function scrollFunction() {
+            if (document.body.scrollTop > 1000 || document.documentElement.scrollTop > 1000) {
+                mybutton.style.display = "block";
+            } else {
+                mybutton.style.display = "none";
+            }
+        }
+        function topFunction() {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelector('#mode').addEventListener('click',()=>{
+                document.querySelector('html').classList.toggle('dark');
+            })
+        });
+
+
+    </script>
+
+    <div id="wrapper">
+
+        <div id="mode" >
+            <div class="dark">
+                <svg aria-hidden="true" viewBox="0 0 512 512">
+                    <title>lightmode</title>
+                    <path fill="currentColor" d="M256 160c-52.9 0-96 43.1-96 96s43.1 96 96 96 96-43.1 96-96-43.1-96-96-96zm246.4 80.5l-94.7-47.3 33.5-100.4c4.5-13.6-8.4-26.5-21.9-21.9l-100.4 33.5-47.4-94.8c-6.4-12.8-24.6-12.8-31 0l-47.3 94.7L92.7 70.8c-13.6-4.5-26.5 8.4-21.9 21.9l33.5 100.4-94.7 47.4c-12.8 6.4-12.8 24.6 0 31l94.7 47.3-33.5 100.5c-4.5 13.6 8.4 26.5 21.9 21.9l100.4-33.5 47.3 94.7c6.4 12.8 24.6 12.8 31 0l47.3-94.7 100.4 33.5c13.6 4.5 26.5-8.4 21.9-21.9l-33.5-100.4 94.7-47.3c13-6.5 13-24.7.2-31.1zm-155.9 106c-49.9 49.9-131.1 49.9-181 0-49.9-49.9-49.9-131.1 0-181 49.9-49.9 131.1-49.9 181 0 49.9 49.9 49.9 131.1 0 181z"></path>
+                </svg>
+            </div>
+            <div class="light">
+                <svg aria-hidden="true" viewBox="0 0 512 512">
+                    <title>darkmode</title>
+                    <path fill="currentColor" d="M283.211 512c78.962 0 151.079-35.925 198.857-94.792 7.068-8.708-.639-21.43-11.562-19.35-124.203 23.654-238.262-71.576-238.262-196.954 0-72.222 38.662-138.635 101.498-174.394 9.686-5.512 7.25-20.197-3.756-22.23A258.156 258.156 0 0 0 283.211 0c-141.309 0-256 114.511-256 256 0 141.309 114.511 256 256 256z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <div class="container">
+
+            <section id="top" class="section docs-heading">
+
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="big-title text-center">
+                            <h1>PRODynamics - A developer Guide</h1>
+                            <p class="lead">A journey of a thousand miles begins with a single step.</p>
+                        </div>
+                        <!-- end title -->
+                    </div>
+                    <!-- end 12 -->
+                </div>
+                <!-- end row -->
+
+                <hr>
+
+            </section>
+            <!-- end section -->
+
+            <div class="row">
+
+                <div class="col-md-3">
+                    <nav class="docs-sidebar" data-spy="affix" data-offset-top="300" data-offset-bottom="200" role="navigation">
+                        <ul class="nav">
+                            <li><a href="#line1">Getting Started</a></li>
+                            <li><a href="#line2">How to Set Up</a></li>
+                            <li><a href="#line3">UML & Architecture</a></li>
+                            <li><a href="#line5">Files & Sources</a></li>
+                            <li><a href="#line4">Main Functions</a></li>
+                            <li><a href="#line6">Revolution Slider</a></li>
+                            <li><a href="#line7">How to Use Option Panel</a>
+                                <ul class="nav">
+                                    <li><a href="#line7_1">General Options</a></li>
+                                    <li><a href="#line7_2">Style Options</a></li>
+                                    <li><a href="#line7_3">Header Options</a></li>
+                                    <li><a href="#line7_4">Font Options</a></li>
+                                    <li><a href="#line7_5">Slider Options</a></li>
+                                    <li><a href="#line7_6">Page Options</a></li>
+                                    <li><a href="#line7_7">Import & Export</a></li>
+                                </ul>
+                            </li>
+                            <li><a href="#line8">Support Desk</a></li>
+                            <li><a href="#line9">Files & Sources</a></li>
+                            <li><a href="#line10">Version History (Changelog)</a></li>
+                            <li><a href="#line11">Copyright and License</a></li>
+                        </ul>
+                    </nav >
+                </div>
+                <div class="col-md-9">
+                    <section class="welcome">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                               <h2 class="dark-text">Introduction<hr></h2>
+                                <div class="row">
+
+                                    <div class="col-md-12 full">
+                                        <div class="intro1">
+                                            <ul>
+                                                <li><strong>Tool Name : </strong>PRODynamics</li>
+                                                <li><strong>Item Version : </strong> v 0.1.0</li>
+                                                <li><strong>Author  : </strong> <a href="https://elhoud.me" target="_blank">Anass ELHOUD</a></li>
+                                                <li><strong>Support Contact : </strong> <a href="mailto:anass.elhoud@forvia.com" target="_blank">anass.elhoud@forvia.com</a></li>
+                                                <li><strong>License : </strong> <a href="#" target="_blank">Internal Use</a></li>
+                                            </ul>
+                                        </div>
+
+                                        <hr>
+                                        <div>
+                                            <p>This tool is part of a global solution that has been developed during the industrial PhD thesis at FORVIA Clean Mobility between February 2022 and December 2024. 
+                                                <strong>If you wanna add more features, this guide is for you!</strong>
+                                            </p>
+
+                                            <div class="intro2 clearfix">
+                                                <p><i class="fa fa-info-circle"></i>  <strong>PRODynamics</strong> is an optimization and simulation tool designed to evaluate the impact of hazardous events on a production line, as well as optimizing its material flow. 
+                                             It models the flow between various resources with high speed and accuracy, factoring in multiple events such as machine breakdowns, microstops, supply chain delays, and more.
+                                                </p>
+                                            </div>
+
+                                            <img src="images/simulation-usecase.PNG" alt="" class="img-responsive">
+
+                                            <p>This documentation is to help you regarding each step of developement. Please go through the documentation carefully to understand how this template is made and how to edit this properly. Basic algorithmic and programming knowledge is required to customize the tool. For a more theoretical view, refer to chapter V of my PhD dissertation.</p>
+
+                                            <h4>Requirements</h4>
+                                            <p>You will need the following sofwares to customize this template.</p>
+                                            <ol>
+                                                <li>Code Editing Software (I prefer VS Code, but make yourself comfortable with any software you like).</li>
+                                                <li>Anaconda/Miniconda would be a great choice to build your Python environement.</li>
+                                                <li>Docker for managing the global container and test your features.</li>
+                                            </ol>
+                                        
+
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <!-- end row -->
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="line1" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">Getting Started <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English.</p>
+
+                                <h4>Bootstrap Grid System</h4>
+
+                                <pre class="brush: html; highlight: [2,4]">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                                        YOUR CODES GOES HERE
+                                    </div>
+                                </div>
+                            </div></pre>
+
+                                <p>Our you can use the grid system with 2 columns like this;</p>
+
+                                <pre class="brush: html">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                                        YOUR CODES GOES HERE
+                                    </div>
+                                    <div class="col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                                        YOUR CODES GOES HERE
+                                    </div>
+                                </div>
+                            </div>
+                         </pre>
+
+                                <p>Our you can use the grid system with 3 columns like this;</p>
+
+                        <pre class="brush: html">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                        YOUR CODES GOES HERE
+                                    </div>
+                                    <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                        YOUR CODES GOES HERE
+                                    </div>
+                                    <div class="col-lg-4 col-md-6 col-sm-6 col-xs-12">
+                                        YOUR CODES GOES HERE
+                                    </div>
+                                </div>
+                            </div>
+                         </pre>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line2" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">How to Set Up<hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+
+                        <h4>Create Conda Environement</h4>
+
+                        <p>Start by installing Miniconda, and create your environment based on Python 3.9. Refer to the official website of Conda to install it and set it up.</p>
+
+                        <a href="https://docs.anaconda.com/miniconda/?mwg_rnd=4966197" class="btn btn-primary">Install</a> <a href="https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html?mwg_rnd=3384012" class="btn btn-info">Managing Environments</a>
+                        <p></p>
+                        <div class="row">
+                            <div class="col-md-8 col-md-offset-2">
+                                <div class="media">
+                                    <iframe width="560" height="315" src="https://www.youtube.com/embed/1VVCd0eSkYc?si=W_tQmotxPWmqDK5V" frameborder="0" allowfullscreen></iframe>
+                                </div>
+                            </div>
+
+                        </div>
+                        <hr>
+                        <h4>Set Up Environement</h4>
+
+                        <p>Once the environement is created, it should be empty at first. In order to set up the environement with all libraries that we will need, I have prepared a "requirments.txt" file that contains list of all required Python libraries with their specific versions.</p>
+                        <p>You can install the dependencies all at once, by activating the conda environement, going to the main folder placement, and use the command:</p>
+
+                        <pre><code class="python"> conda activate "env_name" </code></pre>
+                        <pre><code class="python"> pip install -r requirements.txt</code></pre>
+                       
+                        <hr>
+
+                        <h4>Launch the Tool</h4>
+
+                        <p>We use <strong>streamlit</strong> framework to build and deploy the tool, it's fast and very easy to use. To run the full application locally, use this command on your conda prompt: </p>
+                        <pre><code class="python">streamlit run app.py</code></pre>
+
+                        <p>You got it right, my friend! The file "app.py" is the main script for the full app. We will get to that later when talking about the main folder architecture. </p>
+                        <p>Streamlit offers the possibility to quickly deploy the tool online on the cloud for a better test of capabilities.
+                        </p>
+                        <a href="https://amdo-dy.streamlit.app/" class="btn btn-primary">Test online</a> 
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line3" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">UML & Architecture<hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+                        <p>Let us dive deep now into the technical structure of the tool. As I explained before, the tool is composed of a simulation part, 
+                            that models the flows of parts and material between automatic and manual resources, generate hazardous events and assess the performance of
+                            the production during the simulated time.  </p>
+                        <h4>Simulation Part</h4>
+                        <p>The dynamic simulator was built using SimPy framework and organized in a modular architecture designed for flexibility and future expansion, as depicted in the provided diagram above. All simulation main functions are coded in the script:
+                
+                            <pre><code class="python">utils.py</code></pre>
+                             The process begins with preparation, where users define the production line's characteristics. Here, users meticulously detail the production line itself, including the types and number of machines, the sequence of operations performed on each product, and the processing times involved. The definition of the product follows, where users specify the types of products, their bill of materials, and any assembly processes required.  Finally, users can define stochastic events to introduce realism, such as machine breakdowns and product arrival rates. All the simulation models are therefore generated based on this data configuration. The simulation execution phase starts with multiple production models being initialized to explore various scenarios or configurations. A network representing the interconnected machines and buffers is then generated. Products travel between machines based on routing rules, transportation times, and buffer capacities. The core engine of the simulator tracks product progress through various operations, managing discrete events like product arrivals, machine operational completions, and breakdowns. Critically, data is collected throughout the simulation on key performance metrics such as throughput, lead time, work-in-process, and machine utilization.</p>
+                        
+                        <img src="images/sim-UML.PNG" alt="" class="img-responsive">
+                        <img src="images/sim-framework.PNG" alt="" class="img-responsive">
+
+
+                        <hr>
+
+                        <h4>Optimization Part </h4>
+
+                        <p>Up to the current version, the optimization section of the tool is composed of two main indepedent objectives: optimize the sizing of the intermediate buffers between machines - Optimize the transportation flow of materials between machines.
+                        All optimization main functions are coded in the script:
+                
+                        <pre><code class="python">utils_optim.py</code></pre>
+                        </p>
+                        <h3>Intermediate Buffer Sizing</h3>
+                        <p>
+                            For this part, we have developed a new method called SEOD (Sample-Estimate-Optimize-Decide), our surrogate model optimiza- tion method, that uses a simulation framework to solve the problem of buffers’ storage size optimization. Instead of perturbing the values like in <a href="https://typeset.io/questions/what-is-finite-purturbation-analysis-1d99ngyupo?mwg_rnd=8368179">Finite Perturbation Analysis</a>, this method samples the values of possible buffer storage sizes following a specific distribution between the minimum and maximum storage size, evaluates the sample using the stochastic simulator, estimates the objective function and approximates it to a surrogate analytical model, and then optimizes it numerically to decide the optimal storage size for each buffer in the production line.
+                        </p>
+
+                        <img src="images/seod-algo.PNG" alt="" class="img-responsive">
+
+                        <h3>Transporation Flow Optimization</h3> 
+                        If intermediate buffer sizing can be managed using a surrogate model, optimizing transportation flow presents a more complex challenge. This problem is NP-hard and becomes even more intricate in real production environments. The goal is to regulate the movement of materials between machines while minimizing idle time. However, current transportation systems, such as robots or AGVs, follow pre-programmed, rigid instructions. In the event of a machine breakdown, the transporter continues to deliver materials to the malfunctioning machine, when it would be more efficient to skip it and supply another machine instead.
+                        <br>
+                        We attempt to solve the proble using Deep Reinforcement Learning (DRL), and more specifically Deep Q-Networks. The action space depends on the robot’s physical limitations and precedence constraints. The DRL agent determines control actions for the transporter, which could be a robot or an AGV. For simplicity, the action space is represented by a two-component vector (M-src, M-tgt), where M-src indicates the source machine from which a part is retrieved, and M-tgt indicates the target machine to which the part is delivered. With this formulation, the agent learns to generate a sequence of transportation actions based on the current state of the production line.
+                        <br>
+                        At each time-step, the agent uses the current state to decide what action to take to maximize future rewards. The state needs to contain enough information about the environment such that the agent is able to make the optimal decision. The states space is composed of a vector of production instant state metrics (following figure): state of machines (1 if operating, 0 otherwise), state of buffer (1 if full, 0 otherwise) and their current storage, the idle time of the machines, the current position of the transporter of the line.
+                        
+                        <img src="images/statespace.PNG" alt="" class="img-responsive">
+
+                        The overall architecture for transporatation flow optimization is given by the following diagram.
+                        <img src="images/dqn-architecture.PNG" alt="" class="img-responsive">
+
+                    </section>
+                    <!-- end section -->
+
+
+                    <section id="line5" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">Main Classes & Functions<hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+
+                            <div class="col-md-12">
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English.</p>
+                            </div>
+
+                            <div class="col-md-6">
+        
+                                <h4 id="line5_1">Simulation Classes </h4>
+                                <ul>
+                                    <li><strong>ManufLine</strong> - This is the main class of the simulation. It is composed of different attributes like: the SimPy environement, the simulation configurations (breakdown mode & law, simulation time...), the production line & process (number of machines, operators, robots/transporters, number of references, supply and outputs rates...)</li>
+                                    <li><strong>Machine</strong> - This class represents the machine, it has as attributes: ID, processing time, buffer, linked machines (in and out), operational flag, loading flag, current reference in the machine... </li>
+                                    <li><strong>Robot</strong> - This is the class representing the transporter, in general it is a manipulation/handling robot. Its main attributes are: transportation time, busy flag, sequence of transportation...</li> 
+                                </ul>
+                            </div>
+                            <!-- end col -->
+
+                            <div class="col-md-6">
+                                
+                                <h4 id="line5_2">Simulation Functions</h4>
+                                <ul>
+                                    <li><strong>ManufLine - run()</strong> - Lorem the It is a long established fact that a reader ease read more about WordPress here.</li>
+                                    <li><strong>ManufLine - run()</strong> - Lorem the It is a long established fact that a reader will be distracted.. Please read more about WordPress here.</li>
+                                    <li><strong>Machine - break_down()</strong> - Lorem the It is a long established fact that a read.</li>
+                                </ul>
+                            </div>
+                            <!-- end col -->
+
+                            <!-- end col -->
+
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line6" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">How to Install Revolution Slider <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+
+                            <div class="col-md-12">
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English.</p>
+                            </div>
+
+                            <div class="col-md-6">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                                <h4>Installation Slider</h4>
+                                <ul>
+                                    <li><strong>Step 1</strong> - Lorem the It is a long established fact that a reader ease read more about WordPress here.</li>
+                                    <li><strong>Step 2</strong> - Lorem the It is a long established fact that a reader will be distracted.. Please read more about WordPress here.</li>
+                                    <li><strong>Step 3</strong> - Lorem the It is a long established fact that a read.</li>
+                                </ul>
+                            </div>
+                            <!-- end col -->
+
+                            <div class="col-md-6">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                                <h4>Updating Slider</h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted.. Please read more about WordPress here.</p>
+                                <ul>
+                                    <li><strong>Step 1</strong> - Lorem the It is a long established fact that a reader ease read more about WordPress here.</li>
+                                    <li><strong>Step 2</strong> - Lorem the It is a long established fact that a reader will be distracted.. Please read more about WordPress here.</li>
+                                    <li><strong>Step 3</strong> - Lorem the It is a long established fact that a read.</li>
+                                </ul>
+                            </div>
+                            <!-- end col -->
+
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line7" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">How to Use Option Panel <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_1">General Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_2">Style Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_3">Header Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_4">Font Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_5">Slider Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_6">Page Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <hr>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="upload/thumbnail.png" data-rel="prettyPhoto"><img src="images/upload/thumbnail.png" alt="" class="img-responsive img-thumbnail"></a>
+                            </div>
+
+                            <div class="col-md-8">
+                                <h4 id="line7_7">Import & Export Options - </h4>
+                                <p>Lorem the It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. long established fact that a reader will English.</p>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line8" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">Support Desk <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p>Please remember you have purchased a very affordable theme and you have not paid for a full-time web design agency. Occasionally we will help with small tweaks, but these requests will be put on a lower priority due to their nature. Support is also 100% optional and we provide it for your connivence, so please be patient, polite and respectful.</p>
+
+                                <p>Please visit our <a href="http://themeforest.net/user/yourusername"><strong>profile page</strong></a> or ask question <a href="mailto:yourusername@gmail.com">@yourusername</a></p>
+
+                                <strong>Support for my items includes:</strong>
+                                <ul>
+                                    <li>* Responding to questions or problems regarding the item and its features</li>
+                                    <li>* Fixing bugs and reported issues</li>
+                                    <li>* Providing updates to ensure compatibility with new software versions</li>
+                                </ul>
+                                <strong>Item support does not include:</strong>
+                                <ul>
+                                    <li>* Customization and installation services</li>
+                                    <li>* Support for third party software and plug-ins</li>
+                                </ul>
+
+                            </div>
+
+                            <div class="col-md-6">
+                                <strong>Before seeking support, please...</strong>
+                                <ul>
+                                    <li>* Make sure your question is a valid Theme Issue and not a customization request.</li>
+                                    <li>* Make sure you have read through the documentation and any related video guides before asking support on how to accomplish a task.</li>
+                                    <li>* Make sure to double check the theme FAQs.</li>
+                                    <li>* Try disabling any active plugins to make sure there isn't a conflict with a plugin. And if there is this way you can let us know.</li>
+                                    <li>* If you have customized your theme and now have an issue, back-track to make sure you didn't make a mistake. If you have made changes and can't find the issue, please provide us with your changelog.</li>
+                                    <li>* Almost 80% of the time we find that the solution to people's issues can be solved with a simple "Google Search". You might want to try that before seeking support. You might be able to fix the issue yourself much quicker than we can respond to your request.</li>
+                                    <li>* Make sure to state the name of the theme you are having issues with when requesting support via ThemeForest.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line9" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">Files & Sources <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Included Stylesheets</strong>
+
+                                <p>These are the primary CSS files used for general front-end styling. Use these to customize your theme even further. All included JavaScript codes under <strong>yourthemename/css/</strong></p>
+
+                                <ul>
+                                    <li>1. style.css - Primary stylesheet</li>
+                                    <li>2. bootstrap.css - Bootstrap stylesheet</li>
+                                    <li>3. owl-carousel.css - OWL Carousel</li>
+                                    <li>4. fontawesome.css - FontAwesome Font Icons stylesheet</li>
+                                    <li>5. custom.css - Pathos Color Schemes stylesheet</li>
+                                    <li>6. prettyPhoto.css - Lightbox effect css file</li>
+                                    <li>7. flexslider.css - Flexslider css file</li>
+                                    <li>8. et-line.css - Elegant icons css file</li>
+                                    <li>9. carousel.css - OWL Carousel css file</li>
+                                    <li>10. animate.css - CSS3 animations css file</li>
+                                </ul>
+
+                            </div>
+
+                            <div class="col-md-6">
+                                <strong>Included JavaScript</strong>
+
+                                <p>These are the various attribution inks to the Javascript files included or modified to work with in this theme. All included JavaScript codes under <strong>yourthemename/js/</strong></p>
+
+                                <ul>
+                                    <li>1. bootstrap.js - Bootstrap JavaScript</li>
+                                    <li>2. custom.js - All JavaScript Plugins</li>
+                                    <li>3. retina.js - Retina JavaScript</li>
+                                    <li>4. jquery.js - Base JavaScript</li>
+                                    <li>5. prettyPhoto.js - Lightbox JavaScript</li>
+                                    <li>6. owl-carousel.js - Lightbox JavaScript</li>
+                                    <li>7. revslider.js - Revolution Slider JavaScript</li>
+                                    <li>8. flexslider.js - Flexslider JavaScript</li>
+                                    <li>9. awesome-grid.nin.js - Awesome grid portfolio JavaScript</li>
+                                    <li>10. circle.js - Coming soon page JavaScript</li>
+                                    <li>11. contact.js - Contact form validate JavaScript</li>
+                                    <li>12. isotope.js - Masonry Portfolio JavaScript</li>
+                                    <li>13. progress.js - Progress bar JavaScript</li>
+                                    <li>14. rotate.js - Text rotate effect JavaScript</li>
+                                    <li>15. wow.js - CSS3 animation JavaScript</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line10" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">Version History (Changelog) <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+                            <div class="col-md-12">
+
+                                <p>You can find the version history (changelog.txt) file on <strong>yourthemename-full.zip</strong> folder or you can check changelog on theme sale page.</p>
+                                <p>Once again, thank you so much for purchasing this theme. As I said at the beginning, I'd be glad to help you if you have any questions relating to this theme. No guarantees, but I'll do my best to assist. If you have a more general question relating to the themes on ThemeForest, you might consider visiting the forums and asking your question in the "Item Discussion" section.</p>
+
+                                <hr>
+
+                                <h4>Changelog</h4>
+
+                                <pre class="brush: html">
+
+                                        -----------------------------------------------------------------------------------------
+                                        Version 3.8.4 - May 7th, 2015
+                                        -----------------------------------------------------------------------------------------
+
+                                        - new revolution slider plugin version
+                                        - fixed security issue with xss vulnerability
+                                        - improved demo importer for certain server environments
+                                        - updated WooCommerce template files for the outdated message in system status
+                                        - added suhosin check in system status 
+                                        - added information that explains ZipArchive is required on your server for importing demos 
+                                        - portfolio Grid template improvement
+                                        - added more information to demo popup message for individual demo requirements
+                                        - RTL style improvements
+                                        - breadcrumb function improved for various areas
+
+                                        -----------------------------------------------------------------------------------------
+                                        Version 3.8.3 - May 7th, 2015
+                                        -----------------------------------------------------------------------------------------
+                                        - fixed responsive / retina issue for larger logos
+                                        - fusion slider now uses responsive headings all the time
+                                        - dropped custom Avada styles for select boxes in IE since it is not supported
+                                        - fixed compatibility issue with Category Order and Taxonomy Terms Order plugin
+                                        - fixed issue of full width background being affected by padding options
+                                        - tested and fixed hellobar issue 
+                                        - typography settings now apply to single post pages
+                                        - improved smooth scroll in certain situations
+                                        - youtube & vimeo videos will show at normal size in light box as long as video embed link is not used
+                                        - fixed issue of â€œfixedâ€ featured image mode not working for carousels / recent work
+                                        - fixed issue of header tagline font not working with font options
+
+                                        -----------------------------------------------------------------------------------------
+                                        Version 3.8.2 - May 7th, 2015
+                                        -----------------------------------------------------------------------------------------
+                                        - fixed formatting issues with Turkish language files 
+                                        - letter spacing menu option improvement
+                                        - improved fusion slider max content width setting
+                                        - removed the â€œdisable first featured image on productsâ€ setting since it does not apply
+                                        - improved portfolio featured image loading
+                                        - removed encoding from tracking code, space before head, space before body, and custom CSS to stop it from parsing code within TO and removing special characters e.g. +
+                                        - woo login box now shows login fields for logged out users
+                                        - woo cart / my account links now show on mobile 
+                                        - fixed button styling issue with gravity forms
+
+
+                                      </pre>
+
+                            </div>
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+
+                    <section id="line11" class="section">
+
+                        <div class="row">
+                            <div class="col-md-12 left-align">
+                                <h2 class="dark-text">Copyright and license <hr></h2>
+                            </div>
+                            <!-- end col -->
+                        </div>
+                        <!-- end row -->
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                
+                                <p>Code released under the <a href="#" target="_blank">Un License</a> License.</p>                        
+                                <p>For more information about copyright and license check <a href=" https://choosealicense.com/licenses/unlicense/" target="_blank">choosealicense.com</a>.</p>
+                            
+                            </div>
+                        </div>
+                        <!-- end row -->
+
+                    </section>
+                    <!-- end section -->
+                </div>
+                <!-- // end .col -->
+
+            </div>
+            <!-- // end .row -->
+
+        </div>
+        <!-- // end container -->
+
+    </div>
+    <!-- end wrapper -->
+
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/retina.js"></script>
+    <script src="js/jquery.fitvids.js"></script>
+    <script src="js/wow.js"></script>
+    <script src="js/jquery.prettyPhoto.js"></script>
+
+    <!-- CUSTOM PLUGINS -->
+    <script src="js/custom.js"></script>
+    <script src="js/main.js"></script>
+
+    <script src="js/syntax-highlighter/scripts/shCore.js"></script>
+    <script src="js/syntax-highlighter/scripts/shBrushXml.js"></script>
+    <script src="js/syntax-highlighter/scripts/shBrushCss.js"></script>
+    <script src="js/syntax-highlighter/scripts/shBrushJScript.js"></script>
+
+</body>
+
+</html>

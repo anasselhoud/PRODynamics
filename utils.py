@@ -37,7 +37,7 @@ class ManufLine:
         self.machine_config_data = []
         self.breakdowns = self.config['breakdowns']
         self.breakdowns_switch = self.config['breakdowns']["enabled"]
-        self.breakdown_law = ""
+        self.breakdown_law = "Weibull Distribution"
         self.n_repairmen = 3
         self.repairmen = simpy.PreemptiveResource(env, capacity=self.n_repairmen)
         self.first_machine = None
@@ -122,7 +122,7 @@ class ManufLine:
                 machines_ct = self.machines_CT
                 tracksim = False
                 cycle_time = self.sim_time/self.shop_stock_out.level
-                if buffer_tracks != [] or tracksim:
+                if  tracksim:
                     print("Printed track sim")
                     if experiment_number == 1:
                         writer.writerow(["Sim Instant", "Robot State", "Machines State", "Machine CT", "Machines Breakdowns", "Machines Idle Time", "Buffers State"])
@@ -291,8 +291,12 @@ class ManufLine:
         for i, m in enumerate(self.list_machines):
             m.process = self.env.process(m.machine_process())
             self.env.process(self.break_down(m))
+
+        self.expected_refill_time = [0 for _ in range(len(self.references_config.keys()))]
+        for ref in list(self.references_config.keys()):
+            print("Reference confirmed = ", ref)
+            self.env.process(self.refill_market(ref))
         
-        self.env.process(self.refill_market())
         self.env.process(self.reset_shift())
 
     def run_action(self, action):
@@ -301,7 +305,7 @@ class ManufLine:
         """
         print('Going from ' + str(action[0]) + " " + str(action[1]) )
         self.robot.process = self.env.process(self.robot.robot_process_local(action[0], action[1]))
-        self.env.run(until=self.env.now + 30)
+        self.env.run(until=self.env.now + 1000)
 
 
     def reset_shift(self):
@@ -665,8 +669,6 @@ class ManufLine:
                     except:
                         pass
         
-        
-
 
 class Machine:
     def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False):
@@ -748,8 +750,6 @@ class Machine:
         self.op_fatigue = config["fatigue_model"]["enabled"]
 
         
-
-
     
     def time_to_failure(self):
         """Return time until next failure for a machine.
@@ -972,9 +972,6 @@ class Machine:
                                 self.current_product = None
                                 yield self.env.timeout(0)   
                 
-                    
-
-
 
 class Robot:
     """
@@ -1021,6 +1018,7 @@ class Robot:
 
                 while from_entity.buffer_out.level == 0:
                     yield self.env.timeout(10)
+                    
                     if from_entity.broken or to_entity.broken:
                         print("From entity is broken, skipping remaining instructions")
                         self.busy = False
@@ -1065,10 +1063,10 @@ class Robot:
                     yield self.env.timeout(10) 
                     return
                 
+                print("Start to wait at - ", self.env.now)
                 yield from_entity.get(1)
-
                 product = yield self.manuf_line.inventory_in.get() 
-                
+                print("Ready  at - ", self.env.now)
                 to_entity.loaded +=1
                 self.waiting_time += self.env.now-entry
                 yield self.env.timeout(abs(to_entity.move_robot_time)+self.loadunload_time)
@@ -1533,7 +1531,7 @@ def format_time(seconds):
     months, seconds = divmod(seconds, 2592000)   # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 30.44 days/month
     days, seconds = divmod(seconds, 86400)      # 60 seconds/minute * 60 minutes/hour * 24 hours/day
     hours, seconds = divmod(seconds, 3600)       # 60 seconds/minute * 60 minutes/hour
-    minutes, seconds = divmod(seconds, 60)       # 60 seconds/minute
+    minutes, seconds = divmod(seconds, 60)       # 60 seconds/minute 
 
     time_str = ""
     non_zero_parts = 0
