@@ -5,7 +5,26 @@ import random
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
+from scipy.cluster.hierarchy import linkage, fcluster
+import xml.etree.ElementTree as ET
+from scipy.cluster.hierarchy import linkage, dendrogram
 
+
+class Part:
+    def __init__(self, id, ref, duration, weight):
+        self.id = id
+        self.ref = ref
+        self.duration = duration
+        self.weight = weight
+
+class Task:
+    def __init__(self, id, parts, CT, preced_list, forbid_list):
+        self.id = id
+        self.parts = parts
+        self.CT = CT
+        self.preced_list = preced_list
+        self.forbid_list = forbid_list
+        self.clusterTasksID = []
 
 class QLearning:
 
@@ -73,7 +92,7 @@ class QLearning:
           m, CTsWorkers = self.estimate_WC()
           cost_empty_workstation = -10 if n % 2 == 0 else 10
 
-          reward =-n*np.var(CTs)-m*np.var(CTsWorkers)-cost_empty_workstation-1000*self.check_forbid_full(self.solution)
+          reward =-n*np.var(CTs)-m*np.var(CTsWorkers)-cost_empty_workstation
           #reward =-n*np.var(CTs)-m*np.var(CTsWorkers)-cost_empty_workstation
 
         else:
@@ -230,6 +249,39 @@ class QLearning:
         
         return feasible_tasks
     
+    def cluster_reward(self):
+
+      if self.solution[-1] in self.prefered_actions(self.solution[-2]) or self.solution[-2] in self.prefered_actions(self.solution[-1]):
+          return 100
+      else:
+
+        return -10
+    def get_feasible_actions(self, state):
+      new_actions = []
+      Tasks_ID = [task.id for task in self.Tasks]
+
+      new_unlocked = [self.Tasks.index(task) for task in self.Tasks if (
+                  all(Tasks_ID.index(item) in self.solution for item in task.preced_list) and (self.Tasks.index(task) not in self.solution))]
+      print(new_unlocked)
+      for task_ind in new_unlocked:
+          new_actions.append(task_ind)
+
+      return new_actions
+
+    def prefered_actions(self, state):
+      prefered_tasks = list(self.Tasks[state].clusterTasksID).copy()
+      return prefered_tasks
+
+    def get_prefered_actions(self, state):
+
+      prefered_tasks = list(self.Tasks[state].clusterTasksID).copy()
+      for ind in prefered_tasks:
+        if ind in self.solution:
+          prefered_tasks.remove(ind)
+
+
+      return prefered_tasks
+    
     def check_precedence(self):
       Tasks_ID = [task.id for task in self.Tasks]
       if self.Tasks[self.solution[-1]].preced_list != []:
@@ -379,11 +431,11 @@ class QLearning:
         states = range(len(self.Tasks))
 
         q_table = np.zeros((len(states), len(actions)))
-        reward = np.full((len(states), len(actions)), -1000)
+        reward = np.full((len(states), len(actions)), -10000)
 
         pbar = tqdm(range(self.n_episodes), desc="QLearning", colour='green')
 
-        reward_global = [0,0,0]
+        #reward_global = [0,0,0]
         for e in pbar:
             done = False
             current_state = 0
@@ -400,8 +452,9 @@ class QLearning:
 
                 next_state, done = self.step(action)
                 if len(self.solution) > 1:
-                  reward[self.solution[-2], self.solution[-1]] = reward[self.solution[-2], self.solution[-1]]+ self.cluster_reward() + self.check_precedence()
+                  reward[self.solution[-2], self.solution[-1]] = reward[self.solution[-2], self.solution[-1]]+ self.cluster_reward() + self.check_precedence() -1000*self.check_forbid_full(self.solution)
                 actions = self.update_feasible_actions(next_state, actions)
+
 
                 if actions == []:
                   done = True
@@ -424,8 +477,8 @@ class QLearning:
             number_workstations_per_episode.append(self.get_nworkstations()[0])
 
 
-        plt.plot(self.session_rewards)
-        plt.show()
+        # plt.plot(self.session_rewards)
+        # plt.show()
         done = False
         current_state = 0
 
@@ -440,14 +493,17 @@ class QLearning:
 
         indiv = self.sequence_to_scenario(self.solution)
 
-        return indiv, 0, self.get_nworkstations()[0], self.get_nworkstations()[2], 0
+        return indiv, self.get_nworkstations(), self.session_rewards
     
 
 def read_prepare_mbom(file_path):
 
-    ebom = pd.read_excel(file_path, 0, skiprows=5)
-    #df = pd.read_xml('..\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
-    df_parts = pd.read_xml('..\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//parts//part")
+    if isinstance(file_path, str): 
+        ebom = pd.read_excel(file_path, 0, skiprows=5)
+    else:
+       ebom = file_path
+    df = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
+    df_parts = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//parts//part")
     # set parameters
     precedence_weight = 0.5 # set the weight for precedence relationships
     parts_weight = 1 - precedence_weight # set the weight for parts similarity
@@ -490,20 +546,144 @@ def read_prepare_mbom(file_path):
         forbid = row['forbidden'].split(';') if pd.notnull(row['forbidden']) else []
         tasks[task_id] = {'id':task_id, 'parts': set(parts_ids), 'duration': duration, 'ref_fam': ref_fam,'level': level, 'precedency': precedence, 'forbid': forbid}
     
-    return True
+    updated_tasks = {}
+    def add_lower_level_precedencies(tasks):
+        levels = {task['level'] for task in tasks.values()}
+        levels = list(levels)
+
+        for i in range(len(levels) - 1):
+            print(i)
+            lower_level = levels[i]
+            higher_level = levels[i + 1]
+
+            lower_level_tasks = [task['id'] for task in tasks.values() if task['level'] == lower_level]
+            higher_level_tasks = [task for task in tasks.values() if task['level'] == higher_level]
+            print(len(lower_level_tasks))
+            for task in higher_level_tasks:
+                task['precedency'].extend(lower_level_tasks)
+
+        return tasks
+
+    updated_tasks = add_lower_level_precedencies(tasks)
+    tree = ET.parse('.\\assets\inputs\L76 Dual Passive MBOM.xml')
+    root = tree.getroot()
+
+    # Update the precedencies in the XML file
+    for task_id, task_data in tasks.items():
+        task_elem = root.find(".//welding[@id='{}']".format(task_id))
+        if task_elem is not None:
+            task_elem.set('precedency', ';'.join(task_data['precedency']))
+
+    # Save the modified XML file
+    tree.write('.\\assets\inputs\L76 Dual Passive MBOM_modif.xml')
+
+    def task_distance(task1, task2):
+        parts_sim = len(tasks[task1]['parts'].intersection(tasks[task2]['parts'])) / len(tasks[task1]['parts'].union(tasks[task2]['parts']))
+        prec_weighted = precedence_weight * (task2 in tasks[task1]['precedency']) + precedence_weight * (task1 in tasks[task2]['precedency'])
+        return parts_weight * (1 - parts_sim) + prec_weighted
+
+    #flow_weight*(np.abs(tasks[task1]["level"]-tasks[task2]["level"])+(tasks[task1]["ref_fam"]-tasks[task1]["ref_fam"]))
+    # compute pairwise distances
+    n_tasks = len(tasks)
+    dist_matrix = np.zeros((n_tasks, n_tasks))
+    for i, task1 in enumerate(tasks.keys()):
+        for j, task2 in enumerate(tasks.keys()):
+            if i < j:
+                dist = task_distance(task1, task2)
+                dist_matrix[i, j] = dist
+                dist_matrix[j, i] = dist
+
+
+    # perform hierarchical clustering
+    clustering = linkage(dist_matrix, method='complete')
+    
+    cluster_labels = fcluster(clustering, 0.5, criterion='distance')
+    print(list(cluster_labels))
+    clusters_ind = list(cluster_labels)
+    for task in tasks.values():
+        task['target'] = clusters_ind.pop(0)
+
+    grouped_tasks = {}
+    for task_name, task in tasks.items():
+        precedence_status = "no precedence" if not task["precedency"] else "has precedence"
+        target_value = task["target"]
+
+        if precedence_status not in grouped_tasks:
+            grouped_tasks[precedence_status] = {}
+
+        if target_value not in grouped_tasks[precedence_status]:
+            grouped_tasks[precedence_status][target_value] = []
+
+        grouped_tasks[precedence_status][target_value].append(task_name)
+
+    sorted_tasks = grouped_tasks
+    
+    Parts = []
+
+    for part_id, part in parts.items():
+        part = Part(
+            id=part['id'],
+            ref=part['ref'],
+            duration=part['duration'],
+            weight=part['weight']
+        )
+        Parts.append(part)
+
+    Parts_ID = [part.id for part in Parts]
+
+    Tasks = []
+
+    for machine_id, machine in tasks.items():
+        task = Task(
+            id=machine['id'],
+            parts=[Parts[Parts_ID.index(part)] for part in machine["parts"]],
+            CT=machine['duration'],
+            preced_list=machine['precedency'],
+            forbid_list=machine['forbid']
+        )
+        Tasks.append(task)
+
+    Tasks_ID = [task.id for task in Tasks]
+
+    for cluster_id, tasks_id in sorted_tasks['no precedence'].items():
+        if len(tasks_id) == 1:
+            continue
+
+    else:
+        for i in range(len(tasks_id)):
+            for task in Tasks:
+                if task.id == tasks_id[i]:
+                    for task_id in tasks_id[:i] + tasks_id[i+1:]:
+                        task.clusterTasksID.append(Tasks_ID.index(task_id))
+
+
+
+    for cluster_id, tasks_id in sorted_tasks['has precedence'].items():
+        if len(tasks_id) == 1:
+            continue
+
+    else:
+        for i in range(len(tasks_id)):
+            for task in Tasks:
+                if task.id == tasks_id[i]:
+                    for task_id in tasks_id[:i] + tasks_id[i+1:]:
+                        task.clusterTasksID.append(Tasks_ID.index(task_id))
+    return Tasks
 
 def run_QL(n_episodes, Tasks, targetCT, tolerance):
+
+
     ql = QLearning(n_episodes, Tasks, targetCT=38, tolerance=0.2)
-    best_solution, best_ct, n_machines,_,  n_workers = ql.train()
-
-    print("best solution = ", best_solution)
-    print("best solution sequence = ", ql.solution)
-    print("n machines = ", n_machines)
-    print("reward = ", ql.get_nworkstations())
-    print("Precedence = ", ql.check_precedence_final(ql.solution))
+    best_solution, ressource_list, session_rewards = ql.train()
 
 
-    return True
+    return best_solution, ressource_list, session_rewards
 
 def vizualize_QL_results():
+
+    plt.plot(self.session_rewards)
+    plt.show()
     return True
+
+# Tasks = read_prepare_mbom(".\\assets\\inputs\\240426_EBOM_4391567_01.xlsx")
+# run_QL(100000, Tasks, 38, 0.1)

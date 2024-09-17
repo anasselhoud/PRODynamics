@@ -55,6 +55,7 @@ def save_global_settings(manuf_line, configuration, references_config, line_data
     manuf_line.references_config = references_config
     manuf_line.machine_config_data = line_data
 
+    print("buffer_sizes", buffer_sizes)
     if buffer_sizes != []:
         for i in range(len(manuf_line.machine_config_data)):
             manuf_line.machine_config_data[i][3] = buffer_sizes[i]
@@ -62,11 +63,12 @@ def save_global_settings(manuf_line, configuration, references_config, line_data
     manuf_line.create_machines(manuf_line.machine_config_data)
 
 def buffer_optim_costfunction(buffer_sizes, configuration, references_config, line_data):
-    buffer_sizes = [max(int(b), 1) for b in buffer_sizes]
+    buffer_sizes = [max(int(b), 1) for b in range(len(line_data))]
     tasks = []
     config_file = 'config.yaml'
     env = simpy.Environment()
     manuf_line = ManufLine(env, tasks, config_file=config_file)
+
     save_global_settings(manuf_line, configuration, references_config, line_data, buffer_sizes)
     waiting_times, cycle_time, breakdowns= run(manuf_line)
 

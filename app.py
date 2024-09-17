@@ -9,6 +9,7 @@ import seaborn as sns
 from streamlit_option_menu import option_menu
 from utils import *
 from utils_optim import *
+from utils_static import *
 import plotly.graph_objects as go
 import threading
 from scipy.stats import weibull_min, expon, norm, gamma
@@ -302,7 +303,6 @@ class PRODynamicsApp:
                         st.warning("Please enter a column name")
                     st.subheader("Product Reference Data")
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
-
 
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
@@ -776,6 +776,68 @@ class PRODynamicsApp:
             for i in range(100):
                 my_bar.progress((i + 1) /100)
 
+            if isinstance(uploaded_file_mbom, str):
+                Tasks = read_prepare_mbom(uploaded_file_mbom)
+            else:
+                Tasks = read_prepare_mbom(st.session_state.mbom_data)
+
+            if st.session_state.configuration_static["Search Speed"] == "Fast":
+                N_episodes = 50000
+            if st.session_state.configuration_static["Search Speed"] == "Slow":
+                N_episodes = 1000000
+            else:
+                N_episodes = 100
+
+            target_CT = float(st.session_state.configuration_static["Target CT"])
+
+            best_solution, ressource_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, 0.1)
+            col = st.columns(4, gap='medium')
+    
+            with col[0]:
+                CTs_pertwo = [ressource_list[1][i] + ressource_list[1][i + 1] for i in range(0, len(ressource_list[1]) - 1, 2)] 
+                # Append the last element if the list has an odd length 
+                if len(ressource_list[1]) % 2 != 0: 
+                    CTs_pertwo.append(ressource_list[1][-1]) 
+                global_cycle_time= max(CTs_pertwo)
+                delta_target = (target_CT-float(global_cycle_time))/float(target_CT)
+                st.metric(label="# Estimated Cycle Time", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
+            
+            with col[1]:
+                global_cycle_time= target_CT
+                st.metric(label="# Global Cycle Time", value=str(int(target_CT))  +" s", delta=f"{delta_target:.2%}")
+            
+            with col[2]:
+                print(ressource_list)
+                oee =ressource_list[0]//2
+                st.metric(label="# N. of Machines", value=str(int(target_CT)))
+
+
+            
+            st.markdown("""---""")
+
+            st.header("Plots")
+            c11, c12, c13= st.columns([0.5,0.3,0.2])
+            c3, c4= st.columns([0.5,0.5])
+            
+            fig = go.Figure()
+
+                #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
+                #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
+            fig.add_trace(go.Scatter(x=list(range(len(session_rewards))), y=session_rewards, mode='lines', name='Global CT', marker_color='green'))
+
+            # Update layout
+            fig.update_layout(
+                title='Evolution of Sequence Scores',
+                xaxis_title='Iterations',
+                yaxis_title='Desirability Score',
+                margin=dict(l=0, r=0, t=30, b=20)
+            )
+
+            # Display the Plotly figure
+            st.plotly_chart(fig, use_container_width=True)
+
+            with c11:
+                st.subheader("Best Sequence")
 
         return True
 
