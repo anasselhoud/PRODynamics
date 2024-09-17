@@ -63,7 +63,6 @@ def save_global_settings(manuf_line, configuration, references_config, line_data
     manuf_line.create_machines(manuf_line.machine_config_data)
 
 def buffer_optim_costfunction(buffer_sizes, configuration, references_config, line_data):
-    buffer_sizes = [max(int(100), 1) for b in range(len(line_data))]
     tasks = []
     config_file = 'config.yaml'
     env = simpy.Environment()
@@ -93,7 +92,7 @@ def function_to_optimize(buffer_capacities, configuration, references_config, li
     if buffer_capacities == []:
         buffer_capacities = [1 for _ in range(len(sim_results))]
     inventory_cost = [invent_cost*i for i in buffer_capacities]
-    results_values_cost = [-unit_revenue * a_i + b_i for a_i, b_i in zip(result_values, inventory_cost)]
+    results_values_cost = [unit_revenue * a_i - b_i for a_i, b_i in zip(result_values, inventory_cost)]
 
     #total_cost = np.sum(results_values_cost)
     total_cost = results_values_cost
