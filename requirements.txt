@@ -14,5 +14,5 @@ streamlit
 plotly
 streamlit_option_menu
 joblib
-matplotlib
-seaborn
+tqdm
+scikit-learn
