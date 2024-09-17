@@ -670,10 +670,10 @@ def read_prepare_mbom(file_path):
                         task.clusterTasksID.append(Tasks_ID.index(task_id))
     return Tasks
 
-def run_QL(n_episodes, Tasks, targetCT, tolerance):
+def run_QL(n_episodes, Tasks, targetCT, tolerance=0.1):
 
 
-    ql = QLearning(n_episodes, Tasks, targetCT=38, tolerance=0.2)
+    ql = QLearning(n_episodes, Tasks, targetCT, tolerance)
     best_solution, ressource_list, session_rewards = ql.train()
 
 

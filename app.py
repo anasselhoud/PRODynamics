@@ -377,6 +377,11 @@ class PRODynamicsApp:
         st.markdown("""---""")
 
         c1, c2 = st.columns(2)
+        with c1:
+            inventory_cost = st.text_input("Inventory Unit Cost", value="10")
+        with c2:
+            part_unit_gain = st.text_input("Produced Unit Gain", value="100")
+
 
         if st.button("Run Optimization"):
             reference_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
@@ -384,7 +389,7 @@ class PRODynamicsApp:
             configuration = st.session_state.configuration
             buffer_capacities = []
             
-            num_buffers = 7
+            num_buffers = len(line_data)
             step_size = 10
             max_capacity = 100
 
@@ -402,7 +407,7 @@ class PRODynamicsApp:
             costs = []
             raw_results = []
             for i, candidate in enumerate(combinations):
-                total_cost, raw_result = function_to_optimize(candidate, configuration, reference_config, line_data)
+                total_cost, raw_result = function_to_optimize(candidate, configuration, reference_config, line_data, float(inventory_cost), float(part_unit_gain))
                 raw_results.append(raw_result)
                 costs.append(total_cost)
                 my_bar.progress((i + 1) /len(combinations))
@@ -419,7 +424,7 @@ class PRODynamicsApp:
             
             coeffs_all = []
             def objective_function(bc, coeffs):
-                return coeffs[0]*bc**3 + coeffs[1]*bc**2 + coeffs[2]*bc + coeffs[3]
+                return -coeffs[0]*bc**3 - coeffs[1]*bc**2 - coeffs[2]*bc - coeffs[3]
 
             for i in range(num_buffers):
                 capacities = [x_buffers[i] for x_buffers in combinations][i*int(max_capacity/step_size):(i+1)*int(max_capacity/step_size)]
@@ -433,14 +438,14 @@ class PRODynamicsApp:
                 result = minimize(objective_function, x0=1, args=(coeffs), bounds=bounds)
                 optimum_x = result.x[0]
                 print("Optimal = ", optimum_x)
-                fig.add_trace(go.Scatter(x=capacities, y=results))
+                #fig.add_trace(go.Scatter(x=capacities, y=results))
                 fig.add_trace(go.Scatter(x=capacities, y=y_pred, mode='lines', name=f'Buffer {i + 1}'))
 
 
             fig.update_layout(
-                title='Evolution of Cycle Time',
-                xaxis_title='Time',
-                yaxis_title='Cycle Time (s)',
+                title='Evolution of Benefit per Buffer Size',
+                xaxis_title='Buffer Storage Size',
+                yaxis_title='Benefit (Cash Unit)',
                 margin=dict(l=0, r=0, t=30, b=20)
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -792,7 +797,8 @@ class PRODynamicsApp:
 
             best_solution, ressource_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, 0.1)
             col = st.columns(4, gap='medium')
-    
+            
+            st.header("Results")
             with col[0]:
                 CTs_pertwo = [ressource_list[1][i] + ressource_list[1][i + 1] for i in range(0, len(ressource_list[1]) - 1, 2)] 
                 # Append the last element if the list has an odd length 
@@ -803,22 +809,25 @@ class PRODynamicsApp:
                 st.metric(label="# Estimated Cycle Time", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
             
             with col[1]:
-                global_cycle_time= target_CT
-                st.metric(label="# Global Cycle Time", value=str(int(target_CT))  +" s", delta=f"{delta_target:.2%}")
-            
-            with col[2]:
                 print(ressource_list)
                 n_machines =ressource_list[0]//2
                 st.metric(label="# N. of Machines", value=str(int(n_machines)))
 
-
+            with col[2]:
+                global_cycle_time= target_CT
+                st.metric(label="# N. of Operators", value=str(int(target_CT))  +" s", delta=f"{delta_target:.2%}")
+        
             
             st.markdown("""---""")
 
-            st.header("Plots")
+
             c11, c12, c13= st.columns([0.5,0.3,0.2])
             c3, c4= st.columns([0.5,0.5])
+            #with c11:
             
+            st.markdown("### Best Sequence")
+            st.markdown("### Detailed Results")
+
             fig = go.Figure()
 
                 #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
@@ -836,8 +845,7 @@ class PRODynamicsApp:
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
-            with c11:
-                st.subheader("Best Sequence")
+            
 
         return True
 
