@@ -63,7 +63,7 @@ def save_global_settings(manuf_line, configuration, references_config, line_data
     manuf_line.create_machines(manuf_line.machine_config_data)
 
 def buffer_optim_costfunction(buffer_sizes, configuration, references_config, line_data):
-    buffer_sizes = [max(int(b), 1) for b in range(len(line_data))]
+    buffer_sizes = [max(int(100), 1) for b in range(len(line_data))]
     tasks = []
     config_file = 'config.yaml'
     env = simpy.Environment()

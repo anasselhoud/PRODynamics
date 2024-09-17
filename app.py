@@ -786,7 +786,7 @@ class PRODynamicsApp:
             if st.session_state.configuration_static["Search Speed"] == "Slow":
                 N_episodes = 1000000
             else:
-                N_episodes = 100
+                N_episodes = 100000
 
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
@@ -808,8 +808,8 @@ class PRODynamicsApp:
             
             with col[2]:
                 print(ressource_list)
-                oee =ressource_list[0]//2
-                st.metric(label="# N. of Machines", value=str(int(target_CT)))
+                n_machines =ressource_list[0]//2
+                st.metric(label="# N. of Machines", value=str(int(n_machines)))
 
 
             
