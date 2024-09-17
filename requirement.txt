@@ -14,3 +14,6 @@ streamlit
 plotly
 streamlit_option_menu
 joblib
+tqdm
+xml
+scikit-learn
