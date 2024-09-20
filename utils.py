@@ -141,7 +141,7 @@ class ManufLine:
                     for i in range(len(buffer_tracks)):
                         writer.writerow([self.list_machines[i].ID, buffer_tracks[i]])
 
-            return waiting_times, cycle_time, breakdowns
+            return waiting_times, cycle_time, breakdowns, _
 
         if save and not track:
             csv_file_path = './results/results.csv'
@@ -158,17 +158,18 @@ class ManufLine:
                 cycle_time = self.sim_time/self.shop_stock_out.level
                 print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
                 writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
-            return waiting_times, cycle_time, breakdowns
+            return waiting_times, cycle_time, breakdowns, _
         
         if not save and not track:
-            waiting_times = [machine.parts_done for machine in self.list_machines]
+            parts_produced_perM = [machine.parts_done for machine in self.list_machines]
+            waiting_times = [machine.waiting_time for machine in self.list_machines]
             breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
             if self.shop_stock_out.level != 0:
                 cycle_time = self.sim_time/self.shop_stock_out.level
             else:
                 cycle_time = 100000000000
 
-            return waiting_times, cycle_time, breakdowns
+            return parts_produced_perM, waiting_times, cycle_time, breakdowns
 
 
         
@@ -280,6 +281,9 @@ class ManufLine:
         
         self.create_machines(self.machine_config_data)
 
+        for machine in self.list_machines:
+            print("Machine - " + machine.ID - " In max = " + str(machine.buffer_in.capacity) + " - Out max = " + str(machine.buffer_out.capacity))
+        
         for robot in self.robots_list:
             robot.env = self.env
 
@@ -387,8 +391,8 @@ class ManufLine:
                 if not machine.broken:
                     time_to_break = machine.time_to_failure()
                     yield self.env.timeout(time_to_break)
-                    self.operationg = False
-                    print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
+                    self.operating = False
+                    #print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
                     machine.n_breakdowns += 1
                     machine.process.interrupt()
     
@@ -409,6 +413,7 @@ class ManufLine:
 
         for i, machine in enumerate(self.list_machines):
             machine.ct = CTs[i]
+            
 
     def refill_market(self, ref="Ref A"):
         """
@@ -441,7 +446,7 @@ class ManufLine:
             try:
                 yield self.env.timeout(refill_time)
                 yield self.supermarket_in.put(self.refill_size) 
-                print("Refilled at = " + str(self.env.now) + "  with " + ref)         
+                #print("Refilled at = " + str(self.env.now) + "  with " + ref)         
                 yield self.inventory_in.put(ref)
 
                 self.supermarket_n_refills += 1
@@ -511,7 +516,6 @@ class ManufLine:
 
             for i in range(int(max([list_machines_config[j][9] for j in  range(len(list_machines_config))]))):
                 self.robot = Robot(self, self.env)
-                #print("ORder inside = ", [list_machines_config[j][11]  for j in range(len(list_machines_config)) if list_machines_config[j][11] == int(i+1)])
                 self.robot.order = [list_machines_config[j][8] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
                 self.robot.in_transport_times = [list_machines_config[j][7] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
                 self.robots_list.append(self.robot)
@@ -684,7 +688,7 @@ class Machine:
         self.buffer_tracks = []
         self.parts_done = 0
         self.parts_done_shift = 0
-        self.ct = 0
+        self.ct = 0 #Operating
         self.config = config
         self.buffer_btn = None
         self.buffer_capacity = buffer_capacity
@@ -769,7 +773,6 @@ class Machine:
 
         elif self.manuf_line.breakdown_law == "Normal Distribution":     
             val = random.normalvariate(self.MTTF, self.MTTF/2)
-           # print("Val Breakdown generated = " +  str(val) + " - Law "+ self.manuf_line.breakdown_law)
 
         elif self.manuf_line.breakdown_law == "Gamma Distribution":
 
@@ -835,9 +838,7 @@ class Machine:
                 self.loaded_bol = False
                 self.done_bool = False
                 entry_wait = self.env.now
-                #if self.store_in.items != []:
-                    #print("Here we are")
-                    #if float(self.manuf_line.references_config[self.store_in.items[0]][self.manuf_line.list_machines.index(self)+1]) !=0 :
+
                 self.to_be_passed = False
                 while not self.loaded_bol :
                     try: 
@@ -853,15 +854,11 @@ class Machine:
                                 break
 
                         yield self.buffer_in.get(1)
-                        print("before in " + self.ID + "= " +str(self.store_in.items) + " - PROD " )
                         product = yield self.store_in.get()
                         self.current_product = product
-                        print("after in " + self.ID + "= " +str(self.store_in.items) + " - PROD " + product)
-
-                        print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
                         done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
                         if done_in == 0:
-                            ## The product should not be processed in this machine and to be passed to the next
+                            ## The product should not be processed in this machine and should be passed to the next
                             self.to_be_passed = True
                             break
                         self.waiting_time = [self.waiting_time[0] + self.env.now - entry_wait , self.waiting_time[1]]  
@@ -871,7 +868,6 @@ class Machine:
 
                     except simpy.Interrupt:                        
                         self.broken = True
-                        print(self.ID +" broken at loading at  = "+ str(self.env.now))
 
                         # try:
                         repair_in = self.env.now
@@ -880,12 +876,9 @@ class Machine:
                             yield self.env.timeout(self.MTTR) #Time to repair
                             repair_end = self.env.now
                             self.real_repair_time.append(float(repair_end - repair_in))
-                        print(self.ID +" repaired at loading at  = "+ str(self.env.now))
-                        #done_in = 0
-                        
+
                         if self.buffer_in.level == 0:
                             self.buffer_in.put(1)
-                            #self.loaded_bol = False
                             self.loaded_bol = True
                         if product is not None:
                             self.store_in.put(product)
@@ -909,7 +902,8 @@ class Machine:
                         self.operating = True
                         yield self.env.timeout(done_in)
                         entry_wait = self.env.now
-                        yield self.buffer_out.put(1) and self.store_out.put(product)
+                        yield self.buffer_out.put(1) 
+                        yield self.store_out.put(product)
                         self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now - entry_wait]  
                         done_in = 0
                         self.loaded_bol = False
@@ -927,7 +921,6 @@ class Machine:
                             repair_end = self.env.now
                             yield self.env.timeout(self.MTTR) #Time to repair
                             self.real_repair_time.append(float(repair_end - repair_in + float(self.MTTR)))
-                        print(self.ID +" repaired at operating  buffer in level at " + str(self.env.now))
                         self.broken = False
                         self.operating = False
 
@@ -940,14 +933,12 @@ class Machine:
                     self.parts_done_shift = self.parts_done_shift+1
                     self.loaded_bol = False
                     self.done_bool = False
-                    print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
 
                 else:
                     real_done_in = done_in
                     start = self.env.now
                     if real_done_in == 0:
                         try:
-                            print("Passed zero no process = " + product + " In " + self.ID + " at " + str(self.env.now))
                             entry_wait = self.env.now
                             yield self.buffer_out.put(1) and self.store_out.put(product)
                             self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
@@ -960,7 +951,6 @@ class Machine:
                         except simpy.Interrupt: 
                             
                             if not self.passed_to_next:
-                                print("Passed zero no process = " + product + " In " + self.ID)
                                 entry_wait = self.env.now
                                 yield self.buffer_out.put(1) and self.store_out.put(product)
                                 self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
@@ -1006,12 +996,10 @@ class Robot:
     def transport(self, from_entity, to_entity, time=10):
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             if not self.busy:
-                print("Transporting from " + from_entity.ID + " to " + to_entity.ID +" at time = " + str(self.env.now) )
                 entry = self.env.now
                 self.busy = True
 
                 if to_entity.broken or from_entity.broken:
-                    print("To entity is broken, skipping remaining instructions")
                     self.busy = False
                     yield self.env.timeout(10) 
                     return
@@ -1020,7 +1008,6 @@ class Robot:
                     yield self.env.timeout(10)
                     
                     if from_entity.broken or to_entity.broken:
-                        print("From entity is broken, skipping remaining instructions")
                         self.busy = False
                         yield self.env.timeout(10)
                         return
@@ -1036,7 +1023,6 @@ class Robot:
                 while to_entity.buffer_in.level >= to_entity.buffer_capacity:
                     yield self.env.timeout(10)
                     if to_entity.broken:
-                        print("From entity is broken, skipping remaining instructions")
                         self.busy = False
                         yield self.env.timeout(10)
                         return 
@@ -1048,25 +1034,20 @@ class Robot:
                 self.busy = False
                 yield self.env.timeout(0)
             else:
-                print("Busy")
                 yield self.env.timeout(0)
 
         if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             if not self.busy:
-                print("Transporting from " + str(from_entity) + " to " + to_entity.ID + " at time = " + str(self.env.now))
                 self.busy = True
                 entry = self.env.now
             
                 if to_entity.broken:
-                    print("To entity is broken, skipping remaining instructions")
                     self.busy = False
                     yield self.env.timeout(10) 
                     return
                 
-                print("Start to wait at - ", self.env.now)
                 yield from_entity.get(1)
                 product = yield self.manuf_line.inventory_in.get() 
-                print("Ready  at - ", self.env.now)
                 to_entity.loaded +=1
                 self.waiting_time += self.env.now-entry
                 yield self.env.timeout(abs(to_entity.move_robot_time)+self.loadunload_time)
@@ -1075,7 +1056,6 @@ class Robot:
                 while to_entity.buffer_in.level >= to_entity.buffer_capacity:
                     yield self.env.timeout(10)
                     if to_entity.broken:
-                        print("From entity is broken, skipping remaining instructions")
                         self.busy = False
                         yield self.env.timeout(0) 
                 yield to_entity.buffer_in.put(1) and to_entity.store_in.put(product)
@@ -1084,16 +1064,13 @@ class Robot:
                 self.busy = False 
                 yield self.env.timeout(0) 
             else:
-                print("Busy")
                 yield self.env.timeout(0)
                 
 
         if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
             if not self.busy:
                 self.busy = True
-                print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
-                ##print([(m.buffer_in.level, m.buffer_out.level) for m in self.manuf_line.list_machines])
-                #self.manuf_line.track_sim((from_entity.ID, "OutputStock"))
+
                 entry = self.env.now
                 while from_entity.buffer_out.level == 0:
                     yield self.env.timeout(10)
@@ -1198,18 +1175,12 @@ class Robot:
             elif self.manuf_line.robot_strategy == 1:
                 empty_buffers_machines = [m.buffer_in.level if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
                 next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
-                # if float(self.manuf_line.references_config[current_machine.store_out.items[0]][self.manuf_line.list_machines.index(current_machine)+1]) ==0:
-                #     return self.which_machine_to_feed(current_machine)
-                # else:
                 return next_machine
         
 
             elif self.manuf_line.robot_strategy == 2:
                 empty_buffers_machines = [m.loaded if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
                 next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
-                # if float(self.manuf_line.references_config[current_machine.store_out.items[0]][self.manuf_line.list_machines.index(current_machine)+1]) ==0:
-                #     return self.which_machine_to_feed(current_machine)
-                # else:
                 return next_machine
 
             else:
@@ -1238,7 +1209,6 @@ class Robot:
         try:
             return previous_machine 
         except:
-            # No machine
             return True
     
     def which_machine_to_getfrom(self, current_machine):
@@ -1263,7 +1233,6 @@ class Robot:
         try:
             return previous_machine 
         except:
-            # No machine
             return True
 
 
@@ -1312,7 +1281,7 @@ class Robot:
                 else:
                     yield self.env.timeout(0)
             except Exception as e:
-                print("Exception 1 :", e)
+
                 if from_entity == True:
                     yield self.env.timeout(0)
                 elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.level > 0:
@@ -1322,9 +1291,7 @@ class Robot:
                 else:
                     yield self.env.timeout(0)
         except Exception as e:
-            # If the machine breaks while loading by robot
-            print("Machine broke while loading by robot " + tobe_loaded_machine.ID + " - Broken = " + str(from_entity.broken)   + " " + str(tobe_loaded_machine.broken) ) 
-            print("Exception 2 :", e)
+
             yield self.env.timeout(0)
 
             
