@@ -243,6 +243,7 @@ class PRODynamicsApp:
                 updated_df = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_edit")
                 if not st.session_state.line_data.equals(updated_df):
                     st.session_state.line_data = updated_df.copy()
+                    st.rerun()
             else:
                 with st.spinner('Uploading in progress...'):        
                     if uploaded_file_line_data is not None:
@@ -489,6 +490,7 @@ class PRODynamicsApp:
     def run_simulation(self, manuf_line):
         with st.spinner('Simulation in progress...'):
             manuf_line.run()
+            
         st.success('Simulation completed!')
 
         st.markdown("""---""")
