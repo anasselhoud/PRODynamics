@@ -352,6 +352,13 @@ class QLearning:
       
 
     def check_forbid_full(self, indiv):
+
+      """
+      
+      Check if tasks done on the same machine are physically connected 
+      (to avoid having multiple isolated subassemblies)
+
+      """
       Tasks_ID = [task.id for task in self.Tasks]
 
       total_ct = 0

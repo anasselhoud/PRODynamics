@@ -83,7 +83,7 @@ def function_to_optimize(buffer_capacities, configuration, references_config, li
     sim_results, waiting_times, cycle_time, breakdowns = buffer_optim_costfunction(buffer_capacities, configuration, references_config, line_data)
     
     result_values = []
-    #Reminder : waiting_times[i][0] == Starvation | waiting_times[i][1] == Blockage
+    ##Reminder : waiting_times[i][0] == Starvation | waiting_times[i][1] == Blockage
 
     for i in range(len(waiting_times)):
         if i == len(sim_results) - 1:  # If it's the last element, just take its current value

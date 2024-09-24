@@ -857,10 +857,8 @@ class PRODynamicsApp:
         
             
             st.markdown("""---""")
-
-
-            c11, c12, c13= st.columns([0.5,0.3,0.2])
-            c3, c4= st.columns([0.5,0.5])
+            # c11, c12, c13= st.columns([0.5,0.3,0.2])
+            # c3, c4= st.columns([0.5,0.5])
             #with c11:
             
             st.markdown("### Best Sequence")
@@ -878,7 +876,6 @@ class PRODynamicsApp:
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
-            # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
 
@@ -888,7 +885,6 @@ class PRODynamicsApp:
                 #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
             fig.add_trace(go.Scatter(x=list(range(len(session_rewards))), y=session_rewards, mode='lines', name='Global CT', marker_color='green'))
 
-            # Update layout
             fig.update_layout(
                 title='Evolution of Sequence Scores',
                 xaxis_title='Iterations',
@@ -896,11 +892,9 @@ class PRODynamicsApp:
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
-            # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
             
-
         return True
 
     def run_main(self):
@@ -914,10 +908,7 @@ class PRODynamicsApp:
             menu_icon = "cast",
             default_index = 0,
         )
-
             
-
-
         if selected == "Home":
             self.home()
         elif selected == "Global Settings":
@@ -933,11 +924,9 @@ class PRODynamicsApp:
             self.assembly_section()
             pass
         elif selected == "Contact Us":
-            # Add the content for the "Contact Us" section here
+            # Rebuild a new page with different contacts (For dev, business & process)
             pass
 
-
-        
     def save_global_settings(self, manuf_line):
         configuration = st.session_state.configuration
 
