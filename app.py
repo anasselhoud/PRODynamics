@@ -53,7 +53,8 @@ class PRODynamicsApp:
                 "breakdown_dist_distribution": "Weibull Distribution"
             }
         if 'mbom_data' not in st.session_state:
-            st.session_state.mbom_data = pd.read_excel("./assets/inputs/240426_EBOM_4391567_01.xlsx", 0, skiprows=5)
+            st.session_state.mbom_data = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
+            st.session_state.parts_data = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//parts//part")
 
         st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
@@ -242,7 +243,10 @@ class PRODynamicsApp:
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
                 updated_df = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_edit")
                 if not st.session_state.line_data.equals(updated_df):
-                    st.session_state.line_data = updated_df.copy()
+                    st.session_state.line_data = updated_df
+                    st.rerun()
+
+                    
             else:
                 with st.spinner('Uploading in progress...'):        
                     if uploaded_file_line_data is not None:
@@ -273,12 +277,13 @@ class PRODynamicsApp:
                             st.error("Unsupported file format. Please upload a CSV or Excel file.")
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
 
-
         with tab2:
             st.subheader("Product Reference Data")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
                 updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
-                st.session_state.multi_ref_data = updated_refs.copy()
+                if not st.session_state.multi_ref_data.equals(updated_refs):
+                    st.session_state.multi_ref_data = updated_refs.copy()
+                    st.rerun()
                 # if not st.session_state.multi_ref_data.equals(updated_refs):
                 #     print("here problem? 2 ")
                 #     st.session_state.multi_ref_data = updated_refs.copy()
@@ -304,6 +309,7 @@ class PRODynamicsApp:
                     st.subheader("Product Reference Data")
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
+        
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
         column1, column2, column3, column4 = st.columns(4)
@@ -406,8 +412,9 @@ class PRODynamicsApp:
 
             costs = []
             raw_results = []
+            _, waiting_ref, _, _= buffer_optim_costfunction([1 for _ in range(num_buffers)], configuration, reference_config, line_data)
             for i, candidate in enumerate(combinations):
-                total_cost, raw_result = function_to_optimize(candidate, configuration, reference_config, line_data, float(inventory_cost), float(part_unit_gain))
+                total_cost, raw_result = function_to_optimize(candidate, configuration, reference_config, line_data, waiting_ref, float(inventory_cost), float(part_unit_gain))
                 raw_results.append(raw_result)
                 costs.append(total_cost)
                 my_bar.progress((i + 1) /len(combinations))
@@ -420,12 +427,13 @@ class PRODynamicsApp:
                         writer.writerow([candidate, cost])
 
             fig = go.Figure()
-            st.write("Plot:")
-            
+            st.write("Optimal Storage Size:")
+            optim_results = []
             coeffs_all = []
             def objective_function(bc, coeffs):
                 return -coeffs[0]*bc**3 - coeffs[1]*bc**2 - coeffs[2]*bc - coeffs[3]
-
+            
+            cols = st.columns(3)
             for i in range(num_buffers):
                 capacities = [x_buffers[i] for x_buffers in combinations][i*int(max_capacity/step_size):(i+1)*int(max_capacity/step_size)]
                 results = [result[i] for result in costs][i*int(max_capacity/step_size):(i+1)*int(max_capacity/step_size)]
@@ -439,7 +447,10 @@ class PRODynamicsApp:
                 optimum_x = result.x[0]
                 print("Optimal = ", optimum_x)
                 #fig.add_trace(go.Scatter(x=capacities, y=results))
+                optim_results.append(optimum_x)
                 fig.add_trace(go.Scatter(x=capacities, y=y_pred, mode='lines', name=f'Buffer {i + 1}'))
+                with cols[i%3]:
+                    st.write("Buffer " + str(i+1) + ' Size = ' + str(int(optim_results[i])))
 
 
             fig.update_layout(
@@ -451,39 +462,39 @@ class PRODynamicsApp:
             st.plotly_chart(fig, use_container_width=True)
 
         
-        if st.button("Run Action"):
-            reference_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-            line_data = st.session_state.line_data.values.tolist()
-            configuration = st.session_state.configuration
-            env = simpy.Environment()
-            tasks = []
-            config_file = 'config.yaml'
-            self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-            self.save_global_settings(self.manuf_line)
+        # if st.button("Run Action"):
+        #     reference_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+        #     line_data = st.session_state.line_data.values.tolist()
+        #     configuration = st.session_state.configuration
+        #     env = simpy.Environment()
+        #     tasks = []
+        #     config_file = 'config.yaml'
+        #     self.manuf_line = ManufLine(env, tasks, config_file=config_file)
+        #     self.save_global_settings(self.manuf_line)
         
-            self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-            self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
-            self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
-            # self.manuf_line.initialize()
+        #     self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+        #     self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+        #     self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+        #     # self.manuf_line.initialize()
 
     
-            actions = [
-                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
-                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[1]],
-                [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
-                [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
-                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
-                [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
-                [self.manuf_line.list_machines[2], self.manuf_line.list_machines[3]],
-                [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
-                [self.manuf_line.list_machines[3], self.manuf_line.list_machines[4]],]
+        #     actions = [
+        #         [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
+        #         [self.manuf_line.supermarket_in, self.manuf_line.list_machines[1]],
+        #         [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
+        #         [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
+        #         [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
+        #         [self.manuf_line.supermarket_in, self.manuf_line.list_machines[0]],
+        #         [self.manuf_line.list_machines[2], self.manuf_line.list_machines[3]],
+        #         [self.manuf_line.list_machines[0], self.manuf_line.list_machines[2]],
+        #         [self.manuf_line.list_machines[3], self.manuf_line.list_machines[4]],]
             
-            for action in actions:
-                # Run each action
-                self.manuf_line.run_action(action)
-                for m in self.manuf_line.list_machines:
-                    print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
-                    print("Level = ",self.manuf_line.shop_stock_out.level)
+        #     for action in actions:
+        #         # Run each action
+        #         self.manuf_line.run_action(action)
+        #         for m in self.manuf_line.list_machines:
+        #             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
+        #             print("Level = ",self.manuf_line.shop_stock_out.level)
 
 
     def run_simulation(self, manuf_line):
@@ -753,25 +764,45 @@ class PRODynamicsApp:
         # Additional Plots
        
     def assembly_section(self):
-        uploaded_file_mbom = st.file_uploader("Upload MBOM", type=["xlsx", "xls", "csv", "xml"])
+        uploaded_file_mbom = st.file_uploader("Upload Workplan", type=["xml"])
         tab1, tab2 = st.tabs(["Assembly Tasks", "Parts List"])
         with tab1:
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Assembly Tasks")
             if hasattr(st.session_state, 'mbom_data') and  isinstance(st.session_state.mbom_data, pd.DataFrame):
-                updated_df = st.data_editor(st.session_state.mbom_data, num_rows="dynamic", key="data_edit")
+                updated_df = st.data_editor(st.session_state.mbom_data, num_rows="dynamic", key="tasks_edit")
                 if not st.session_state.mbom_data.equals(updated_df):
                     st.session_state.mbom_data = updated_df.copy()
+                    st.rerun()
 
-        st.subheader("Settings")
-        columns = st.columns(2)
-        with columns[0]:
-            st.session_state.configuration_static["Target CT"] = st.text_input("Target CT", value=st.session_state.configuration_static.get("Target CT", "100"))
-            st.session_state.configuration_static["Search Speed"] = st.selectbox("Search Speed", ["Moderate", "Fast", "Slow"], index=0 if st.session_state.configuration_static.get("Search Speed") == "Moderate" else 1)
-            st.session_state.configuration_static["Exploration Mode"] = st.selectbox("Exploration Mode", ["Standard", "Out-Of-the-Box"], index=0 if st.session_state.configuration_static.get("Exploration Mode") == "Standard" else 1)
-            #st.session_state.configuration_static["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration_static.get("reset_shift", False))
-        with columns[1]:
-            st.session_state.configuration["Tolerance"] = st.text_input("Tolerance", value=st.session_state.configuration_static.get("Tolerance", "0.1"))
+        with tab2:
+            #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
+            st.subheader("Parts to be assembled")
+            if hasattr(st.session_state, 'parts_data') and  isinstance(st.session_state.parts_data, pd.DataFrame):
+                updated_df = st.data_editor(st.session_state.parts_data, num_rows="dynamic", key="parts_edit")
+                if not st.session_state.parts_data.equals(updated_df):
+                    st.session_state.parts_data = updated_df.copy()
+                    st.rerun()
+        
+        with st.expander("Customize the production cost - CapEx & OpEx"):
+            columns = st.columns(2)
+            with columns[0]:
+                st.session_state.configuration_static["Machine Cost"] = st.text_input("Machine Cost", value=st.session_state.configuration_static.get("Target CT", "100"))
+                st.session_state.configuration_static["Operator Cost"] = st.text_input("Operator Cost", value=st.session_state.configuration_static.get("Target CT", "100"))
+                #st.session_state.configuration_static["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration_static.get("reset_shift", False))
+            with columns[1]:
+                st.session_state.configuration["Direct Cst"] = st.text_input("Direct Cst", value=st.session_state.configuration_static.get("Tolerance", "0.1"))
+
+        with st.expander("Customize the optimization model"):
+            st.subheader("Settings")
+            columns = st.columns(2)
+            with columns[0]:
+                st.session_state.configuration_static["Target CT"] = st.text_input("Target MCTO", value=st.session_state.configuration_static.get("Target CT", "100"))
+                st.session_state.configuration_static["Search Speed"] = st.selectbox("Search Speed", ["Moderate", "Fast", "Slow"], index=0 if st.session_state.configuration_static.get("Search Speed") == "Moderate" else 1)
+                #st.session_state.configuration_static["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration_static.get("reset_shift", False))
+            with columns[1]:
+                st.session_state.configuration["Tolerance"] = st.text_input("Tolerance", value=st.session_state.configuration_static.get("Tolerance", "0.1"))
+                st.session_state.configuration_static["Exploration Mode"] = st.selectbox("Exploration Mode", ["Standard", "Out-Of-the-Box"], index=0 if st.session_state.configuration_static.get("Exploration Mode") == "Standard" else 1)
 
 
         if st.button("Run Sequence Generation"):
@@ -782,9 +813,9 @@ class PRODynamicsApp:
                 my_bar.progress((i + 1) /100)
 
             if isinstance(uploaded_file_mbom, str):
-                Tasks = read_prepare_mbom(uploaded_file_mbom)
+                Tasks = read_prepare_mbom(uploaded_file_mbom, uploaded_file_mbom)
             else:
-                Tasks = read_prepare_mbom(st.session_state.mbom_data)
+                Tasks = read_prepare_mbom(st.session_state.mbom_data, st.session_state.parts_data)
 
             if st.session_state.configuration_static["Search Speed"] == "Fast":
                 N_episodes = 50000
@@ -793,12 +824,19 @@ class PRODynamicsApp:
             else:
                 N_episodes = 100000
 
+            if st.session_state.configuration_static["Exploration Mode"] == "Standard":
+                tolerance = 0.1
+            if st.session_state.configuration_static["Exploration Mode"] == "Out-Of-the-Box":
+                tolerance = 0.5
+            else:
+                tolerance = 0.1
+
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
-            best_solution, ressource_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, 0.1)
-            col = st.columns(4, gap='medium')
+            best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance)
             
             st.header("Results")
+            col = st.columns(4, gap='medium')
             with col[0]:
                 CTs_pertwo = [ressource_list[1][i] + ressource_list[1][i + 1] for i in range(0, len(ressource_list[1]) - 1, 2)] 
                 # Append the last element if the list has an odd length 
@@ -806,7 +844,7 @@ class PRODynamicsApp:
                     CTs_pertwo.append(ressource_list[1][-1]) 
                 global_cycle_time= max(CTs_pertwo)
                 delta_target = (target_CT-float(global_cycle_time))/float(target_CT)
-                st.metric(label="# Estimated Cycle Time", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
+                st.metric(label="# Estimated Machine CT", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
             
             with col[1]:
                 print(ressource_list)
@@ -815,18 +853,31 @@ class PRODynamicsApp:
 
             with col[2]:
                 global_cycle_time= target_CT
-                st.metric(label="# N. of Operators", value=str(int(target_CT))  +" s", delta=f"{delta_target:.2%}")
+                st.metric(label="# N. of Operators", value=str(int(operators_list[0])))
         
             
             st.markdown("""---""")
-
-
-            c11, c12, c13= st.columns([0.5,0.3,0.2])
-            c3, c4= st.columns([0.5,0.5])
+            # c11, c12, c13= st.columns([0.5,0.3,0.2])
+            # c3, c4= st.columns([0.5,0.5])
             #with c11:
             
             st.markdown("### Best Sequence")
             st.markdown("### Detailed Results")
+            fig = go.Figure()
+
+            CT_machines = [ressource_list[1][i]+ressource_list[1][i-1] for i in range(len(ressource_list[1])) if i%2!=0]
+            fig.add_trace(go.Bar(x=["M"+str(i+1) for i in range(len(CT_machines))], y=list(CT_machines), name='Global CT', marker_color='green'))
+
+            # Update layout
+            fig.update_layout(
+                title='Machine Times per Machine',
+                xaxis_title='Machines',
+                yaxis_title='Machine Time MT (s)',
+                margin=dict(l=0, r=0, t=30, b=20)
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
 
             fig = go.Figure()
 
@@ -834,7 +885,6 @@ class PRODynamicsApp:
                 #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
             fig.add_trace(go.Scatter(x=list(range(len(session_rewards))), y=session_rewards, mode='lines', name='Global CT', marker_color='green'))
 
-            # Update layout
             fig.update_layout(
                 title='Evolution of Sequence Scores',
                 xaxis_title='Iterations',
@@ -842,11 +892,9 @@ class PRODynamicsApp:
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
-            # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
             
-
         return True
 
     def run_main(self):
@@ -860,10 +908,7 @@ class PRODynamicsApp:
             menu_icon = "cast",
             default_index = 0,
         )
-
             
-
-
         if selected == "Home":
             self.home()
         elif selected == "Global Settings":
@@ -879,11 +924,9 @@ class PRODynamicsApp:
             self.assembly_section()
             pass
         elif selected == "Contact Us":
-            # Add the content for the "Contact Us" section here
+            # Rebuild a new page with different contacts (For dev, business & process)
             pass
 
-
-        
     def save_global_settings(self, manuf_line):
         configuration = st.session_state.configuration
 

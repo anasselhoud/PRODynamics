@@ -60,7 +60,7 @@ class QLearning:
                 if preced_task in preced_graph:
                     preced_graph.append(task)
 
-    def get_nworkstations(self):
+    def get_nworkstations_old(self):
         total_ct = 0
         ct_WS = [0]
         tasks_WS = [[]]
@@ -74,6 +74,37 @@ class QLearning:
             tasks_WS[-1].append(self.Tasks[i].id)
 
         return len(ct_WS), ct_WS, tasks_WS
+
+
+    def get_nworkstations(self):
+      def allocate_tasks(target):
+          total_ct = 0
+          ct_WS = [0]  # List to keep the cumulative cycle time of each workstation
+          tasks_WS = [[]]  # List to keep the tasks assigned to each workstation
+          for i in self.solution:
+              task_ct = float(self.Tasks[i].CT)
+              # Check if adding the current task exceeds the tolerance
+              if ct_WS[-1] + task_ct > (1 + self.tolerance) * (target / 2):
+                  # Start a new workstation
+                  ct_WS.append(task_ct)
+                  tasks_WS.append([self.Tasks[i].id])
+              else:
+                  # Add the task to the current workstation
+                  ct_WS[-1] += task_ct
+                  tasks_WS[-1].append(self.Tasks[i].id)
+          
+          return len(ct_WS), ct_WS, tasks_WS
+
+      # Initial task allocation
+      num_workstations, ct_WS, tasks_WS = allocate_tasks(self.target)
+
+      # Ensure the number of workstations is odd
+      if num_workstations % 2 != 0:
+          # Rebalance the tasks to the new number of workstations
+          num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations)*self.target/(num_workstations+1))  # Re-allocate tasks
+
+      return num_workstations, ct_WS, tasks_WS
+
 
     def objectiveR2(self):
         """
@@ -252,7 +283,7 @@ class QLearning:
     def cluster_reward(self):
 
       if self.solution[-1] in self.prefered_actions(self.solution[-2]) or self.solution[-2] in self.prefered_actions(self.solution[-1]):
-          return 100
+          return 10
       else:
 
         return -10
@@ -321,6 +352,13 @@ class QLearning:
       
 
     def check_forbid_full(self, indiv):
+
+      """
+      
+      Check if tasks done on the same machine are physically connected 
+      (to avoid having multiple isolated subassemblies)
+
+      """
       Tasks_ID = [task.id for task in self.Tasks]
 
       total_ct = 0
@@ -431,7 +469,7 @@ class QLearning:
         states = range(len(self.Tasks))
 
         q_table = np.zeros((len(states), len(actions)))
-        reward = np.full((len(states), len(actions)), -10000)
+        reward = np.full((len(states), len(actions)), -1500)
 
         pbar = tqdm(range(self.n_episodes), desc="QLearning", colour='green')
 
@@ -452,7 +490,7 @@ class QLearning:
 
                 next_state, done = self.step(action)
                 if len(self.solution) > 1:
-                  reward[self.solution[-2], self.solution[-1]] = reward[self.solution[-2], self.solution[-1]]+ self.cluster_reward() + self.check_precedence() -1000*self.check_forbid_full(self.solution)
+                  reward[self.solution[-2], self.solution[-1]] = reward[self.solution[-2], self.solution[-1]]+ self.cluster_reward() + self.check_precedence() -100*self.check_forbid_full(self.solution)
                 actions = self.update_feasible_actions(next_state, actions)
 
 
@@ -493,17 +531,20 @@ class QLearning:
 
         indiv = self.sequence_to_scenario(self.solution)
 
-        return indiv, self.get_nworkstations(), self.session_rewards
+        return indiv, self.get_nworkstations(), self.estimate_WC(), self.session_rewards
     
 
-def read_prepare_mbom(file_path):
+def read_prepare_mbom(file_path, parts_data):
 
     if isinstance(file_path, str): 
-        ebom = pd.read_excel(file_path, 0, skiprows=5)
+        ebom = pd.read_xml(file_path, xpath=".//weldings//welding")
+        df = pd.read_xml(file_path, xpath=".//weldings//welding")
+        df_parts = pd.read_xml(file_path, xpath=".//parts//part")
     else:
-       ebom = file_path
-    df = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
-    df_parts = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//parts//part")
+        ebom = file_path
+        df = file_path
+        df_parts = parts_data
+    
     # set parameters
     precedence_weight = 0.5 # set the weight for precedence relationships
     parts_weight = 1 - precedence_weight # set the weight for parts similarity
@@ -523,7 +564,6 @@ def read_prepare_mbom(file_path):
         #   if ref in sublist:
         #       index = i
         #       break
-        print(str(ebom.loc[ebom['Part_Number'] == row['ref'], 'Level_In_BOM']))
         try:
             level = int(ebom.loc[ebom['Part_Number'] == row['ref'], 'Level_In_BOM'])
         except:
@@ -674,10 +714,10 @@ def run_QL(n_episodes, Tasks, targetCT, tolerance=0.1):
 
 
     ql = QLearning(n_episodes, Tasks, targetCT, tolerance)
-    best_solution, ressource_list, session_rewards = ql.train()
+    best_solution, ressource_list, operators_list, session_rewards = ql.train()
 
 
-    return best_solution, ressource_list, session_rewards
+    return best_solution, ressource_list, operators_list, session_rewards
 
 def vizualize_QL_results():
 

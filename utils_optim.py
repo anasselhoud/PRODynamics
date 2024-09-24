@@ -15,9 +15,9 @@ from utils import *
 
 def run(manuf_line, save=False, track=False):
     manuf_line.run()
-    waiting_times,cycle_time, breakdowns  = manuf_line.get_results(save=save, track=track)
+    parts_produced_perM, waiting_times, cycle_time, breakdowns = manuf_line.get_results(save=False, track=False)
 
-    return waiting_times, cycle_time, breakdowns
+    return  parts_produced_perM, waiting_times, cycle_time, breakdowns
    
 
 def save_global_settings(manuf_line, configuration, references_config, line_data, buffer_sizes=[]):
@@ -69,30 +69,33 @@ def buffer_optim_costfunction(buffer_sizes, configuration, references_config, li
     manuf_line = ManufLine(env, tasks, config_file=config_file)
 
     save_global_settings(manuf_line, configuration, references_config, line_data, buffer_sizes)
-    waiting_times, cycle_time, breakdowns= run(manuf_line)
+    #manuf_line.randomseed = False
+    parts_produced_perM, waiting_times, cycle_time, breakdowns= run(manuf_line)
 
-    return waiting_times, cycle_time, breakdowns
+    return parts_produced_perM, waiting_times, cycle_time, breakdowns
 
 
 
-def function_to_optimize(buffer_capacities, configuration, references_config, line_data, invent_cost = 10, unit_revenue=100):
+def function_to_optimize(buffer_capacities, configuration, references_config, line_data, waiting_ref, invent_cost = 10, unit_revenue=100):
     """
     Define the function that you want to optimize.
     """
-    sim_results, cycle_time, breakdowns = buffer_optim_costfunction(buffer_capacities, configuration, references_config, line_data)
-    result_values = []
-
-    for i in range(len(sim_results)):
-        if i == len(sim_results) - 1:  # If it's the last element, just take its current value
-            result_values.append(sim_results[i])
-        else:
-            result_values.append(sim_results[i] + sim_results[i+1])
+    sim_results, waiting_times, cycle_time, breakdowns = buffer_optim_costfunction(buffer_capacities, configuration, references_config, line_data)
     
+    result_values = []
+    ##Reminder : waiting_times[i][0] == Starvation | waiting_times[i][1] == Blockage
 
+    for i in range(len(waiting_times)):
+        if i == len(sim_results) - 1:  # If it's the last element, just take its current value
+            result_values.append(waiting_times[i][1]-waiting_ref[i][1])
+        else:
+            result_values.append((waiting_times[i][1] + waiting_times[i+1][0]-waiting_ref[i][1]-waiting_ref[i+1][0])/2)
+    
+    print("Buffer Capacities = " + str(buffer_capacities) + " - Waiting times = " + str(result_values))
     if buffer_capacities == []:
         buffer_capacities = [1 for _ in range(len(sim_results))]
     inventory_cost = [invent_cost*i for i in buffer_capacities]
-    results_values_cost = [unit_revenue * a_i - b_i for a_i, b_i in zip(result_values, inventory_cost)]
+    results_values_cost = [-unit_revenue * a_i/cycle_time - b_i for a_i, b_i in zip(result_values, inventory_cost)]
 
     #total_cost = np.sum(results_values_cost)
     total_cost = results_values_cost
