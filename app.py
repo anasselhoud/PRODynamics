@@ -53,8 +53,8 @@ class PRODynamicsApp:
                 "breakdown_dist_distribution": "Weibull Distribution"
             }
         if 'mbom_data' not in st.session_state:
-            st.session_state.mbom_data = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
-            st.session_state.parts_data = pd.read_xml('.\\assets\inputs\L76 Dual Passive MBOM.xml', xpath=".//parts//part")
+            st.session_state.mbom_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
+            st.session_state.parts_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//parts//part")
 
         st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
@@ -144,7 +144,6 @@ class PRODynamicsApp:
             st.markdown("#### What's New?")
             st.markdown("""
             ##### V0.1 - Pre-Release:
-
             * A new, more user-friendly and optimized interface
             * Improved simulation performance
             * Enhanced data visualization
