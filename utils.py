@@ -38,7 +38,7 @@ class ManufLine:
         self.breakdown_law = "Weibull Distribution"
         self.n_repairmen = 3
         self.repairmen = simpy.PreemptiveResource(env, capacity=self.n_repairmen)
-        self.first_machine = None
+        self.first_machine = None # Nonsense. To change.
         self.stock_capacity = float(config["supermarket"]["capacity"])
         self.stock_initial = float(config["supermarket"]["initial"])
         self.safety_stock = 0
@@ -60,7 +60,7 @@ class ManufLine:
         self.tasks = tasks
         self.tasks_assignement = tasks_assignement
         self.operators_assignement = operators_assignement
-        self.robot = None
+        self.robot = None # Nonsense. To change.
         self.robots_list = []
         self.n_robots = 1
         self.robot_strategy = 0
@@ -512,7 +512,7 @@ class ManufLine:
             for index, n_machine in enumerate(self.tasks_assignement):
                     machine_indices[n_machine - 1].append(index)
 
-        # Don't create robots ANY robot on the whole line if only one cell of "Robot Transport Time IN" or "Robot Assignment" is NaN (empty)
+        # Create robots ONLY IF all cells "Robot Transport Time IN" and "Robot Assignment" are not NaN (empty)
         all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
         all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
 
@@ -1264,7 +1264,10 @@ class Robot:
 
             except simpy.Interrupt:
                 print("Reseting Robot Process.")
-                yield self.env.timeout(0)      
+
+            finally:
+                # Need to pause the process when there are many robots.
+                yield self.env.timeout(1)
 
     # Unused (#Commented in "run" of ManufLine)
     def robot_process_unique(self):
