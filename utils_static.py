@@ -719,7 +719,7 @@ def run_QL(n_episodes, Tasks, targetCT, tolerance=0.1):
 
     return best_solution, ressource_list, operators_list, session_rewards
 
-def vizualize_QL_results():
+def vizualize_QL_results(self):
 
     plt.plot(self.session_rewards)
     plt.show()
