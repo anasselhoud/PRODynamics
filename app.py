@@ -62,6 +62,18 @@ class PRODynamicsApp:
                 "Target CT": "100",
                 "Tolerance": "0.1",
             }
+        
+        st.session_state.configuration_central_storage = {
+            'front': [
+                {'allowed_sizes' : ['ref A', 'ref B'],
+                 'capacity': 336},
+                {'allowed_sizes' : ['ref A', 'ref B', 'ref C'],
+                 'capacity': 24}],
+
+            'back': [
+                {'allowed_sizes' : ['ref A', 'ref B'],
+                 'capacity': 376}]
+            }
 
         self.all_prepared = False
         self.selected = None
@@ -275,38 +287,69 @@ class PRODynamicsApp:
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
 
         with tab2:
-            st.subheader("Product Reference Data")
-            if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
-                if not st.session_state.multi_ref_data.equals(updated_refs):
-                    st.session_state.multi_ref_data = updated_refs.copy()
-                    st.rerun()
-                # if not st.session_state.multi_ref_data.equals(updated_refs):
-                #     print("here problem? 2 ")
-                #     st.session_state.multi_ref_data = updated_refs.copy()
-            else:
-                if uploaded_file_line_data is not None:
-                    if uploaded_file_line_data.name.endswith('.csv'):
-                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
-                    elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                    else:
-                        st.error("Unsupported file format. Please upload a CSV or Excel file.")
-
-                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
-
-            new_ref_name = st.text_input("Enter new reference name")
-            if st.button("+ Add Reference", key="add_new_ref"):
-                if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                    if new_ref_name:
-                        st.session_state.multi_ref_data[new_ref_name] = ""
+            column1, column2 = st.columns([0.4, 0.6])
+            with column1:
+                st.subheader("Product Reference Data")
+                if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                    updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
+                    if not st.session_state.multi_ref_data.equals(updated_refs):
+                        st.session_state.multi_ref_data = updated_refs.copy()
                         st.rerun()
-                    else:
-                        st.warning("Please enter a column name")
-                    st.subheader("Product Reference Data")
-                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+                    # if not st.session_state.multi_ref_data.equals(updated_refs):
+                    #     print("here problem? 2 ")
+                    #     st.session_state.multi_ref_data = updated_refs.copy()
+                else:
+                    if uploaded_file_line_data is not None:
+                        if uploaded_file_line_data.name.endswith('.csv'):
+                            st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
+                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
+                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                        else:
+                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
 
-        
+                        st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+
+                new_ref_name = st.text_input("Enter new reference name")
+                if st.button("+ Add Reference", key="add_new_ref"):
+                    if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                        if new_ref_name:
+                            st.session_state.multi_ref_data[new_ref_name] = ""
+                            st.rerun()
+                        else:
+                            st.warning("Please enter a column name")
+                        st.subheader("Product Reference Data")
+                        st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+
+            with column2:
+                st.subheader("Central Storage")                
+                st.checkbox("Enable", value=False)
+
+                with st.expander("Central Storage Configuration"):                  
+                    
+                    # Retrieve all references 
+                    # TODO: Retrieve from the Product Data Reference
+                    all_references = []
+                    for blocks in st.session_state.configuration_central_storage.values():
+                        for block in blocks:
+                            print("BLOCK ===========", block)
+                            all_references += block['allowed_sizes']
+                    all_references = list(set(all_references))
+
+                    # Display 
+                    for side in st.session_state.configuration_central_storage:
+                        st.subheader(side.capitalize())
+                        for i, block in enumerate(st.session_state.configuration_central_storage[side]):
+                            allowed, capacity = st.columns([0.7, 0.3])
+                            with allowed:
+                                st.multiselect("Allowed references",
+                                            all_references,
+                                            block['allowed_sizes'],
+                                            key=f'{side}_allowed_{i}')
+                            with capacity:
+                                st.number_input("Capacity", value=block['capacity'], format='%i', key=f'{side}_capacity_{i}')
+                        
+                        st.markdown("""---""")
+
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
         column1, column2, column3, column4 = st.columns(4)
