@@ -1528,6 +1528,161 @@ class Operator:
         self.free = True
 
 
+class CentralStorage:
+    def __init__(self, env, central_storage_config, times_to_reach={}, strategy='stack') -> None:
+        """Hold two storages : back and front, each having several blocks allowing one or many sizes.
+
+        Parameters:
+        - central_storage_config' : below is an example of its structure.
+            {'front': [ {'allowed_sizes' : ['XS', 'S'],
+                         'capacity': 336},
+                        {'allowed_sizes' : ['XS', 'S', 'L'],
+                            'capacity': 24}]
+                        
+             'back': [ {'allowed_sizes' : ['XS', 'S'],
+                        'capacity': 376}]}
+        
+        - strategy : decide which storage to fill or take from when a new reference is added or removed.
+            - 'stack' : Try to fill blocks of the 'front' storage before the 'back'.
+
+        TODO: Handle the difference between 'size' and 'ref' from the user.
+        TODO: Implement "fastest" route with times_to_reach. Waiting for more details from Vivi.
+
+        """
+        self.env = env
+        self.strategy = strategy
+        self.times_to_reach = times_to_reach
+        self.stores = central_storage_config
+
+        # Turn the 'capacity' attributes to 'simpy.Store' objects
+        for side in self.stores.keys():
+            for block in self.stores[side]:
+                block['store'] = simpy.FilterStore(env, block['capacity'])
+                del block['capacity']
+
+    def __str__(self) -> str:
+        """Display what is inside the front and back stores.
+        
+        For each store and block within, display :
+        - allowed sizes
+        - capacity
+        - level
+        - items        
+        """
+
+        lines = ["\n=== CENTRAL STORAGE ==="]
+
+        for side in self.stores.keys():
+            lines.append(side.upper())
+            for block in self.stores[side]:
+                lines.append(f"allowed_sizes : {block['allowed_sizes']}")
+                lines.append(f"capacity : {block['store'].capacity}")
+                lines.append(f"level : {len(block['store'].items)}")
+                lines.append(f"items : {block['store'].items}")
+                lines.append('')
+
+        return "\n".join(lines)
+
+    def available_spot(self, ref=None) -> bool:
+        """Check if there is an available spot.
+        
+        If a reference is specified, check an available spot for this specific reference.
+        Otherwise, check if there is any available spot no matter the reference.
+
+        """
+
+        for side in self.stores.keys():
+            for block in self.stores[side]:
+                # Return True if there is any space when the reference is not specified.
+                if ref is None and len(block['store'].items) < block['store'].capacity:
+                    print(f'The central storage is not full.')
+                    return True
+                
+                # Return True if there is any space and the specified reference is allowed in the block.
+                if ref is not None and len(block['store'].items) < block['store'].capacity and ref in block['allowed_sizes']:
+                    print(f'There is an available spot for reference "{ref}" in the central storage.')
+                    return True
+
+        # No space has been found.
+        print(f'There is NO available spot for reference "{ref}" in the central storage.')
+        return False
+
+    def available_ref(self, ref=None) -> bool:
+        """Check if there is an available reference.
+        
+        If a reference is specified, check this specific reference.
+        Otherwise, check if there is at least 1 reference no matter which one.
+
+        """
+
+        for side in self.stores.keys():
+            for block in self.stores[side]:
+                # Return True if there is any item when the reference is not specified.
+                if ref is None and len(block['store'].items) > 0:
+                    print(f'The central storage is empty.')
+                    return True
+                
+                # Return True if there is a specified reference that is allowed and present.
+                if ref is not None and ref in block['allowed_sizes'] and ref in block['store'].items:
+                    print(f'The specified reference "{ref}" is available in the central storage.')
+                    return True
+
+        # No reference has been found.
+        print(f'There is no available reference "{ref}" in the central storage.')
+        return False
+
+    def put(self, ref):
+        """Try to put a reference in the storage determined by the strategy of the central storage."""
+        
+        # Check if the strategy has been implemented.
+        if self.strategy not in ['stack']:
+            raise Exception(f'Strategy "{self.strategy}" is not yet implemented for the central storage.')
+
+        if self.strategy == 'stack':
+            for side in self.stores.keys():
+                for block in self.stores[side]:
+                    # Check if the ref is allowed in the current block.
+                    if ref in block['allowed_sizes']:
+                        store = block['store']
+                        # Check if there is an available spot to put the reference.
+                        if len(store.items) < store.capacity:
+                            print(f'Put the reference "{ref}" in the central storage.')
+                            store.put(ref)
+                            return
+                        
+        # Haven't found any place to put the reference
+        raise Exception(f"Tried to put the reference {ref} in the central storage that is FULL.")
+            
+    def get(self, ref=None):
+        """Try to get a reference in the storage determined by the strategy of the central storage.
+        
+        If a reference is specified, get this specific reference.
+        Otherwise, get any reference depending on the strategy of the storage.
+
+        TODO: How to get a specific reference ?
+        """
+
+        # Check if the strategy has been implemented.
+        if self.strategy not in ['stack']:
+            raise Exception(f'Strategy "{self.strategy}" is not yet implemented for the central storage.')
+
+        if self.strategy == 'stack':
+            for side in self.stores.keys():
+                for block in self.stores[side]:
+                    # When the reference is not specified (None), get as soon as the block is not empty.
+                    if ref is None and len(block['store'].items) > 0 :
+                        print(f'Got the first reference "{ref}" in the central storage.')
+                        return block['store'].get() 
+                        
+                    # When the reference is specified, get as soon as one is present in a block.
+                    if ref is not None and ref in block['store'].items:
+                        print(f'Got the specified reference "{ref}" in the central storage.')
+                        return block['store'].get(lambda x: x==ref)
+                            
+        # Haven't found any reference to get
+        raise Exception(f"Tried to get the reference {ref} in the central storage but couldn't.")
+
+
 def format_time(seconds):
     years, seconds = divmod(seconds, 31536000)  # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 365.25 days/year
     months, seconds = divmod(seconds, 2592000)   # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 30.44 days/month
