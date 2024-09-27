@@ -8,16 +8,39 @@ from sklearn.preprocessing import LabelEncoder
 from scipy.cluster.hierarchy import linkage, fcluster
 import xml.etree.ElementTree as ET
 from scipy.cluster.hierarchy import linkage, dendrogram
+from utils import *
 
+import numpy as np
 
 class Part:
+    """
+    Represents a part in the task system.
+
+    Attributes:
+        id (int): Unique identifier for the part.
+        ref (str): Reference or name of the part.
+        duration (float): Duration to complete the part.
+        weight (float): Weight associated with the part.
+    """
     def __init__(self, id, ref, duration, weight):
         self.id = id
         self.ref = ref
         self.duration = duration
         self.weight = weight
 
+
 class Task:
+    """
+    Represents a task in the task system.
+
+    Attributes:
+        id (int): Unique identifier for the task.
+        parts (list of Part): Parts associated with the task.
+        CT (float): Cycle time required to complete the task.
+        preced_list (list): List of tasks that must precede this task.
+        forbid_list (list): List of tasks that cannot be scheduled concurrently.
+        clusterTasksID (list): Tasks clustered with this task.
+    """
     def __init__(self, id, parts, CT, preced_list, forbid_list):
         self.id = id
         self.parts = parts
@@ -26,8 +49,19 @@ class Task:
         self.forbid_list = forbid_list
         self.clusterTasksID = []
 
-class QLearning:
 
+class QLearning:
+    """
+    Implements Q-learning to optimize task scheduling.
+
+    Attributes:
+        Tasks (list of Task): List of tasks to be scheduled.
+        target (float): Target cycle time for the scheduling.
+        tolerance (float): Allowed tolerance for exceeding the cycle time.
+        solution (list): Current solution, i.e., task scheduling order.
+        session_rewards (list): Rewards accumulated across episodes.
+        n_episodes (int): Number of episodes to run the Q-learning process.
+    """
     def __init__(self, n_episodes, Tasks, targetCT, tolerance):
         self.Tasks = Tasks
         self.target = targetCT
@@ -37,145 +71,141 @@ class QLearning:
         self.n_episodes = n_episodes
 
     def step(self, action):
+        """
+        Perform a step in the environment (task scheduling).
+
+        Args:
+            action (int): The index of the task to schedule next.
+        
+        Returns:
+            new_state (int): The index of the task that was just scheduled.
+            done (bool): Whether the scheduling is complete.
+        """
         done = False
         new_state = action
         self.solution.append(new_state)
-
         if len(self.solution) == len(self.Tasks):
             done = True
         return new_state, done
 
     def split(self, a, n):
+        """
+        Split a list into n almost equal parts.
+        
+        Args:
+            a (list): List to be split.
+            n (int): Number of parts to split into.
+        
+        Returns:
+            Generator: Splits of the list.
+        """
         k, m = divmod(len(a), n)
         return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
 
     def precedence_graph(self):
+        """
+        Build the precedence graph based on task constraints.
+        """
         preced_graph = []
-
-        # No Precedence Restrictions
+        # No precedence restrictions
         preced_graph.append([task for task in self.Tasks if not task.preced_list])
+        # Handle precedence relationships
         for task in self.Tasks:
-            # A precedence restriction with one of the first group
             for preced_task in task.preced_list:
                 if preced_task in preced_graph:
                     preced_graph.append(task)
 
-    def get_nworkstations_old(self):
-        total_ct = 0
-        ct_WS = [0]
-        tasks_WS = [[]]
-
-        for i in self.solution:
-          if ct_WS[-1]+float(self.Tasks[i].CT) > (1+self.tolerance)*(self.target / 2):
-            ct_WS.append(float(self.Tasks[i].CT))
-            tasks_WS.append([self.Tasks[i].id])
-          else:
-            ct_WS[-1]+=float(self.Tasks[i].CT)
-            tasks_WS[-1].append(self.Tasks[i].id)
-
-        return len(ct_WS), ct_WS, tasks_WS
-
-
     def get_nworkstations(self):
-      def allocate_tasks(target):
-          total_ct = 0
-          ct_WS = [0]  # List to keep the cumulative cycle time of each workstation
-          tasks_WS = [[]]  # List to keep the tasks assigned to each workstation
-          for i in self.solution:
-              task_ct = float(self.Tasks[i].CT)
-              # Check if adding the current task exceeds the tolerance
-              if ct_WS[-1] + task_ct > (1 + self.tolerance) * (target / 2):
-                  # Start a new workstation
-                  ct_WS.append(task_ct)
-                  tasks_WS.append([self.Tasks[i].id])
-              else:
-                  # Add the task to the current workstation
-                  ct_WS[-1] += task_ct
-                  tasks_WS[-1].append(self.Tasks[i].id)
-          
-          return len(ct_WS), ct_WS, tasks_WS
+        """
+        Calculate the number of workstations required based on task scheduling.
+        
+        Returns:
+            num_workstations (int): Number of workstations needed.
+            ct_WS (list): Cycle times per workstation.
+            tasks_WS (list): Tasks assigned to each workstation.
+        """
+        def allocate_tasks(target):
+            """
+            Helper function to allocate tasks to workstations.
+            
+            Args:
+                target (float): Target cycle time for allocation.
+            
+            Returns:
+                num_workstations (int): Number of workstations.
+                ct_WS (list): Cumulative cycle times per workstation.
+                tasks_WS (list): List of tasks per workstation.
+            """
+            total_ct = 0
+            ct_WS = [0]  # List to keep cumulative cycle time of each workstation
+            tasks_WS = [[]]  # List to keep the tasks assigned to each workstation
 
-      # Initial task allocation
-      num_workstations, ct_WS, tasks_WS = allocate_tasks(self.target)
+            for i in self.solution:
+                task_ct = float(self.Tasks[i].CT)
+                # If adding the current task exceeds the target with tolerance
+                if ct_WS[-1] + task_ct > (1 + self.tolerance) * (target / 2):
+                    ct_WS.append(task_ct)  # Start a new workstation
+                    tasks_WS.append([self.Tasks[i].id])
+                else:
+                    ct_WS[-1] += task_ct  # Add the task to the current workstation
+                    tasks_WS[-1].append(self.Tasks[i].id)
 
-      # Ensure the number of workstations is odd
-      if num_workstations % 2 != 0:
-          # Rebalance the tasks to the new number of workstations
-          num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations)*self.target/(num_workstations+1))  # Re-allocate tasks
+            return len(ct_WS), ct_WS, tasks_WS
 
-      return num_workstations, ct_WS, tasks_WS
+        # Initial allocation of tasks to workstations
+        num_workstations, ct_WS, tasks_WS = allocate_tasks(self.target)
 
+        # Ensure the number of workstations is odd (optional, depending on use case)
+        if num_workstations % 2 != 0:
+            # Rebalance tasks to adjust for new number of workstations
+            num_workstations, ct_WS, tasks_WS = allocate_tasks(num_workstations * self.target / (num_workstations + 1))
+
+        return num_workstations, ct_WS, tasks_WS
 
     def objectiveR2(self):
         """
-        Reward = -1 * (Number of Workstations Used) * (Number of Tasks Completed)
-        This reward function takes into account both the number of tasks completed and the number of workstations used up to
-        the current time. By multiplying the number of tasks completed with the negative of the number of workstations used,
-        the reward function encourages the agent to complete as many tasks as possible while minimizing the number of workstations
-        used.
-        The partial reward can be calculated at each step of the assembly process, after each task is completed. The agent can
-        then use this partial reward to update its policy and choose the next task to be completed based on the updated policy.
-
-        Note that this partial reward function assumes that all tasks have the same complexity and require the same amount of time and resources. If this is not the case, you may need to modify the reward function to take into account the specific characteristics of each task.
+        Reward function based on the number of workstations and tasks completed.
+        
+        Returns:
+            reward (float): The calculated reward for the current state.
         """
         if len(self.solution) == len(self.Tasks):
-          n, CTs, _ = self.get_nworkstations()
-          m, CTsWorkers = self.estimate_WC()
-          cost_empty_workstation = -10 if n % 2 == 0 else 10
+            n, CTs, _ = self.get_nworkstations()
+            m, CTsWorkers = self.estimate_WC()
 
-          reward =-n*np.var(CTs)-m*np.var(CTsWorkers)-cost_empty_workstation
-          #reward =-n*np.var(CTs)-m*np.var(CTsWorkers)-cost_empty_workstation
-
+            cost_empty_workstation = -10 if n % 2 == 0 else 10
+            reward = -n * np.var(CTs) - m * np.var(CTsWorkers) - cost_empty_workstation
         else:
-          reward = -100000 #Sequence infeasible
-
-        #reward = (-n-n*np.std(CTs)-m*np.std(CTsWorkers)+self.cluster_reward()+self.check_precedence()+self.check_forbid())*len(self.solution)
-        #reward = (-n-m+self.cluster_reward()+self.check_forbid()+self.check_precedence()+cost_empty_workstation)*len(self.solution)
-        #reward = (-n-m+self.check_forbid())*len(self.solution)
-        return reward
-    
-    def objectiveR2_final(self):
-        """
-        Reward = -1 * (Number of Workstations Used) * (Number of Tasks Completed)
-        This reward function takes into account both the number of tasks completed and the number of workstations used up to
-        the current time. By multiplying the number of tasks completed with the negative of the number of workstations used,
-        the reward function encourages the agent to complete as many tasks as possible while minimizing the number of workstations
-        used.
-        The partial reward can be calculated at each step of the assembly process, after each task is completed. The agent can
-        then use this partial reward to update its policy and choose the next task to be completed based on the updated policy.
-
-        Note that this partial reward function assumes that all tasks have the same complexity and require the same amount of time and resources. If this is not the case, you may need to modify the reward function to take into account the specific characteristics of each task.
-        """
-        n, CTs, _ = self.get_nworkstations()
-        m, CTsWorkers = self.estimate_WC()
-        if CTsWorkers == []:
-          m,CTsWorkers = 0, [0]
-        cost_empty_workstation = -100 if len(CTs) % 2 == 0 else 100
-
-        reward = (-n*n-n*np.std(CTs)-n*np.max(CTs)-m*np.std(CTsWorkers)-n*cost_empty_workstation+self.cluster_reward()+ self.check_precedence())*len(self.solution)
-        print("CT Machines = " + str(np.std(CTs))  + " - CT workers = " + str(np.std(CTsWorkers)))
-        print("Cluster reward = " + str(self.cluster_reward())  + " - Check precedence = " + str(self.check_precedence()))
-        #reward = (self.cluster_reward() + self.check_precedence() -n)*len(self.solution)
+            reward = -100000  # Sequence infeasible
         return reward
 
     def estimate_WC(self):
+        """
+        Estimate the number of workers required and their cycle times.
+
+        Returns:
+            n_workers (int): Number of workers needed.
+            ct_Workers (list): Cycle times for each worker.
+        """
         n_workers = 1
         total_ct = 0
         parts_done = []
         ct_Workers = []
+
         for i in self.solution:
             total_ct += sum([float(part.duration) for part in self.Tasks[i].parts if part not in parts_done])
-            total_ct += sum([3 for part in self.Tasks[i].parts if part in parts_done])
-            for p in self.Tasks[i].parts:
-                parts_done.append(p)
+            total_ct += sum([3 for part in self.Tasks[i].parts if part in parts_done])  # Extra time for repeated parts
+
+            parts_done.extend(self.Tasks[i].parts)
 
             if total_ct >= self.target:
                 n_workers += 1
                 ct_Workers.append(total_ct)
                 total_ct = 0
 
-        if n_workers == 1:
+        if n_workers == 1:  # If only one worker, append the final cycle time
             ct_Workers.append(total_ct)
+
         return n_workers, ct_Workers
 
     def sequence_to_scenario(self, indiv):
@@ -205,243 +235,194 @@ class QLearning:
       return scenario
 
     def sequence_to_scenario2(self, ant, final=False):
+      """
+      Convert a sequence of tasks to workstation assignments based on cycle time (CT).
+      
+      :param ant: List of task indices representing the sequence of tasks.
+      :param final: Flag indicating whether this is the final scenario (default: False).
+      :return: List representing the workstation assignment for each task.
+      """
       total_ct = 0
-      scenario = [0 for i in range(len(ant))]
+      scenario = [0 for _ in ant]
       n_workstations = 1
+
+      # Assign tasks to workstations based on cycle time
       for i in ant:
-            total_ct += float(self.Tasks[i].CT)
-            if total_ct >= (self.target / 2):
-                n_workstations += 1
-                total_ct = 0
-            scenario[i] = n_workstations
+          total_ct += float(self.Tasks[i].CT)
+          if total_ct >= (self.target / 2):  # Threshold to start a new workstation
+              n_workstations += 1
+              total_ct = 0
+          scenario[i] = n_workstations
 
       return scenario
-    
+
     def update_feasible_actions(self, state, actions):
-        '''
-        The only restriction is that a certain node x is not allowed to be vis-ited unless all the predecessor nodes are visited prior to n.
-        '''
-
-        # We remove last action from the possible actions of next step
-        #new_actions = list(actions).copy()
-        new_actions = list(range(len(self.Tasks)))
-        for act in self.solution:
-          new_actions.remove(act)
-        # We add all new possible actions to it now (tasks that get now unlocked)
-        # Tasks_ID = [task.id for task in self.Tasks]
-
-        # new_unlocked = [self.Tasks.index(task) for task in self.Tasks if (
-        #             all(Tasks_ID.index(item) in self.solution for item in task.preced_list) and self.Tasks.index(
-        #         task) not in self.solution and self.Tasks.index(task) not in new_actions)]
-        # for task_ind in new_unlocked:
-        #     new_actions.append(task_ind)
-
-        # print("Old actions = ", new_actions)
-        # Keep only the one mehcanically feasible
-        new_actions_all = []
-        for action in new_actions:
-            other_task_parts = set(self.Tasks[action].parts)
-            # Check if there is any common part
-            if set(self.Tasks[state].parts).intersection(other_task_parts):
-                new_actions_all.append(action)
-
-        if new_actions_all == []:
-          new_actions_all = new_actions.copy()
-        return new_actions_all
-
-    def find_feasible_tasks(self, state, actions, tasks, task_id):
         """
-        For each task, find the list of other tasks that are feasible to assemble with (based on shared parts).
+        Update feasible actions based on task precedencies and shared parts.
         
-        :param task_dict: Dictionary of task definitions.
-        :return: Dictionary where each task points to a list of feasible tasks.
+        :param state: Current task state.
+        :param actions: List of potential next actions.
+        :return: Updated list of feasible actions.
         """
-        new_actions = list(actions).copy()
-        new_actions.remove(state)
-        Tasks_ID = [task.id for task in self.Tasks]
+        # Initialize new actions (exclude actions already in the solution)
+        new_actions = [i for i in range(len(self.Tasks)) if i not in self.solution]
 
-        feasible_tasks = {}
+        # Filter tasks with shared parts
+        feasible_actions = [
+            action for action in new_actions 
+            if set(self.Tasks[state].parts).intersection(self.Tasks[action].parts)
+        ]
+        
+        # If no feasible actions, return the original new_actions
+        return feasible_actions if feasible_actions else new_actions
 
-        feasible_tasks[task_id] = []
-        
-        # Get the parts associated with the current task
-        task_parts = set(tasks[task_id]['parts'])
-        
-        # Compare with all other tasks to find common parts
-        for other_task in tasks:
-            if other_task.id == task_id:
-                continue  # Skip comparing the task with itself
-            
-            other_task_parts = set(other_task.parts)
-            
-            # Check if there is any common part
-            if task_parts.intersection(other_task_parts):
-                feasible_tasks[task_id].append(other_task.id)
-        
-        return feasible_tasks
-    
     def cluster_reward(self):
-
-      if self.solution[-1] in self.prefered_actions(self.solution[-2]) or self.solution[-2] in self.prefered_actions(self.solution[-1]):
-          return 10
-      else:
-
+        """
+        Calculate a reward based on task clustering preferences.
+        
+        :return: Reward value (10 for preferred actions, -10 otherwise).
+        """
+        if self.solution[-1] in self.prefered_actions(self.solution[-2]) or \
+          self.solution[-2] in self.prefered_actions(self.solution[-1]):
+            return 10
         return -10
+
     def get_feasible_actions(self, state):
-      new_actions = []
-      Tasks_ID = [task.id for task in self.Tasks]
-
-      new_unlocked = [self.Tasks.index(task) for task in self.Tasks if (
-                  all(Tasks_ID.index(item) in self.solution for item in task.preced_list) and (self.Tasks.index(task) not in self.solution))]
-      print(new_unlocked)
-      for task_ind in new_unlocked:
-          new_actions.append(task_ind)
-
-      return new_actions
+        """
+        Get a list of feasible actions (tasks) that can be performed next based on precedence.
+        
+        :param state: Current task state.
+        :return: List of feasible actions.
+        """
+        Tasks_ID = [task.id for task in self.Tasks]
+        # Unlock tasks whose predecessors are completed
+        return [
+            self.Tasks.index(task) for task in self.Tasks
+            if all(Tasks_ID.index(preced_task) in self.solution for preced_task in task.preced_list)
+            and self.Tasks.index(task) not in self.solution
+        ]
 
     def prefered_actions(self, state):
-      prefered_tasks = list(self.Tasks[state].clusterTasksID).copy()
-      return prefered_tasks
+        """
+        Get the preferred tasks for a given state based on clustering.
+        
+        :param state: Current task state.
+        :return: List of preferred task indices.
+        """
+        return list(self.Tasks[state].clusterTasksID)
 
-    def get_prefered_actions(self, state):
-
-      prefered_tasks = list(self.Tasks[state].clusterTasksID).copy()
-      for ind in prefered_tasks:
-        if ind in self.solution:
-          prefered_tasks.remove(ind)
-
-
-      return prefered_tasks
-    
     def check_precedence(self):
-      Tasks_ID = [task.id for task in self.Tasks]
-      if self.Tasks[self.solution[-1]].preced_list != []:
-        if not all(Tasks_ID.index(item) in self.solution[:-1] for item in self.Tasks[self.solution[-1]].preced_list):
+        """
+        Check if the latest task in the solution respects the precedence constraints.
+        
+        :return: 100 if valid, -100 if invalid, 0 if no precedence.
+        """
+        Tasks_ID = [task.id for task in self.Tasks]
+        last_task = self.Tasks[self.solution[-1]]
 
-          return -100
-        else:
-          return 100
-      else:
+        if last_task.preced_list:
+            if all(Tasks_ID.index(p) in self.solution[:-1] for p in last_task.preced_list):
+                return 100
+            return -100
         return 0
 
     def check_forbid(self):
-      Tasks_ID = [task.id for task in self.Tasks]
+        """
+        Check if the last task violates any forbidden task combinations within a workstation.
+        
+        :return: 10 if valid, -10 if invalid, 0 if no restrictions.
+        """
+        Tasks_ID = [task.id for task in self.Tasks]
+        total_ct = 0
+        groups, group = [], []
 
-      total_ct = 0
-      groups = []
-      group = []
-      for i in self.solution:
-          total_ct += float(self.Tasks[i].CT)
-          group.append(i)
-          if total_ct >= (self.target / 2):
-              groups.append(group.copy())
-              total_ct = 0
-              group=[]
+        # Group tasks based on cycle time
+        for i in self.solution:
+            total_ct += float(self.Tasks[i].CT)
+            group.append(i)
+            if total_ct >= (self.target / 2):
+                groups.append(group.copy())
+                total_ct = 0
+                group = []
 
-      groups.append(group.copy())
+        groups.append(group.copy())  # Add remaining tasks to a group
 
-      if self.Tasks[self.solution[-1]].forbid_list != []:
-        for i in range(len(groups)):
-          if self.solution[-1] in groups[i]:
-            if all(Tasks_ID.index(item) not in groups[i] for item in self.Tasks[self.solution[-1]].forbid_list):
-              return 10
-            else:
-              return -10
-      else:
-        return 0
-      
+        # Check forbidden task combinations within the same workstation
+        for group in groups:
+            if self.solution[-1] in group and any(
+                Tasks_ID.index(f) in group for f in self.Tasks[self.solution[-1]].forbid_list
+            ):
+                return -10
+        return 10
 
     def check_forbid_full(self, indiv):
+        """
+        Check if tasks done in the same workstation are physically connected 
+        (to avoid multiple isolated subassemblies).
+        
+        :param indiv: List of task indices representing a sequence.
+        :return: Error count (higher means more isolated subassemblies).
+        """
+        total_ct = 0
+        groups, group = [], []
 
-      """
-      
-      Check if tasks done on the same machine are physically connected 
-      (to avoid having multiple isolated subassemblies)
+        # Group tasks by workstations
+        for i in indiv:
+            total_ct += float(self.Tasks[i].CT)
+            group.append(i)
+            if total_ct >= (self.target / 2):
+                groups.append(group.copy())
+                total_ct = 0
+                group = []
 
-      """
-      Tasks_ID = [task.id for task in self.Tasks]
-
-      total_ct = 0
-      groups = []
-      group = []
-      for i in indiv:
-          total_ct += float(self.Tasks[i].CT)
-          group.append(i)
-          if total_ct >= (self.target / 2):
-              groups.append(group.copy())
-              total_ct = 0
-              group=[]
-
-      groups.append(group.copy())
-      j=0
-      for i in range(len(groups)):
-        if groups[i] != []:
-          j = j + self.are_tasks_connected([self.Tasks[ind] for ind in groups[i]])
-        else:
-          j = j + 1
-
-      return j
-
-    def check_precedence_full_sequence(self):
-      Tasks_ID = [task.id for task in self.Tasks]
-      j=0
-      for i in range(len(self.solution)-1):
-        if self.Tasks[self.solution[i+1]].preced_list != []:
-          if not all(Tasks_ID.index(item) in self.solution[:i+1] for item in self.Tasks[self.solution[i+1]].preced_list):
-            j+=1
-      return j
+        groups.append(group.copy())  # Add remaining tasks to a group
+        errors = sum(self.are_tasks_connected([self.Tasks[i] for i in group]) for group in groups if group != [])
+        
+        return errors
 
     def check_precedence_final(self, candidate):
-      Tasks_ID = [task.id for task in self.Tasks]
-      j=0
-      for i in range(len(candidate)-1):
-        if self.Tasks[candidate[i+1]].preced_list != []:
-          if not all(Tasks_ID.index(item) in candidate[:i+1] for item in self.Tasks[candidate[i+1]].preced_list):
-            j+=1
-      return j
-    
-    
-    
+        """
+        Check precedence constraints for a complete task sequence.
+        
+        :param candidate: List of task indices representing a complete sequence.
+        :return: Error count (higher means more violations).
+        """
+        Tasks_ID = [task.id for task in self.Tasks]
+        errors = 0
+
+        for i in range(len(candidate) - 1):
+            if self.Tasks[candidate[i+1]].preced_list:
+                if not all(Tasks_ID.index(p) in candidate[:i+1] for p in self.Tasks[candidate[i+1]].preced_list):
+                    errors += 1
+
+        return errors
+
     def find_feasible_tasks(self):
-      """
-      For each task, find the list of other tasks that are feasible to perform next, 
-      based on task dependencies (precedency) and shared parts.
-      
-      :return: Dictionary where each task points to a list of feasible tasks.
-      """
-      feasible_tasks = {}
-      
-      # List of all task IDs
-      Tasks_ID = [task.id for task in self.Tasks]
-      
-      # Iterate over each task in self.Tasks
-      for task in self.Tasks:
-          task_id = task.id
-          feasible_tasks[task_id] = []  # Initialize the list of feasible tasks for this task
-          
-          # Get the parts associated with the current task
-          task_parts = set([part.id for part in task.parts])
-          
-          # Compare with all other tasks to find shared parts and unlocked tasks
-          for other_task in self.Tasks:
-              other_task_id = other_task.id
-              if other_task_id == task_id:
-                  continue  # Skip comparing the task with itself
-              
-              # Check if all predecessor tasks of the other task are completed
-              # if all(Tasks_ID.index(preced_task) in self.solution for preced_task in other_task.preced_list):
-              other_task_parts = set([part.id for part in other_task.parts])
-              
-              # Check if there are common parts between the current task and the other task
-              if task_parts.intersection(other_task_parts):
-                  feasible_tasks[task_id].append(other_task_id)
-      
-      ##TODO: multiply number of errors by a negative reward
-      return feasible_tasks
+        """
+        For each task, find other feasible tasks that can be performed next based on precedence and shared parts.
+        
+        :return: Dictionary mapping task IDs to feasible task lists.
+        """
+        feasible_tasks = {}
+
+        # List of all task IDs
+        Tasks_ID = [task.id for task in self.Tasks]
+
+        # Compare each task with others to find shared parts
+        for task in self.Tasks:
+            task_id = task.id
+            task_parts = {part.id for part in task.parts}
+            feasible_tasks[task_id] = [
+                other_task.id for other_task in self.Tasks if other_task.id != task_id and
+                task_parts.intersection({part.id for part in other_task.parts})
+            ]
+        
+        return feasible_tasks
     
     def are_tasks_connected(self, task_list):
       # Start with parts of the first task
       errs = 0
+
       connected_parts = {part.id for part in task_list[0].parts}
       
       # Check every subsequent task if it shares parts with the current connected parts
@@ -458,7 +439,7 @@ class QLearning:
 
 
 
-    def train(self, n_episodes=3000, exploration_prob=1, gamma=0.5, lr=0.001):
+    def train(self, n_episodes=3000, exploration_prob=1, gamma=0.5, lr=0.001, streamlit_UI=None):
 
         number_workstations_per_episode = []
         exploration_decreasing_decay = 0.01
@@ -472,13 +453,17 @@ class QLearning:
         reward = np.full((len(states), len(actions)), -1500)
 
         pbar = tqdm(range(self.n_episodes), desc="QLearning", colour='green')
-
+        ep = 0
         #reward_global = [0,0,0]
         for e in pbar:
+            ep += 1
             done = False
             current_state = 0
             self.solution = []
-
+            elapsed = pbar.format_dict["elapsed"]
+            rate = pbar.format_dict["rate"] if pbar.format_dict["rate"] else 0
+            remaining = (pbar.total - pbar.n) / rate if rate and pbar.total else 0
+            streamlit_UI.my_bar_static_optim.progress(ep/self.n_episodes, text="Estimated Remaining time = "+format_time(remaining, seconds_str=True) + "  |  Rate = " + str(int(rate))+ " it/s" )
             #actions = [self.Tasks.index(task) for task in self.Tasks if not task.preced_list]
 
             actions = [self.Tasks.index(task) for task in self.Tasks]
@@ -622,7 +607,6 @@ def read_prepare_mbom(file_path, parts_data):
         prec_weighted = precedence_weight * (task2 in tasks[task1]['precedency']) + precedence_weight * (task1 in tasks[task2]['precedency'])
         return parts_weight * (1 - parts_sim) + prec_weighted
 
-    #flow_weight*(np.abs(tasks[task1]["level"]-tasks[task2]["level"])+(tasks[task1]["ref_fam"]-tasks[task1]["ref_fam"]))
     # compute pairwise distances
     n_tasks = len(tasks)
     dist_matrix = np.zeros((n_tasks, n_tasks))
@@ -710,16 +694,16 @@ def read_prepare_mbom(file_path, parts_data):
                         task.clusterTasksID.append(Tasks_ID.index(task_id))
     return Tasks
 
-def run_QL(n_episodes, Tasks, targetCT, tolerance=0.1):
+def run_QL(n_episodes, Tasks, targetCT, tolerance=0.1, streamlit_UI = None ):
 
 
     ql = QLearning(n_episodes, Tasks, targetCT, tolerance)
-    best_solution, ressource_list, operators_list, session_rewards = ql.train()
+    best_solution, ressource_list, operators_list, session_rewards = ql.train(streamlit_UI=streamlit_UI)
 
 
     return best_solution, ressource_list, operators_list, session_rewards
 
-def vizualize_QL_results():
+def vizualize_QL_results(self):
 
     plt.plot(self.session_rewards)
     plt.show()
