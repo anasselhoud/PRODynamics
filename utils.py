@@ -9,6 +9,7 @@ import re
 import os
 import sys
 
+
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
@@ -1046,7 +1047,10 @@ class Robot:
             self.busy = True
             entry = self.env.now
             print("Start to wait at - ", entry)
+            print("Level of buff = ", from_entity.level)
+            yield self.env.timeout(10)
             yield from_entity.get(1)
+            print("got it")
             product = yield self.manuf_line.inventory_in.get() 
 
             # Move robot and unload / load
@@ -1215,7 +1219,7 @@ class Robot:
                     from_entity = self.entities_order[i]
                     to_entity = self.which_machine_to_feed(from_entity)
 
-                    # "Shall we unload this machine ?", why is there this message here ? 
+                    # "Shall we unload this machine ?"
                     
                     # Handle shift reset
                     if self.manuf_line.reset_shift_bool:
@@ -1531,7 +1535,7 @@ class Operator:
         self.free = True
 
 
-def format_time(seconds):
+def format_time(seconds, seconds_str=False):
     years, seconds = divmod(seconds, 31536000)  # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 365.25 days/year
     months, seconds = divmod(seconds, 2592000)   # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 30.44 days/month
     days, seconds = divmod(seconds, 86400)      # 60 seconds/minute * 60 minutes/hour * 24 hours/day
@@ -1556,8 +1560,8 @@ def format_time(seconds):
     if minutes > 0 and non_zero_parts < 3:
         time_str += f"{int(minutes)} minutes, "
         non_zero_parts += 1
-    # if non_zero_parts < 3:
-    #     time_str += f"{seconds:.2f} seconds"
+    if non_zero_parts < 3 and seconds_str:
+        time_str += f"{seconds:.2f} seconds"
 
     return time_str.rstrip(", ")
 

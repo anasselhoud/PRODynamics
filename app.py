@@ -58,14 +58,14 @@ class PRODynamicsApp:
 
         st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
-                "Search Speed": "Moderate",
+                "Search Speed": "Fast",
                 "Target CT": "100",
                 "Tolerance": "0.1",
             }
 
         self.all_prepared = False
         self.selected = None
-    
+
     def global_configuration(self):
 
         tab1, tab2 = st.tabs(["Simulation Data", "Stock Configuration"])
@@ -798,9 +798,12 @@ class PRODynamicsApp:
         uploaded_file_mbom = st.file_uploader("Upload Workplan", type=["xml"])
         tab1, tab2 = st.tabs(["Assembly Tasks", "Parts List"])
         with tab1:
+            columns_to_keep = ['id', 'cycleTime', 'weight', 'type', 'assy', 'precedency', 'forbidden'] 
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Assembly Tasks")
             if hasattr(st.session_state, 'mbom_data') and  isinstance(st.session_state.mbom_data, pd.DataFrame):
+                st.session_state.mbom_data = st.session_state.mbom_data[columns_to_keep]
+
                 updated_df = st.data_editor(st.session_state.mbom_data, num_rows="dynamic", key="tasks_edit")
                 if not st.session_state.mbom_data.equals(updated_df):
                     st.session_state.mbom_data = updated_df.copy()
@@ -819,17 +822,16 @@ class PRODynamicsApp:
             columns = st.columns(2)
             with columns[0]:
                 st.session_state.configuration_static["Machine Cost"] = st.text_input("Machine Cost", value=st.session_state.configuration_static.get("Target CT", "100"))
-                st.session_state.configuration_static["Operator Cost"] = st.text_input("Operator Cost", value=st.session_state.configuration_static.get("Target CT", "100"))
-                #st.session_state.configuration_static["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration_static.get("reset_shift", False))
+                st.session_state.configuration_static["Type of Machine"] = st.selectbox("Type of Machine", ["V-Cell", ""], index=0 if st.session_state.configuration_static.get("Type of Machine") == "V-cell" else 1)
             with columns[1]:
-                st.session_state.configuration["Direct Cst"] = st.text_input("Direct Cst", value=st.session_state.configuration_static.get("Tolerance", "0.1"))
+                st.session_state.configuration_static["Operator Cost"] = st.text_input("Operator Cost", value=st.session_state.configuration_static.get("Target CT", "100"))
+                st.session_state.configuration["MISC Cost"] = st.text_input("MISC Costs", value=st.session_state.configuration_static.get("Tolerance", "0.1"))
 
-        with st.expander("Customize the optimization model"):
-            st.subheader("Settings")
+        with st.expander("Customize the optimization model", expanded=True):
             columns = st.columns(2)
             with columns[0]:
                 st.session_state.configuration_static["Target CT"] = st.text_input("Target MCTO", value=st.session_state.configuration_static.get("Target CT", "100"))
-                st.session_state.configuration_static["Search Speed"] = st.selectbox("Search Speed", ["Moderate", "Fast", "Slow"], index=0 if st.session_state.configuration_static.get("Search Speed") == "Moderate" else 1)
+                st.session_state.configuration_static["Search Speed"] = st.selectbox("Search Speed", ["Moderate", "Fast", "Slow"], index = ["Moderate", "Fast", "Slow"].index(st.session_state.configuration_static.get("Search Speed", "Fast")) )
                 #st.session_state.configuration_static["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration_static.get("reset_shift", False))
             with columns[1]:
                 st.session_state.configuration["Tolerance"] = st.text_input("Tolerance", value=st.session_state.configuration_static.get("Tolerance", "0.1"))
@@ -838,19 +840,17 @@ class PRODynamicsApp:
 
         if st.button("Run Sequence Generation"):
             progress_text = "Operation in progress. Please wait."
-            my_bar = st.progress(0, text=progress_text)
-
-            for i in range(100):
-                my_bar.progress((i + 1) /100)
+            self.my_bar_static_optim = st.progress(0, text=progress_text)
 
             if isinstance(uploaded_file_mbom, str):
                 Tasks = read_prepare_mbom(uploaded_file_mbom, uploaded_file_mbom)
             else:
                 Tasks = read_prepare_mbom(st.session_state.mbom_data, st.session_state.parts_data)
-
+            
+        
             if st.session_state.configuration_static["Search Speed"] == "Fast":
-                N_episodes = 50000
-            if st.session_state.configuration_static["Search Speed"] == "Slow":
+                N_episodes = 10000
+            elif st.session_state.configuration_static["Search Speed"] == "Slow":
                 N_episodes = 1000000
             else:
                 N_episodes = 100000
@@ -864,8 +864,12 @@ class PRODynamicsApp:
 
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
-            best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance)
-            
+            best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+            print("Best Soluton = ", best_solution)
+            print("Machines = ", ressource_list[1])
+            print("Operators = ", operators_list[1])
+
+
             st.header("Results")
             col = st.columns(4, gap='medium')
             with col[0]:
@@ -878,7 +882,6 @@ class PRODynamicsApp:
                 st.metric(label="# Estimated Machine CT", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
             
             with col[1]:
-                print(ressource_list)
                 n_machines =ressource_list[0]//2
                 st.metric(label="# N. of Machines", value=str(int(n_machines)))
 
