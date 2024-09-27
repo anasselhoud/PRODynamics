@@ -250,11 +250,13 @@ class ManufLine:
         # Order machines related to each robot and process all robots
         print(str(len(self.robots_list)) + "  -- Robot Included")
         print("First machine = " , [m.first for m in self.list_machines])
+        
         for i in range(len(self.robots_list)):
-            machines_ordered = [self.list_machines[j-1] for j in self.robots_list[i].order]
+            self.robots_list[i].order = [int(j) for j in self.robots_list[i].order]
+            machines_ordered = [self.list_machines[int(j-1)] for j in self.robots_list[i].order]
             self.robots_list[i].entities_order = machines_ordered
-            print("Inclued in robot = ", [self.list_machines[j-1].ID for j in self.robots_list[i].order])
-            print("Inclued in robot = ", [self.list_machines[j-1].first for j in self.robots_list[i].order])
+            # print("Inclued in robot = ", [self.list_machines[j-1].ID for j in self.robots_list[i].order])
+            # print("Inclued in robot = ", [self.list_machines[j-1].first for j in self.robots_list[i].order])
 
             # Insert the supermarket as the first entity of the robot if any related machine is the first 
             if any([self.list_machines[j-1].first for j in self.robots_list[i].order]):
@@ -806,7 +808,9 @@ class Machine:
             self.done_bool = False
             entry_wait = self.env.now
             self.to_be_passed = False
+            
 
+            ### TODO: Intergrate manual time
             # First, needs to have a product loaded
             while not self.loaded_bol :
                 try: 
@@ -829,7 +833,9 @@ class Machine:
                     print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
                     print("after in " + self.ID + "= " +str(self.store_in.items) + " - PROD " + product)
 
-                    # Already handled above ? 
+                    # if not self.operator.busy:
+                    #     print("Operator is free. Start Operation.")
+
                     done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
                     if done_in == 0:
                         ## The product should not be processed in this machine and to be passed to the next
@@ -1528,11 +1534,19 @@ class Task:
         self.manual_time = manual_time
 
 
-class Operator:
-    def __init__(self, assigned_machines):
+class Operator(Robot):
+    def __init__(self, id, model, assigned_machines):
+        super().__init__(id, model)
         self.assigned_machines = assigned_machines
         self.wc = 0
         self.free = True
+        self.busy = False
+
+    def assign_machine(self, machine):
+        self.assigned_machines.append(machine)
+
+    def release_machine(self, machine):
+        self.assigned_machines.remove(machine)
 
 
 def format_time(seconds, seconds_str=False):
