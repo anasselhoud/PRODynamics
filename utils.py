@@ -1530,28 +1530,38 @@ class Operator:
 
 class CentralStorage:
     def __init__(self, env, central_storage_config, times_to_reach={}, strategy='stack') -> None:
-        """Hold two storages : back and front, each having several blocks allowing one or many sizes.
+        """Hold two storages : back and front, each having several blocks allowing one or many references.
 
         Parameters:
         - central_storage_config' : below is an example of its structure.
-            {'front': [ {'allowed_sizes' : ['XS', 'S'],
+            {'front': [ {'allowed_ref' : ['Ref A', 'Ref B'],
                          'capacity': 336},
-                        {'allowed_sizes' : ['XS', 'S', 'L'],
+                        {'allowed_ref' : ['Ref A', 'Ref B', 'Ref C'],
                             'capacity': 24}]
                         
-             'back': [ {'allowed_sizes' : ['XS', 'S'],
+             'back': [ {'allowed_ref' : ['Ref A', 'Ref B'],
                         'capacity': 376}]}
         
         - strategy : decide which storage to fill or take from when a new reference is added or removed.
             - 'stack' : Try to fill blocks of the 'front' storage before the 'back'.
 
-        TODO: Handle the difference between 'size' and 'ref' from the user.
         TODO: Implement "fastest" route with times_to_reach. Waiting for more details from Vivi.
 
+        'self.stores' has quite the same structure as 'central_storage_config' :
+            - {'front': [ {'allowed_ref' : ['Ref A', 'Ref B'],
+                           'store': simpy.FilterStore()},
+                        ...
+
+            - where each simpy.FilterStore holds dictionnaries with 3 keys:
+                - name
+                - origin
+                - status           
+
         """
+        self.ID = 'Central Storage'
         self.env = env
         self.strategy = strategy
-        self.times_to_reach = times_to_reach
+        self.times_to_reach = list(times_to_reach.values())
         self.stores = central_storage_config
 
         # Turn the 'capacity' attributes to 'simpy.Store' objects
@@ -1564,7 +1574,7 @@ class CentralStorage:
         """Display what is inside the front and back stores.
         
         For each store and block within, display :
-        - allowed sizes
+        - allowed references
         - capacity
         - level
         - items        
@@ -1575,7 +1585,7 @@ class CentralStorage:
         for side in self.stores.keys():
             lines.append(side.upper())
             for block in self.stores[side]:
-                lines.append(f"allowed_sizes : {block['allowed_sizes']}")
+                lines.append(f"references allowed: {block['allowed_ref']}")
                 lines.append(f"capacity : {block['store'].capacity}")
                 lines.append(f"level : {len(block['store'].items)}")
                 lines.append(f"items : {block['store'].items}")
@@ -1599,7 +1609,7 @@ class CentralStorage:
                     return True
                 
                 # Return True if there is any space and the specified reference is allowed in the block.
-                if ref is not None and len(block['store'].items) < block['store'].capacity and ref in block['allowed_sizes']:
+                if ref is not None and len(block['store'].items) < block['store'].capacity and ref in block['allowed_ref']:
                     print(f'There is an available spot for reference "{ref}" in the central storage.')
                     return True
 
@@ -1613,6 +1623,8 @@ class CentralStorage:
         If a reference is specified, check this specific reference.
         Otherwise, check if there is at least 1 reference no matter which one.
 
+        TODO: Check the status of the reference to get it or not. Waiting for more details from Vivi.
+
         """
 
         for side in self.stores.keys():
@@ -1623,16 +1635,25 @@ class CentralStorage:
                     return True
                 
                 # Return True if there is a specified reference that is allowed and present.
-                if ref is not None and ref in block['allowed_sizes'] and ref in block['store'].items:
-                    print(f'The specified reference "{ref}" is available in the central storage.')
-                    return True
+                if ref is not None and ref in block['allowed_ref']:
+                    for ref_data in block['store'].items:
+                        if ref_data['name'] == ref:
+                            print(f'The specified reference "{ref}" is available in the central storage.')
+                            return True
 
         # No reference has been found.
-        print(f'There is no available reference "{ref}" in the central storage.')
+        print(f'There is NO available reference "{ref}" in the central storage.')
         return False
 
-    def put(self, ref):
-        """Try to put a reference in the storage determined by the strategy of the central storage."""
+    def put(self, ref_data):
+        """Try to put a reference in the storage determined by the strategy of the central storage.
+        
+        'ref_data' is a dictionnary that holds :
+            - reference 'name'
+            - reference 'origin' (from which entity ?)
+            - reference 'status' (OK / KO / test..)
+
+        """
         
         # Check if the strategy has been implemented.
         if self.strategy not in ['stack']:
@@ -1642,24 +1663,23 @@ class CentralStorage:
             for side in self.stores.keys():
                 for block in self.stores[side]:
                     # Check if the ref is allowed in the current block.
-                    if ref in block['allowed_sizes']:
+                    if ref_data['name'] in block['allowed_ref']:
                         store = block['store']
                         # Check if there is an available spot to put the reference.
                         if len(store.items) < store.capacity:
-                            print(f'Put the reference "{ref}" in the central storage.')
-                            store.put(ref)
+                            print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['origin']}" in the central storage.""")
+                            store.put(ref_data)
                             return
                         
         # Haven't found any place to put the reference
-        raise Exception(f"Tried to put the reference {ref} in the central storage that is FULL.")
-            
+        raise Exception(f"Tried to put the reference {ref_data} in the central storage BUT it's FULL.")
+    
     def get(self, ref=None):
         """Try to get a reference in the storage determined by the strategy of the central storage.
         
         If a reference is specified, get this specific reference.
         Otherwise, get any reference depending on the strategy of the storage.
 
-        TODO: How to get a specific reference ?
         """
 
         # Check if the strategy has been implemented.
@@ -1675,12 +1695,14 @@ class CentralStorage:
                         return block['store'].get() 
                         
                     # When the reference is specified, get as soon as one is present in a block.
-                    if ref is not None and ref in block['store'].items:
-                        print(f'Got the specified reference "{ref}" in the central storage.')
-                        return block['store'].get(lambda x: x==ref)
+                    if ref is not None:
+                        for ref_data in block['store'].items:
+                            if ref_data['name'] == ref:
+                                print(f'Got the specified reference "{ref}" in the central storage.')
+                                return block['store'].get(lambda x: x['name']==ref)
                             
         # Haven't found any reference to get
-        raise Exception(f"Tried to get the reference {ref} in the central storage but couldn't.")
+        raise Exception(f"Tried to get the reference '{ref}' in the central storage but couldn't.")
 
 
 def format_time(seconds):
