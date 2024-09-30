@@ -56,7 +56,8 @@ class PRODynamicsApp:
             st.session_state.mbom_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
             st.session_state.parts_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//parts//part")
 
-        st.session_state.configuration_static = {
+        if "configuration_static" not in st.session_state:
+            st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
                 "Search Speed": "Fast",
                 "Target CT": "100",
@@ -230,6 +231,7 @@ class PRODynamicsApp:
             gamma_pdf = gamma.pdf(gamma_x, k, scale=MTTF)
             data_gamma = pd.DataFrame({'Days': gamma_x, 'Probability': gamma_pdf})
             st.line_chart(data_gamma, x="Days", y="Probability")
+
 
     def process_data(self):
         uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
@@ -656,10 +658,15 @@ class PRODynamicsApp:
             ax_m.set_ylabel('Percentage (%)')
             # ax_m.set_title('Machine Utilization Rate')
             
+            for op in manuf_line.manual_operators:
+                print("Operator WC = ", op.wc)
+
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
             available_machines = []
             for m in manuf_line.list_machines:
                 print("List of produced per machine = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
+                print("Waiting for op = ", np.mean(m.wc))
+
                 available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
                 #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
                 available_machines.append(100*available_machine)           
@@ -792,6 +799,30 @@ class PRODynamicsApp:
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
+        # Operator Plot
+        fig = go.Figure()
+
+        # Add bar traces for each utilization type
+        op_WCs = []
+        for op in manuf_line.manual_operators:
+            op_WCs.append(op.wc)
+        fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
+
+        # Update layout
+        fig.update_layout(
+            title="Robot Utilization Rate",
+            xaxis_title="Robot",
+            yaxis_title="Percentage (%)",
+            barmode="stack",  # Stack bars on top of each other
+            legend=dict(
+                orientation="h",  # Horizontal legend
+                xanchor="center",  # Anchor legend to the right
+                x=0.5  # Adjust horizontal position of the legend
+            ),
+            margin=dict(l=0, r=0, t=30, b=30)
+        )
+        # Display the Plotly figure
+        st.plotly_chart(fig, use_container_width=True)
         # Additional Plots
        
     def assembly_section(self):
