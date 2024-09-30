@@ -810,9 +810,9 @@ class PRODynamicsApp:
 
         # Update layout
         fig.update_layout(
-            title="Robot Utilization Rate",
-            xaxis_title="Robot",
-            yaxis_title="Percentage (%)",
+            title="Operator Work Content",
+            xaxis_title="Operator",
+            yaxis_title="Cumulated Work Content (s)",
             barmode="stack",  # Stack bars on top of each other
             legend=dict(
                 orientation="h",  # Horizontal legend
