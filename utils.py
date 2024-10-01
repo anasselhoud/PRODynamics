@@ -160,14 +160,15 @@ class ManufLine:
             return waiting_times, cycle_time, breakdowns
         
         if not save and not track:
-            waiting_times = [machine.parts_done for machine in self.list_machines]
+            waiting_times = [machine.waiting_time for machine in self.list_machines]
+            parts_done_per_machine = [machine.parts_done for machine in self.list_machines]
             breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
             if self.shop_stock_out.level != 0:
                 cycle_time = self.sim_time/self.shop_stock_out.level
             else:
                 cycle_time = 100000000000
 
-            return waiting_times, cycle_time, breakdowns
+            return parts_done_per_machine, waiting_times, cycle_time, breakdowns
 
     # get_track can be deleted since only used in "main" files that are outdated
     def get_track(self):

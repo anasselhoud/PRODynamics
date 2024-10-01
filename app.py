@@ -936,8 +936,8 @@ class PRODynamicsApp:
             # Update layout
             fig.update_layout(
                 title='Machine Times per Machine',
-                xaxis_title='Machines',
-                yaxis_title='Machine Time MT (s)',
+                xaxis_title='Machines ID',
+                yaxis_title='Machine Time | MT (s)',
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
@@ -959,6 +959,11 @@ class PRODynamicsApp:
 
             st.plotly_chart(fig, use_container_width=True)
 
+            ### Section of assembly scenario details -- 
+
+            time.sleep(1)
+            with st.expander("Need more details?", expanded=False):
+                columns = st.columns(2)
             
         return True
 

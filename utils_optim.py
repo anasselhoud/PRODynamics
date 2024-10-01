@@ -53,7 +53,7 @@ def save_global_settings(manuf_line, configuration, references_config, line_data
     manuf_line.shop_stock_out = simpy.Container(manuf_line.env, capacity=float(manuf_line.config["shopstock"]["capacity"]), init=float(manuf_line.config["shopstock"]["initial"]))
 
     # Set simulation time and takt time
-    manuf_line.sim_time = float(configuration["sim_time"])
+    manuf_line.sim_time = float(eval(configuration["sim_time"]))
     manuf_line.takt_time = float(configuration["takt_time"])
 
     manuf_line.references_config = references_config
