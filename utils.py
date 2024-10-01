@@ -1,3 +1,4 @@
+from copy import deepcopy	
 import yaml
 import simpy
 import random
@@ -81,6 +82,7 @@ class ManufLine:
 
         self.expected_refill_time = None
 
+        self.central_storage = None
 
     def get_index_of_item(self, list_of_lists, item):
         for index, sublist in enumerate(list_of_lists):
@@ -1031,7 +1033,7 @@ class Robot:
         self.entities_order = None
         self.loadunload_time = 50
             
-    def transport(self, from_entity, to_entity, time=10):
+    def transport(self, from_entity, to_entity):
         """
         Handle transport between two entities, update storages. Cancel the transport when breakdowns appear.
 
@@ -1099,7 +1101,7 @@ class Robot:
             yield self.env.timeout(0)
 
         # Transport from something to a machine
-        if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
+        elif not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             print("Transporting from " + str(from_entity) + " to " + to_entity.ID + " at time = " + str(self.env.now))
 
             # SKip transport if the machine to deliver is broken 
@@ -1141,9 +1143,41 @@ class Robot:
             self.manuf_line.track_sim(("InputStock", to_entity.Name, self.env.now))
             self.busy = False 
             yield self.env.timeout(0) 
-                
+
+        # Transport from a machine to the central storage
+        elif isinstance(from_entity, Machine) and isinstance(to_entity, CentralStorage):
+            print("Transporting from " + from_entity.ID + " to " + to_entity.ID + " at time = " + str(self.env.now))
+            entry = self.env.now
+            self.busy = True
+
+            # Start by waiting for an available input resource from entity 
+            # (supposed to be skipped since the function is called if 'from_entity' has its 'buffer_out' full)
+            while from_entity.buffer_out.level == 0:
+                yield self.env.timeout(10)
+                # Skip transport if the machine breaks down while waiting for it
+                if from_entity.broken:
+                    print(f"From entity {from_entity.ID} is broken, skipping remaining instructions.")
+                    self.busy = False
+                    yield self.env.timeout(1)
+                    return
+            # Get the product now available
+            yield from_entity.buffer_out.get(1)
+            product = yield  from_entity.store_out.get()
+            # Move robot and unload / load
+            self.waiting_time += self.env.now-entry
+            yield self.env.timeout(abs(max(to_entity.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
+            entry_2 = self.env.now
+    
+            # Wait for a spot in the input buffer of 'to_entity' and update storage
+            # TODO : Status OK so far.
+            to_entity.put(ref_data={'name': product, 'origin': from_entity, 'status': 'OK'})
+            self.waiting_time += self.env.now-entry_2
+            # self.manuf_line.track_sim((from_entity.Name, "OutputStock", self.env.now))
+            self.busy = False 
+            yield self.env.timeout(0)
+
         # Transport from a machine to something 
-        if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
+        elif  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
             print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
 
             # Start by waiting for an available input resource from entity
@@ -1164,9 +1198,9 @@ class Robot:
             # Move robot and unload / load
             self.waiting_time += self.env.now-entry
             yield self.env.timeout(abs(from_entity.move_robot_time)+self.loadunload_time)
-            entry_2 = self.env.now
 
-            # Wait for a spot in the input buffer of 'to_entity' and update storage
+            # Put item in the shop stock
+            entry_2 = self.env.now
             yield to_entity.put(1)
             self.manuf_line.inventory_out.put(product)
             self.waiting_time += self.env.now-entry_2
@@ -1272,8 +1306,6 @@ class Robot:
         """
         Tell the robot what to transport in what order. 
 
-        Is there only the pull strategy implemented ?
-
         Return:
         None
         """
@@ -1311,6 +1343,9 @@ class Robot:
                             elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and (from_entity.operating and not from_entity.broken):
                                 yield from self.transport(from_entity, to_entity)
 
+                            # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
+                            elif (self.manuf_line.central_storage is not None) and (to_entity.buffer_in.level == to_entity.buffer_in.capacity) and (from_entity.buffer_out.level >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref=from_entity.store_in.items[0])):
+                                yield from self.transport(from_entity, self.manuf_line.central_storage)
 
                         except Exception as e:
                             # When feeding the shop stock 
@@ -1604,11 +1639,187 @@ class Operator:
     def assign_machine(self, machine):
         self.assigned_machines.append(machine)
 
+class CentralStorage:
+    def __init__(self, env, central_storage_config, times_to_reach={}, strategy='stack') -> None:
+        """Hold two storages : back and front, each having several blocks allowing one or many references.
+
+        Parameters:
+        - central_storage_config' : below is an example of its structure.
+            {'front': [ {'allowed_ref' : ['Ref A', 'Ref B'],
+                         'capacity': 336},
+                        {'allowed_ref' : ['Ref A', 'Ref B', 'Ref C'],
+                            'capacity': 24}]
+                        
+             'back': [ {'allowed_ref' : ['Ref A', 'Ref B'],
+                        'capacity': 376}]}
+        
+        - strategy : decide which storage to fill or take from when a new reference is added or removed.
+            - 'stack' : Try to fill blocks of the 'front' storage before the 'back'.
+
+        TODO: Implement "fastest" route with times_to_reach. Waiting for more details from Vivi.
+
+        'self.stores' has quite the same structure as 'central_storage_config' :
+            - {'front': [ {'allowed_ref' : ['Ref A', 'Ref B'],
+                           'store': simpy.FilterStore()},
+                        ...
+
+            - where each simpy.FilterStore holds dictionnaries with 3 keys:
+                - name
+                - origin
+                - status           
+
+        """
+        self.ID = 'Central Storage'
+        self.env = env
+        self.strategy = strategy
+        self.times_to_reach = list(times_to_reach.values())
+        self.stores = deepcopy(central_storage_config)
+
+        # Turn the 'capacity' attributes to 'simpy.Store' objects
+        for side in self.stores.keys():
+            for block in self.stores[side]:
+                block['store'] = simpy.FilterStore(env, block['capacity'])
+                del block['capacity']
+
+    def __str__(self) -> str:
+        """Display what is inside the front and back stores.
+        
+        For each store and block within, display :
+        - allowed references
+        - capacity
+        - level
+        - items        
+        """
+
+        lines = ["\n=== CENTRAL STORAGE ==="]
+
+        for side in self.stores.keys():
+            lines.append(side.upper())
+            for block in self.stores[side]:
+                lines.append(f"references allowed: {block['allowed_ref']}")
+                lines.append(f"capacity : {block['store'].capacity}")
+                lines.append(f"level : {len(block['store'].items)}")
+                lines.append(f"items : {[(item['name'], item['origin'].ID, item['status']) for item in block['store'].items]}")
+                lines.append('')
+
+        return "\n".join(lines)
+
+    def available_spot(self, ref=None) -> bool:
+        """Check if there is an available spot.
+        
+        If a reference is specified, check an available spot for this specific reference.
+        Otherwise, check if there is any available spot no matter the reference.
+
+        """
+
+        for side in self.stores.keys():
+            for block in self.stores[side]:
+                # Return True if there is any space when the reference is not specified.
+                if ref is None and len(block['store'].items) < block['store'].capacity:
+                    print(f'The central storage is not full.')
+                    return True
+                
+                # Return True if there is any space and the specified reference is allowed in the block.
+                if ref is not None and len(block['store'].items) < block['store'].capacity and ref in block['allowed_ref']:
+                    print(f'There is an available spot for reference "{ref}" in the central storage.')
+                    return True
+
+        # No space has been found.
+        print(f'There is NO available spot for reference "{ref}" in the central storage.')
+        return False
+
+    def available_ref(self, ref=None) -> bool:
+        """Check if there is an available reference.
+        
+        If a reference is specified, check this specific reference.
+        Otherwise, check if there is at least 1 reference no matter which one.
+
+        TODO: Check the status of the reference to get it or not. Waiting for more details from Vivi.
+
+        """
+
+        for side in self.stores.keys():
+            for block in self.stores[side]:
+                # Return True if there is any item when the reference is not specified.
+                if ref is None and len(block['store'].items) > 0:
+                    print(f'The central storage is empty.')
+                    return True
+                
+                # Return True if there is a specified reference that is allowed and present.
+                if ref is not None and ref in block['allowed_ref']:
+                    for ref_data in block['store'].items:
+                        if ref_data['name'] == ref:
+                            print(f'The specified reference "{ref}" is available in the central storage.')
+                            return True
+
+        # No reference has been found.
+        print(f'There is NO available reference "{ref}" in the central storage.')
+        return False
+
+    def put(self, ref_data):
+        """Try to put a reference in the storage determined by the strategy of the central storage.
+        
+        'ref_data' is a dictionnary that holds :
+            - reference 'name' ('Ref A')
+            - reference 'origin' (from which entity ?)
+            - reference 'status' (OK / KO / test..)
+
+        """
+        
+        # Check if the strategy has been implemented.
+        if self.strategy not in ['stack']:
+            raise Exception(f'Strategy "{self.strategy}" is not yet implemented for the central storage.')
+
+        if self.strategy == 'stack':
+            for side in self.stores.keys():
+                for block in self.stores[side]:
+                    # Check if the ref is allowed in the current block.
+                    if ref_data['name'] in block['allowed_ref']:
+                        store = block['store']
+                        # Check if there is an available spot to put the reference.
+                        if len(store.items) < store.capacity:
+                            print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['origin']}" in the central storage.""")
+                            store.put(ref_data)
+                            return
+                        
+        # Haven't found any place to put the reference
+        raise Exception(f"Tried to put the reference {ref_data} in the central storage BUT it's FULL.")
+    
+    def get(self, ref=None):
+        """Try to get a reference in the storage determined by the strategy of the central storage.
+        
+        If a reference is specified, get this specific reference.
+        Otherwise, get any reference depending on the strategy of the storage.
+
+        """
+
+        # Check if the strategy has been implemented.
+        if self.strategy not in ['stack']:
+            raise Exception(f'Strategy "{self.strategy}" is not yet implemented for the central storage.')
+
+        if self.strategy == 'stack':
+            for side in self.stores.keys():
+                for block in self.stores[side]:
+                    # When the reference is not specified (None), get as soon as the block is not empty.
+                    if ref is None and len(block['store'].items) > 0 :
+                        print(f'Got the first reference "{ref}" in the central storage.')
+                        return block['store'].get() 
+                        
+                    # When the reference is specified, get as soon as one is present in a block.
+                    if ref is not None:
+                        for ref_data in block['store'].items:
+                            if ref_data['name'] == ref:
+                                print(f'Got the specified reference "{ref}" in the central storage.')
+                                return block['store'].get(lambda x: x['name']==ref)
+                            
+        # Haven't found any reference to get
+        raise Exception(f"Tried to get the reference '{ref}' in the central storage but couldn't.")
+
     def release_machine(self, machine):
         self.assigned_machines.remove(machine)
-
-
+        
 def format_time(seconds, seconds_str=False):
+
     years, seconds = divmod(seconds, 31536000)  # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 365.25 days/year
     months, seconds = divmod(seconds, 2592000)   # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 30.44 days/month
     days, seconds = divmod(seconds, 86400)      # 60 seconds/minute * 60 minutes/hour * 24 hours/day

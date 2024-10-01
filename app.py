@@ -50,8 +50,11 @@ class PRODynamicsApp:
                 "n_repairmen": 3,
                 "enable_random_seed": True,
                 "enable_breakdowns": True,
-                "breakdown_dist_distribution": "Weibull Distribution"
+                "breakdown_dist_distribution": "Weibull Distribution",
+                "central_storage_enable": True,
+                "central_storage_ttr": {'front': 100, "back": 100},
             }
+
         if 'mbom_data' not in st.session_state:
             st.session_state.mbom_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
             st.session_state.parts_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//parts//part")
@@ -63,6 +66,18 @@ class PRODynamicsApp:
                 "Target CT": "100",
                 "Tolerance": "0.1",
             }
+        
+        # Central Storage
+        if "central_storage" not in st.session_state:        
+            st.session_state.central_storage = {
+                'front': pd.DataFrame([
+                    {'Allowed references' : "",
+                     'Capacity': 336}]),
+
+                'back': pd.DataFrame([
+                    {'Allowed references' : "",
+                     'Capacity': 376}])
+                }
 
         self.all_prepared = False
         self.selected = None
@@ -235,7 +250,7 @@ class PRODynamicsApp:
 
     def process_data(self):
         uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
-        tab1, tab2 = st.tabs(["Production Line Data", "Product Reference Data"])
+        tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
         with tab1:
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Production Line Data")
@@ -306,6 +321,34 @@ class PRODynamicsApp:
                     st.subheader("Product Reference Data")
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
+            # Central Storage
+            with tab3:
+                st.subheader("Central Storage")                
+                st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
+                 
+                # Allow all references by default according 
+                all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
+
+                sides = ['front', 'back']
+                for side in sides:
+                    for i, value in enumerate(st.session_state.central_storage[side]['Allowed references'].values):
+                        if not value:
+                            st.session_state.central_storage[side]['Allowed references'].values[i] = str(all_references)
+
+                # Function to save edited data. Used just below.
+                def save_central_storage_table(side, data):
+                    st.session_state.central_storage[side] = data.copy()
+
+                # Display for each side of the central storage
+                cols = st.columns(len(sides))
+                for i, side in enumerate(sides):
+                    with cols[i]:
+                        # Side, time to reach, table to edit date, save button
+                        st.subheader(side.capitalize())
+                        st.session_state.configuration['central_storage_ttr'][side] = st.number_input("Time to reach (s)", value=st.session_state.configuration['central_storage_ttr'][side], format='%i', key=f'central_storage_ttr_{side}')
+                        editor = st.data_editor(st.session_state.central_storage[side], num_rows="dynamic", key=f"central_storage_{side}")
+                        st.button("Save", key=f"central_storage_save_{side}", on_click=save_central_storage_table, args=[side, editor])
+
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
         column1, column2, column3, column4 = st.columns(4)
@@ -324,6 +367,7 @@ class PRODynamicsApp:
         with column2:
             st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
+            st.write("Central Storage:", st.session_state.configuration["central_storage_enable"])
         
         with column4:
             st.write("Number of References : ", len(st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')))
@@ -343,6 +387,17 @@ class PRODynamicsApp:
             self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
             self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
             self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+
+            if st.session_state.configuration["central_storage_enable"]:
+                # Turn pd.DataFrame into dict to 
+                central_storage_config = {}
+                for side in ['front', 'back']:
+                    central_storage_config[side] = []
+                    for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
+                        central_storage_config[side].append({'allowed_ref': allowed, 'capacity': capacity})
+
+                # Add the central storage to the manufactoring line
+                self.manuf_line.central_storage = CentralStorage(env, central_storage_config, st.session_state.configuration["central_storage_ttr"])
         
             self.all_prepared = True
             self.run_simulation(self.manuf_line)
@@ -677,7 +732,7 @@ class PRODynamicsApp:
             print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
             print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
             print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
-            
+            print(manuf_line.central_storage)
             breakdown_percentage = [100 * float(np.sum(m.real_repair_time)) / manuf_line.sim_time for m in manuf_line.list_machines]
             print('Breakdowns = ', breakdown_percentage)
             waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
@@ -1040,9 +1095,6 @@ class PRODynamicsApp:
         print("sim time first = ",  manuf_line.sim_time)
         manuf_line.takt_time = eval(str(configuration["takt_time"]))
   
-
-
-        
 
 if __name__ == "__main__":
     app = PRODynamicsApp()
