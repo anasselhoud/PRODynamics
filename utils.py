@@ -1,3 +1,4 @@
+from copy import deepcopy	
 import yaml
 import simpy
 import random
@@ -1597,7 +1598,7 @@ class CentralStorage:
         self.env = env
         self.strategy = strategy
         self.times_to_reach = list(times_to_reach.values())
-        self.stores = central_storage_config
+        self.stores = deepcopy(central_storage_config)
 
         # Turn the 'capacity' attributes to 'simpy.Store' objects
         for side in self.stores.keys():
@@ -1623,7 +1624,7 @@ class CentralStorage:
                 lines.append(f"references allowed: {block['allowed_ref']}")
                 lines.append(f"capacity : {block['store'].capacity}")
                 lines.append(f"level : {len(block['store'].items)}")
-                lines.append(f"items : {block['store'].items}")
+                lines.append(f"items : {[(item['name'], item['origin'].ID, item['status']) for item in block['store'].items]}")
                 lines.append('')
 
         return "\n".join(lines)

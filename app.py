@@ -69,15 +69,13 @@ class PRODynamicsApp:
         # Central Storage
         if "central_storage" not in st.session_state:        
             st.session_state.central_storage = {
-                'front': [
-                    {'allowed_ref' : ['Ref A'],
-                    'capacity': 336},
-                    {'allowed_ref' : ['Ref B'],
-                    'capacity': 24}],
+                'front': pd.DataFrame([
+                    {'Allowed references' : "",
+                     'Capacity': 336}]),
 
-                'back': [
-                    {'allowed_ref' : ['Ref A', 'Ref B'],
-                    'capacity': 376}]
+                'back': pd.DataFrame([
+                    {'Allowed references' : "",
+                     'Capacity': 376}])
                 }
 
         self.all_prepared = False
@@ -326,29 +324,28 @@ class PRODynamicsApp:
                 st.subheader("Central Storage")                
                 st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
                  
-                # Retrieve all references 
+                # Allow all references by default according 
                 all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
 
-                # Display 
-                for side in st.session_state.central_storage:
-                    st.subheader(side.capitalize())
-                    left, _ = st.columns([0.7, 0.3])
-                    with left:
+                sides = ['front', 'back']
+                for side in sides:
+                    for i, value in enumerate(st.session_state.central_storage[side]['Allowed references'].values):
+                        if not value:
+                            st.session_state.central_storage[side]['Allowed references'].values[i] = str(all_references)
+
+                # Function to save edited data. Used just below.
+                def save_central_storage_table(side, data):
+                    st.session_state.central_storage[side] = data.copy()
+
+                # Display for each side of the central storage
+                cols = st.columns(len(sides))
+                for i, side in enumerate(sides):
+                    with cols[i]:
+                        # Side, time to reach, table to edit date, save button
+                        st.subheader(side.capitalize())
                         st.session_state.configuration['central_storage_ttr'][side] = st.number_input("Time to reach (s)", value=st.session_state.configuration['central_storage_ttr'][side], format='%i', key=f'central_storage_ttr_{side}')
-                    
-                    for i, block in enumerate(st.session_state.central_storage[side]):
-                        allowed, capacity, delete = st.columns([0.6, 0.2, 0.2])
-                        with allowed:
-                            if f'{side}_allowed_{i}' not in st.session_state:
-                                st.multiselect(f"Block n°{i+1}",
-                                            all_references,
-                                            block['allowed_ref'],
-                                            key=f'{side}_allowed_{i}')
-                        with capacity:
-                            if f'{side}_capacity_{i}' not in st.session_state:
-                                st.number_input("Capacity", value=block['capacity'], format='%i', key=f'{side}_capacity_{i}')
-                    
-                    st.markdown("""---""")
+                        editor = st.data_editor(st.session_state.central_storage[side], num_rows="dynamic", key=f"central_storage_{side}")
+                        st.button("Save", key=f"central_storage_save_{side}", on_click=save_central_storage_table, args=[side, editor])
 
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
@@ -390,7 +387,15 @@ class PRODynamicsApp:
             self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
 
             if st.session_state.configuration["central_storage_enable"]:
-                self.manuf_line.central_storage = CentralStorage(env, st.session_state.central_storage, st.session_state.configuration["central_storage_ttr"])
+                # Turn pd.DataFrame into dict to 
+                central_storage_config = {}
+                for side in ['front', 'back']:
+                    central_storage_config[side] = []
+                    for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
+                        central_storage_config[side].append({'allowed_ref': allowed, 'capacity': capacity})
+
+                # Add the central storage to the manufactoring line
+                self.manuf_line.central_storage = CentralStorage(env, central_storage_config, st.session_state.configuration["central_storage_ttr"])
         
             self.all_prepared = True
             self.run_simulation(self.manuf_line)
