@@ -1197,6 +1197,7 @@ class Robot:
 
             # Move robot and unload / load
             self.waiting_time += self.env.now-entry
+            # TODO : To update for different scenarios
             yield self.env.timeout(abs(from_entity.move_robot_time)+self.loadunload_time)
 
             # Put item in the shop stock

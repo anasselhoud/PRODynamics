@@ -1,3 +1,4 @@
+import graphviz
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -288,6 +289,20 @@ class PRODynamicsApp:
                         else:
                             st.error("Unsupported file format. Please upload a CSV or Excel file.")
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+
+            if st.button("Display manufactoring line"):
+                with st.columns([1, 2, 1])[1]:
+                    graph = graphviz.Digraph()
+                    graph.attr(rankdir='LR')
+                    for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
+                        try:
+                            destinations = eval(destination)
+                            for dest in destinations:
+                                graph.edge(origin, dest)
+                        except:
+                            graph.edge(origin, destination)
+
+                    st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
             st.subheader("Product Reference Data")
