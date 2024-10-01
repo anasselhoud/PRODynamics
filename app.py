@@ -50,8 +50,11 @@ class PRODynamicsApp:
                 "n_repairmen": 3,
                 "enable_random_seed": True,
                 "enable_breakdowns": True,
-                "breakdown_dist_distribution": "Weibull Distribution"
+                "breakdown_dist_distribution": "Weibull Distribution",
+                "central_storage_enable": True,
+                "central_storage_ttr": {'front': 100, "back": 100},
             }
+
         if 'mbom_data' not in st.session_state:
             st.session_state.mbom_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
             st.session_state.parts_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//parts//part")
@@ -63,22 +66,23 @@ class PRODynamicsApp:
                 "Tolerance": "0.1",
             }
         
-        st.session_state.configuration_central_storage = {
-            'front': [
-                {'allowed_sizes' : ['ref A', 'ref B'],
-                 'capacity': 336},
-                {'allowed_sizes' : ['ref A', 'ref B', 'ref C'],
-                 'capacity': 24}],
+        # Central Storage
+        if "central_storage" not in st.session_state:        
+            st.session_state.central_storage = {
+                'front': [
+                    {'allowed_ref' : ['Ref A'],
+                    'capacity': 336},
+                    {'allowed_ref' : ['Ref B'],
+                    'capacity': 24}],
 
-            'back': [
-                {'allowed_sizes' : ['ref A', 'ref B'],
-                 'capacity': 376}]
-            }
+                'back': [
+                    {'allowed_ref' : ['Ref A', 'Ref B'],
+                    'capacity': 376}]
+                }
 
         self.all_prepared = False
         self.selected = None
     
-
     def global_configuration(self):
 
         tab1, tab2 = st.tabs(["Simulation Data", "Stock Configuration"])
@@ -131,7 +135,6 @@ class PRODynamicsApp:
                 st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value=st.session_state.configuration.get("refill_time", "To be chosen later per product."), disabled=True)
                 st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value=st.session_state.configuration.get("safety_stock", "20"))
                 st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value=st.session_state.configuration.get("refill_size", "1"))
-
 
     def home(self):
         row0_spacer1, row0_1, row0_spacer2, row0_2, row0_spacer3 = st.columns((.1, 2.3, .1, 1.3, .1))
@@ -247,7 +250,7 @@ class PRODynamicsApp:
 
     def process_data(self):
         uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
-        tab1, tab2 = st.tabs(["Production Line Data", "Product Reference Data"])
+        tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
         with tab1:
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Production Line Data")
@@ -287,68 +290,65 @@ class PRODynamicsApp:
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
 
         with tab2:
-            column1, column2 = st.columns([0.4, 0.6])
-            with column1:
-                st.subheader("Product Reference Data")
-                if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                    updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
-                    if not st.session_state.multi_ref_data.equals(updated_refs):
-                        st.session_state.multi_ref_data = updated_refs.copy()
+            st.subheader("Product Reference Data")
+            if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
+                if not st.session_state.multi_ref_data.equals(updated_refs):
+                    st.session_state.multi_ref_data = updated_refs.copy()
+                    st.rerun()
+                # if not st.session_state.multi_ref_data.equals(updated_refs):
+                #     print("here problem? 2 ")
+                #     st.session_state.multi_ref_data = updated_refs.copy()
+            else:
+                if uploaded_file_line_data is not None:
+                    if uploaded_file_line_data.name.endswith('.csv'):
+                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
+                    elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
+                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                    else:
+                        st.error("Unsupported file format. Please upload a CSV or Excel file.")
+
+                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+
+            new_ref_name = st.text_input("Enter new reference name")
+            if st.button("+ Add Reference", key="add_new_ref"):
+                if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                    if new_ref_name:
+                        st.session_state.multi_ref_data[new_ref_name] = ""
                         st.rerun()
-                    # if not st.session_state.multi_ref_data.equals(updated_refs):
-                    #     print("here problem? 2 ")
-                    #     st.session_state.multi_ref_data = updated_refs.copy()
-                else:
-                    if uploaded_file_line_data is not None:
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                        else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                    else:
+                        st.warning("Please enter a column name")
+                    st.subheader("Product Reference Data")
+                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
-                        st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
-
-                new_ref_name = st.text_input("Enter new reference name")
-                if st.button("+ Add Reference", key="add_new_ref"):
-                    if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                        if new_ref_name:
-                            st.session_state.multi_ref_data[new_ref_name] = ""
-                            st.rerun()
-                        else:
-                            st.warning("Please enter a column name")
-                        st.subheader("Product Reference Data")
-                        st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
-
-            with column2:
+            # Central Storage
+            with tab3:
                 st.subheader("Central Storage")                
-                st.checkbox("Enable", value=False)
+                st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
+                 
+                # Retrieve all references 
+                all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
 
-                with st.expander("Central Storage Configuration"):                  
+                # Display 
+                for side in st.session_state.central_storage:
+                    st.subheader(side.capitalize())
+                    left, _ = st.columns([0.7, 0.3])
+                    with left:
+                        st.session_state.configuration['central_storage_ttr'][side] = st.number_input("Time to reach (s)", value=st.session_state.configuration['central_storage_ttr'][side], format='%i', key=f'central_storage_ttr_{side}')
                     
-                    # Retrieve all references 
-                    # TODO: Retrieve from the Product Data Reference
-                    all_references = []
-                    for blocks in st.session_state.configuration_central_storage.values():
-                        for block in blocks:
-                            print("BLOCK ===========", block)
-                            all_references += block['allowed_sizes']
-                    all_references = list(set(all_references))
-
-                    # Display 
-                    for side in st.session_state.configuration_central_storage:
-                        st.subheader(side.capitalize())
-                        for i, block in enumerate(st.session_state.configuration_central_storage[side]):
-                            allowed, capacity = st.columns([0.7, 0.3])
-                            with allowed:
-                                st.multiselect("Allowed references",
+                    for i, block in enumerate(st.session_state.central_storage[side]):
+                        allowed, capacity, delete = st.columns([0.6, 0.2, 0.2])
+                        with allowed:
+                            if f'{side}_allowed_{i}' not in st.session_state:
+                                st.multiselect(f"Block n°{i+1}",
                                             all_references,
-                                            block['allowed_sizes'],
+                                            block['allowed_ref'],
                                             key=f'{side}_allowed_{i}')
-                            with capacity:
+                        with capacity:
+                            if f'{side}_capacity_{i}' not in st.session_state:
                                 st.number_input("Capacity", value=block['capacity'], format='%i', key=f'{side}_capacity_{i}')
-                        
-                        st.markdown("""---""")
+                    
+                    st.markdown("""---""")
 
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
@@ -368,6 +368,7 @@ class PRODynamicsApp:
         with column2:
             st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
+            st.write("Central Storage:", st.session_state.configuration["central_storage_enable"])
         
         with column4:
             st.write("Number of References : ", len(st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')))
@@ -387,12 +388,14 @@ class PRODynamicsApp:
             self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
             self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
             self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+
+            if st.session_state.configuration["central_storage_enable"]:
+                self.manuf_line.central_storage = CentralStorage(env, st.session_state.central_storage, st.session_state.configuration["central_storage_ttr"])
         
             self.all_prepared = True
             self.run_simulation(self.manuf_line)
             # simulation_thread = threading.Thread(target=self.run_simulation, args=(self.manuf_line,))
             # simulation_thread.start()
-
 
     def optimization_page(self):
 
@@ -535,7 +538,6 @@ class PRODynamicsApp:
         #         for m in self.manuf_line.list_machines:
         #             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
         #             print("Level = ",self.manuf_line.shop_stock_out.level)
-
 
     def run_simulation(self, manuf_line):
         with st.spinner('Simulation in progress...'):
@@ -718,7 +720,7 @@ class PRODynamicsApp:
             print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
             print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
             print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
-            
+            print(manuf_line.central_storage)
             breakdown_percentage = [100 * float(np.sum(m.real_repair_time)) / manuf_line.sim_time for m in manuf_line.list_machines]
             print('Breakdowns = ', breakdown_percentage)
             waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
@@ -1011,9 +1013,6 @@ class PRODynamicsApp:
         print("sim time first = ",  manuf_line.sim_time)
         manuf_line.takt_time = eval(str(configuration["takt_time"]))
   
-
-
-        
 
 if __name__ == "__main__":
     app = PRODynamicsApp()

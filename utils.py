@@ -9,6 +9,7 @@ import re
 import os
 import sys
 
+
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
@@ -80,6 +81,7 @@ class ManufLine:
 
         self.expected_refill_time = None
 
+        self.central_storage = None
 
     def get_index_of_item(self, list_of_lists, item):
         for index, sublist in enumerate(list_of_lists):
@@ -965,7 +967,7 @@ class Robot:
         self.entities_order = None
         self.loadunload_time = 50
             
-    def transport(self, from_entity, to_entity, time=10):
+    def transport(self, from_entity, to_entity):
         """
         Handle transport between two entities, update storages. Cancel the transport when breakdowns appear.
 
@@ -1033,7 +1035,7 @@ class Robot:
             yield self.env.timeout(0)
 
         # Transport from something to a machine
-        if not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
+        elif not isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
             print("Transporting from " + str(from_entity) + " to " + to_entity.ID + " at time = " + str(self.env.now))
 
             # SKip transport if the machine to deliver is broken 
@@ -1072,9 +1074,41 @@ class Robot:
             self.manuf_line.track_sim(("InputStock", to_entity.Name, self.env.now))
             self.busy = False 
             yield self.env.timeout(0) 
-                
+
+        # Transport from a machine to the central storage
+        elif isinstance(from_entity, Machine) and isinstance(to_entity, CentralStorage):
+            print("Transporting from " + from_entity.ID + " to " + to_entity.ID + " at time = " + str(self.env.now))
+            entry = self.env.now
+            self.busy = True
+
+            # Start by waiting for an available input resource from entity 
+            # (supposed to be skipped since the function is called if 'from_entity' has its 'buffer_out' full)
+            while from_entity.buffer_out.level == 0:
+                yield self.env.timeout(10)
+                # Skip transport if the machine breaks down while waiting for it
+                if from_entity.broken:
+                    print(f"From entity {from_entity.ID} is broken, skipping remaining instructions.")
+                    self.busy = False
+                    yield self.env.timeout(1)
+                    return
+            # Get the product now available
+            yield from_entity.buffer_out.get(1)
+            product = yield  from_entity.store_out.get()
+            # Move robot and unload / load
+            self.waiting_time += self.env.now-entry
+            yield self.env.timeout(abs(max(to_entity.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
+            entry_2 = self.env.now
+    
+            # Wait for a spot in the input buffer of 'to_entity' and update storage
+            # TODO : Status OK so far.
+            to_entity.put(ref_data={'name': product, 'origin': from_entity, 'status': 'OK'})
+            self.waiting_time += self.env.now-entry_2
+            # self.manuf_line.track_sim((from_entity.Name, "OutputStock", self.env.now))
+            self.busy = False 
+            yield self.env.timeout(0)
+
         # Transport from a machine to something 
-        if  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
+        elif  isinstance(from_entity, Machine) and not isinstance(to_entity, Machine):
             print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
 
             # Start by waiting for an available input resource from entity
@@ -1095,9 +1129,9 @@ class Robot:
             # Move robot and unload / load
             self.waiting_time += self.env.now-entry
             yield self.env.timeout(abs(from_entity.move_robot_time)+self.loadunload_time)
-            entry_2 = self.env.now
 
-            # Wait for a spot in the input buffer of 'to_entity' and update storage
+            # Put item in the shop stock
+            entry_2 = self.env.now
             yield to_entity.put(1)
             self.manuf_line.inventory_out.put(product)
             self.waiting_time += self.env.now-entry_2
@@ -1203,8 +1237,6 @@ class Robot:
         """
         Tell the robot what to transport in what order. 
 
-        Is there only the pull strategy implemented ?
-
         Return:
         None
         """
@@ -1242,6 +1274,9 @@ class Robot:
                             elif to_entity.buffer_in.level < to_entity.buffer_in.capacity and from_entity.buffer_out.level == 0 and (from_entity.operating and not from_entity.broken):
                                 yield from self.transport(from_entity, to_entity)
 
+                            # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
+                            elif (self.manuf_line.central_storage is not None) and (to_entity.buffer_in.level == to_entity.buffer_in.capacity) and (from_entity.buffer_out.level >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref=from_entity.store_in.items[0])):
+                                yield from self.transport(from_entity, self.manuf_line.central_storage)
 
                         except Exception as e:
                             # When feeding the shop stock 
@@ -1649,7 +1684,7 @@ class CentralStorage:
         """Try to put a reference in the storage determined by the strategy of the central storage.
         
         'ref_data' is a dictionnary that holds :
-            - reference 'name'
+            - reference 'name' ('Ref A')
             - reference 'origin' (from which entity ?)
             - reference 'status' (OK / KO / test..)
 
