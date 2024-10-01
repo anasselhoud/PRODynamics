@@ -40,7 +40,7 @@ class ManufLine:
         self.breakdown_law = "Weibull Distribution"
         self.n_repairmen = 3
         self.repairmen = simpy.PreemptiveResource(env, capacity=self.n_repairmen)
-        self.first_machine = None
+        self.first_machine = None # Nonsense. To change.
         self.stock_capacity = float(config["supermarket"]["capacity"])
         self.stock_initial = float(config["supermarket"]["initial"])
         self.safety_stock = 0
@@ -62,13 +62,13 @@ class ManufLine:
         self.tasks = tasks
         self.tasks_assignement = tasks_assignement
         self.operators_assignement = operators_assignement
-        self.robot = None
+        self.robot = None # Nonsense. To change.
         self.robots_list = []
         self.n_robots = 1
         self.robot_strategy = 0
         self.reset_shift_bool = False
         self.local = True
-
+        self.manual_operators = []
         self.buffer_tracks = []
         self.machines_output = []
         self.robot_states = []
@@ -162,14 +162,15 @@ class ManufLine:
             return waiting_times, cycle_time, breakdowns
         
         if not save and not track:
-            waiting_times = [machine.parts_done for machine in self.list_machines]
+            waiting_times = [machine.waiting_time for machine in self.list_machines]
+            parts_done_per_machine = [machine.parts_done for machine in self.list_machines]
             breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
             if self.shop_stock_out.level != 0:
                 cycle_time = self.sim_time/self.shop_stock_out.level
             else:
                 cycle_time = 100000000000
 
-            return waiting_times, cycle_time, breakdowns
+            return parts_done_per_machine, waiting_times, cycle_time, breakdowns
 
     # get_track can be deleted since only used in "main" files that are outdated
     def get_track(self):
@@ -252,11 +253,13 @@ class ManufLine:
         # Order machines related to each robot and process all robots
         print(str(len(self.robots_list)) + "  -- Robot Included")
         print("First machine = " , [m.first for m in self.list_machines])
+        
         for i in range(len(self.robots_list)):
-            machines_ordered = [self.list_machines[j-1] for j in self.robots_list[i].order]
+            self.robots_list[i].order = [int(j) for j in self.robots_list[i].order]
+            machines_ordered = [self.list_machines[int(j-1)] for j in self.robots_list[i].order]
             self.robots_list[i].entities_order = machines_ordered
-            print("Inclued in robot = ", [self.list_machines[j-1].ID for j in self.robots_list[i].order])
-            print("Inclued in robot = ", [self.list_machines[j-1].first for j in self.robots_list[i].order])
+            # print("Inclued in robot = ", [self.list_machines[j-1].ID for j in self.robots_list[i].order])
+            # print("Inclued in robot = ", [self.list_machines[j-1].first for j in self.robots_list[i].order])
 
             # Insert the supermarket as the first entity of the robot if any related machine is the first 
             if any([self.list_machines[j-1].first for j in self.robots_list[i].order]):
@@ -515,7 +518,7 @@ class ManufLine:
             for index, n_machine in enumerate(self.tasks_assignement):
                     machine_indices[n_machine - 1].append(index)
 
-        # Don't create robots ANY robot on the whole line if only one cell of "Robot Transport Time IN" or "Robot Assignment" is NaN (empty)
+        # Create robots ONLY IF all cells "Robot Transport Time IN" and "Robot Assignment" are not NaN (empty)
         all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
         all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
 
@@ -562,10 +565,12 @@ class ManufLine:
 
             # Create machine with above parameters whether there were tasks already assigned
             try:
+                machine_has_robot = False if list_machines_config[9]==0 or len(self.robots_list) ==0 else True
                 assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
-                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'])
+                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot)
             except:
-                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity , initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'])
+                machine_has_robot = False if list_machines_config[9]==0 or len(self.robots_list) ==0 else True
+                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity , initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot)
 
             # Store the created machine
             if machine.first:
@@ -573,14 +578,36 @@ class ManufLine:
             self.list_machines.append(machine)
         
         # For each machine, retrieve which other machines comes right before, right after and manage their storage
+        operators = {}
         index_next = []
         machines_ids = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
             # TODO : upcoming feature for same machines ?
-            if not str(list_machines_config[i][10]) =="nan":
-                indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][7]))
+            if not str(list_machines_config[i][12]) =="nan" and not str(list_machines_config[i][12]) =="":
+                indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][12]))
                 machine.same_machine = self.list_machines[indexmachine]
 
+            
+            # Add Manual Operators to machine
+            operator_id = list_machines_config[i][10]  # Assigned transporter number
+            is_manual = False if list_machines_config[i][10] == 0 else True    # True if manual, else empty (robot)
+
+
+            # Check if transporter is manual 
+            if is_manual is True:
+                # If this manual transporter doesn't already have an Operator, create one
+                if operator_id not in operators:
+                    operators[operator_id] = Operator(operator_id)
+                    self.manual_operators.append(operators[operator_id])
+                    
+                
+                # Assign the current machine (i) to the operator
+                machine.operator = operators[operator_id]
+                machine.wc = float(list_machines_config[i][11]) if list_machines_config[i][11] else 0
+                #machine.operator.wc = list_machines_config[i][7]
+                machine.operator.assign_machine(self.list_machines[i])
+            
+    
             # Add supermarket and shop stock for first and last machines
             if machine.first:
                 machine.previous_machine = self.supermarket_in
@@ -620,13 +647,12 @@ class ManufLine:
                         self.list_machines[i_linked].previous_machines.append(machine)
                         
                         # If no robot, equal storage
-                        if len(self.robots_list) == 0:
+                        if len(self.robots_list) == 0 or not machine.has_robot:
                             self.list_machines[i_linked].buffer_in = machine.buffer_out
                             self.list_machines[i_linked].store_in = machine.store_out
                     
                     # Machine already encoutered before
                     else:
-
                         # Add previous and following machines
                         machine.next_machine = self.list_machines[i_linked]
                         machine.next_machines.append(self.list_machines[i_linked])
@@ -635,7 +661,7 @@ class ManufLine:
                         self.list_machines[i_linked].previous_machines.append(machine)
 
                         # If no robot, equal storage
-                        if len(self.robots_list) == 0:
+                        if len(self.robots_list) == 0 or not machine.has_robot:
                             machine.buffer_out = machine.next_machine.buffer_in
                             machine.store_out = machine.next_machine.store_in
 
@@ -651,7 +677,7 @@ class ManufLine:
 
 
 class Machine:
-    def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False):
+    def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False, has_robot=False):
         self.mt = 0
         self.ID = machine_id
         self.Name = machine_name
@@ -665,13 +691,16 @@ class Machine:
         self.parts_done = 0
         self.parts_done_shift = 0
         self.ct = 0
+        self.wc = [] # Work Content (Manual Op)
+        self.manual_time = 0
         self.config = config
+
         self.buffer_btn = None
         self.buffer_capacity = buffer_capacity
         self.initial_buffer = initial_buffer
         self.process = None
         self.next_machine = None
-        self.robot = manuf_line.robot
+        self.has_robot = has_robot
         self.previous_machine = None
         self.operating_state = []
 
@@ -694,7 +723,7 @@ class Machine:
         self.store_out = simpy.Store(env)
         
         # When NO robot, directly connect first machine to supermarket and last machine to shop stock 
-        if self.manuf_line.robots_list == []:
+        if self.manuf_line.robots_list == [] or not self.has_robot:
             if first:
                 self.buffer_in = manuf_line.supermarket_in
                 self.store_in = manuf_line.inventory_in
@@ -782,9 +811,7 @@ class Machine:
             # FHS special case when a machine may have two processes, check of the other process is operating
             other_process_operating = False if self.same_machine is None else self.same_machine.operating
             
-            # Do not process if there is already a process ongoing
-            if self.operating or other_process_operating:
-                return
+
 
             # if any([m.ct != 0 for m in self.manuf_line.list_machines]):
             #     if self.op_fatigue:
@@ -808,12 +835,14 @@ class Machine:
             self.done_bool = False
             entry_wait = self.env.now
             self.to_be_passed = False
+            
 
+            ### TODO: Intergrate manual time
             # First, needs to have a product loaded
             while not self.loaded_bol :
                 try: 
                     product = None
-
+                    
                     if len(self.store_in.items) !=0:
                         # The product should not be processed in this machine and to be passed to the next
                         if float(self.manuf_line.references_config[self.store_in.items[0]][self.manuf_line.list_machines.index(self)+1]) ==0:
@@ -823,6 +852,19 @@ class Machine:
                             self.current_product = product
                             break
 
+                    if self.operator:
+                        entry_time = self.env.now
+                        while self.operator.busy:
+                            yield self.env.timeout(10)
+                        
+                        if not self.operator.busy:
+                            self.operator.busy = True
+                            yield self.env.timeout(self.manual_time)
+                            self.operator.wc+=self.manual_time
+                            # Time waiting for manual operator
+                            self.wc.append(self.env.now-entry_time)
+                            self.operator.busy = False 
+
                     # Take product from input buffer / store
                     yield self.buffer_in.get(1)
                     print("before in " + self.ID + "= " +str(self.store_in.items) + " - PROD " )
@@ -831,16 +873,30 @@ class Machine:
                     print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
                     print("after in " + self.ID + "= " +str(self.store_in.items) + " - PROD " + product)
 
-                    # Already handled above ? 
+                    # if not self.operator.busy:
+                    #     print("Operator is free. Start Operation.")
+
                     done_in = float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(self)+1])
+                    ## if the given operating time is zero, The product should not be processed in this machine and to passed to the next
                     if done_in == 0:
-                        ## The product should not be processed in this machine and to be passed to the next
                         self.to_be_passed = True
                         break
 
                     self.waiting_time = [self.waiting_time[0] + self.env.now - entry_wait , self.waiting_time[1]]  
                     # done_in = deterministic_time 
                     # start = self.env.now
+                    # if self.operator:
+                    #     entry_time = self.env.now
+                    #     while self.operator.busy:
+                    #         yield self.env.timeout(10)
+                        
+                    #     if not self.operator.busy:
+                    #         self.operator.busy = True
+                    #         yield self.env.timeout(1200)
+                    #         # Time waiting for manual operator
+                    #         self.wc.append(self.env.now-entry_time)
+                    #         self.operator.busy = False
+
                     self.loaded_bol = True
 
                 # Handle breakdown 
@@ -870,8 +926,13 @@ class Machine:
                         self.loaded_bol = False
 
                     self.broken = False
+                    if self.operator:
+                        self.operator.busy = False 
                     self.operating = False
             
+            # Do not process if there is already a process ongoing
+            if other_process_operating:
+                continue
             
             #TODO: Skip robot when part not processed in the machine
 
@@ -908,6 +969,8 @@ class Machine:
 
                     self.broken = False
                     self.operating = False
+                    if self.operator:
+                        self.operator.busy = False 
 
             # When work is done on the current product
             if not self.to_be_passed and self.done_bool:
@@ -915,6 +978,8 @@ class Machine:
                 self.current_product = None
                 self.finished_times.append(self.env.now-entry0)
                 self.operating = False
+                if self.operator:
+                    self.operator.busy = False 
                 self.parts_done = self.parts_done +1
                 self.parts_done_shift = self.parts_done_shift+1
                 self.loaded_bol = False
@@ -1049,7 +1114,10 @@ class Robot:
             self.busy = True
             entry = self.env.now
             print("Start to wait at - ", entry)
+            print("Level of buff = ", from_entity.level)
+            yield self.env.timeout(10)
             yield from_entity.get(1)
+            print("got it")
             product = yield self.manuf_line.inventory_in.get() 
 
             # Move robot and unload / load
@@ -1248,7 +1316,7 @@ class Robot:
                     from_entity = self.entities_order[i]
                     to_entity = self.which_machine_to_feed(from_entity)
 
-                    # "Shall we unload this machine ?", why is there this message here ? 
+                    # "Shall we unload this machine ?"
                     
                     # Handle shift reset
                     if self.manuf_line.reset_shift_bool:
@@ -1300,7 +1368,10 @@ class Robot:
 
             except simpy.Interrupt:
                 print("Reseting Robot Process.")
-                yield self.env.timeout(0)      
+
+            finally:
+                # Need to pause the process when there are many robots.
+                yield self.env.timeout(1)
 
     # Unused (#Commented in "run" of ManufLine)
     def robot_process_unique(self):
@@ -1558,11 +1629,15 @@ class Task:
 
 
 class Operator:
-    def __init__(self, assigned_machines):
-        self.assigned_machines = assigned_machines
+    def __init__(self, id):
+        self.id = id
+        self.assigned_machines = []
         self.wc = 0
         self.free = True
+        self.busy = False
 
+    def assign_machine(self, machine):
+        self.assigned_machines.append(machine)
 
 class CentralStorage:
     def __init__(self, env, central_storage_config, times_to_reach={}, strategy='stack') -> None:
@@ -1740,8 +1815,11 @@ class CentralStorage:
         # Haven't found any reference to get
         raise Exception(f"Tried to get the reference '{ref}' in the central storage but couldn't.")
 
+    def release_machine(self, machine):
+        self.assigned_machines.remove(machine)
+        
+def format_time(seconds, seconds_str=False):
 
-def format_time(seconds):
     years, seconds = divmod(seconds, 31536000)  # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 365.25 days/year
     months, seconds = divmod(seconds, 2592000)   # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 30.44 days/month
     days, seconds = divmod(seconds, 86400)      # 60 seconds/minute * 60 minutes/hour * 24 hours/day
@@ -1766,8 +1844,8 @@ def format_time(seconds):
     if minutes > 0 and non_zero_parts < 3:
         time_str += f"{int(minutes)} minutes, "
         non_zero_parts += 1
-    # if non_zero_parts < 3:
-    #     time_str += f"{seconds:.2f} seconds"
+    if non_zero_parts < 3 and seconds_str:
+        time_str += f"{seconds:.2f} seconds"
 
     return time_str.rstrip(", ")
 
@@ -1893,3 +1971,4 @@ def sigmoid(x, tau):
     - float: Sigmoid of x.
     """
     return 1 / (1 + np.exp(-x/tau))
+
