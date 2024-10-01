@@ -581,8 +581,8 @@ class ManufLine:
         machines_ids = [m.ID for m in self.list_machines]
         for i, machine in enumerate(self.list_machines):
             # TODO : upcoming feature for same machines ?
-            if not str(list_machines_config[i][11]) =="nan" and not str(list_machines_config[i][11]) =="":
-                indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][11]))
+            if not str(list_machines_config[i][12]) =="nan" and not str(list_machines_config[i][12]) =="":
+                indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][12]))
                 machine.same_machine = self.list_machines[indexmachine]
 
             
@@ -597,9 +597,11 @@ class ManufLine:
                 if operator_id not in operators:
                     operators[operator_id] = Operator(operator_id)
                     self.manual_operators.append(operators[operator_id])
+                    
                 
                 # Assign the current machine (i) to the operator
                 machine.operator = operators[operator_id]
+                machine.wc = float(list_machines_config[i][11]) if list_machines_config[i][11] else 0
                 #machine.operator.wc = list_machines_config[i][7]
                 machine.operator.assign_machine(self.list_machines[i])
             
@@ -688,7 +690,9 @@ class Machine:
         self.parts_done_shift = 0
         self.ct = 0
         self.wc = [] # Work Content (Manual Op)
+        self.manual_time = 0
         self.config = config
+
         self.buffer_btn = None
         self.buffer_capacity = buffer_capacity
         self.initial_buffer = initial_buffer
@@ -849,12 +853,12 @@ class Machine:
                     if self.operator:
                         entry_time = self.env.now
                         while self.operator.busy:
-                            yield self.env.timeout(1)
+                            yield self.env.timeout(10)
                         
                         if not self.operator.busy:
                             self.operator.busy = True
-                            yield self.env.timeout(120)
-                            self.operator.wc+=120
+                            yield self.env.timeout(self.manual_time)
+                            self.operator.wc+=self.manual_time
                             # Time waiting for manual operator
                             self.wc.append(self.env.now-entry_time)
                             self.operator.busy = False 
@@ -879,17 +883,17 @@ class Machine:
                     self.waiting_time = [self.waiting_time[0] + self.env.now - entry_wait , self.waiting_time[1]]  
                     # done_in = deterministic_time 
                     # start = self.env.now
-                    if self.operator:
-                        entry_time = self.env.now
-                        while self.operator.busy:
-                            yield self.env.timeout(10)
+                    # if self.operator:
+                    #     entry_time = self.env.now
+                    #     while self.operator.busy:
+                    #         yield self.env.timeout(10)
                         
-                        if not self.operator.busy:
-                            self.operator.busy = True
-                            yield self.env.timeout(1200)
-                            # Time waiting for manual operator
-                            self.wc.append(self.env.now-entry_time)
-                            self.operator.busy = False
+                    #     if not self.operator.busy:
+                    #         self.operator.busy = True
+                    #         yield self.env.timeout(1200)
+                    #         # Time waiting for manual operator
+                    #         self.wc.append(self.env.now-entry_time)
+                    #         self.operator.busy = False
 
                     self.loaded_bol = True
 
