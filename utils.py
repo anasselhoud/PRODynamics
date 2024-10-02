@@ -1708,6 +1708,18 @@ class CentralStorage:
 
         return "\n".join(lines)
 
+    @property
+    def all_allowed_references(self) -> list:
+        """Build a list of the names of all the references allowed in the central storage no matter where."""
+
+        all_references = []
+        for blocks in self.stores.values():
+            for block in blocks:
+                all_references += block["allowed_ref"]
+
+        # Return a list with uniqueness
+        return list(set(all_references))
+
     def available_spot(self, ref=None) -> bool:
         """Check if there is an available spot.
         
