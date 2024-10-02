@@ -1,3 +1,4 @@
+import graphviz
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -247,7 +248,6 @@ class PRODynamicsApp:
             data_gamma = pd.DataFrame({'Days': gamma_x, 'Probability': gamma_pdf})
             st.line_chart(data_gamma, x="Days", y="Probability")
 
-
     def process_data(self):
         uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
         tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
@@ -274,7 +274,6 @@ class PRODynamicsApp:
                             st.error("Unsupported file format. Please upload a CSV or Excel file.")
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
 
-
                 with st.spinner('Uploading  in progress...'):        
                     if uploaded_file_line_data is not None:
                         # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
@@ -288,6 +287,20 @@ class PRODynamicsApp:
                         else:
                             st.error("Unsupported file format. Please upload a CSV or Excel file.")
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+
+            if st.button("Display manufactoring line"):
+                with st.columns([1, 2, 1])[1]:
+                    graph = graphviz.Digraph()
+                    graph.attr(rankdir='LR')
+                    for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
+                        try:
+                            destinations = eval(destination)
+                            for dest in destinations:
+                                graph.edge(origin, dest)
+                        except:
+                            graph.edge(origin, destination)
+
+                    st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
             st.subheader("Product Reference Data")
@@ -321,33 +334,31 @@ class PRODynamicsApp:
                     st.subheader("Product Reference Data")
                     st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
-            # Central Storage
-            with tab3:
-                st.subheader("Central Storage")                
-                st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
-                 
-                # Allow all references by default according 
-                all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
+        # Central Storage
+        with tab3:
+            st.subheader("Central Storage")                
+            st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
+                
+            # Allow all references by default according 
+            all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
 
-                sides = ['front', 'back']
-                for side in sides:
-                    for i, value in enumerate(st.session_state.central_storage[side]['Allowed references'].values):
-                        if not value:
-                            st.session_state.central_storage[side]['Allowed references'].values[i] = str(all_references)
+            sides = ['front', 'back']
+            for side in sides:
+                for i, value in enumerate(st.session_state.central_storage[side]['Allowed references'].values):
+                    if not value:
+                        st.session_state.central_storage[side]['Allowed references'].values[i] = str(all_references)
 
-                # Function to save edited data. Used just below.
-                def save_central_storage_table(side, data):
-                    st.session_state.central_storage[side] = data.copy()
+            # Display for each side of the central storage
+            cols = st.columns(len(sides))
+            for i, side in enumerate(sides):
+                with cols[i]:
+                    # Side, time to reach, table to edit date, save button
+                    st.subheader(side.capitalize())
+                    st.session_state.configuration['central_storage_ttr'][side] = st.number_input("Time to reach (s)", value=st.session_state.configuration['central_storage_ttr'][side], format='%i', key=f'central_storage_ttr_{side}')
+                    editor = st.data_editor(st.session_state.central_storage[side], num_rows="dynamic", key=f"central_storage_{side}")
 
-                # Display for each side of the central storage
-                cols = st.columns(len(sides))
-                for i, side in enumerate(sides):
-                    with cols[i]:
-                        # Side, time to reach, table to edit date, save button
-                        st.subheader(side.capitalize())
-                        st.session_state.configuration['central_storage_ttr'][side] = st.number_input("Time to reach (s)", value=st.session_state.configuration['central_storage_ttr'][side], format='%i', key=f'central_storage_ttr_{side}')
-                        editor = st.data_editor(st.session_state.central_storage[side], num_rows="dynamic", key=f"central_storage_{side}")
-                        st.button("Save", key=f"central_storage_save_{side}", on_click=save_central_storage_table, args=[side, editor])
+                    if st.button("Save", key=f"central_storage_save_{side}"):
+                        st.session_state.central_storage[side] = editor.copy()
 
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
@@ -394,7 +405,7 @@ class PRODynamicsApp:
                 for side in ['front', 'back']:
                     central_storage_config[side] = []
                     for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
-                        central_storage_config[side].append({'allowed_ref': allowed, 'capacity': capacity})
+                        central_storage_config[side].append({'allowed_ref': eval(allowed), 'capacity': capacity})
 
                 # Add the central storage to the manufactoring line
                 self.manuf_line.central_storage = CentralStorage(env, central_storage_config, st.session_state.configuration["central_storage_ttr"])
@@ -854,31 +865,85 @@ class PRODynamicsApp:
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
+
+        col_operator_work, col_central_storage = st.columns(2)
+        
         # Operator Plot
-        fig = go.Figure()
+        with col_operator_work:
+            fig = go.Figure()
 
-        # Add bar traces for each utilization type
-        op_WCs = []
-        for op in manuf_line.manual_operators:
-            op_WCs.append(op.wc)
-        fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
+            # Add bar traces for each utilization type
+            op_WCs = []
+            for op in manuf_line.manual_operators:
+                op_WCs.append(op.wc)
+            fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
 
-        # Update layout
-        fig.update_layout(
-            title="Operator Work Content",
-            xaxis_title="Operator",
-            yaxis_title="Cumulated Work Content (s)",
-            barmode="stack",  # Stack bars on top of each other
-            legend=dict(
-                orientation="h",  # Horizontal legend
-                xanchor="center",  # Anchor legend to the right
-                x=0.5  # Adjust horizontal position of the legend
-            ),
-            margin=dict(l=0, r=0, t=30, b=30)
-        )
-        # Display the Plotly figure
-        st.plotly_chart(fig, use_container_width=True)
-        # Additional Plots
+            # Update layout
+            fig.update_layout(
+                title="Operator Work Content",
+                xaxis_title="Operator",
+                yaxis_title="Cumulated Work Content (s)",
+                barmode="stack",  # Stack bars on top of each other
+                legend=dict(
+                    orientation="h",  # Horizontal legend
+                    xanchor="center",  # Anchor legend to the right
+                    x=0.5  # Adjust horizontal position of the legend
+                ),
+                margin=dict(l=0, r=0, t=30, b=30)
+            )
+            # Display the Plotly figure
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Central storage plot
+        if st.session_state.configuration["central_storage_enable"]:
+            with col_central_storage:
+
+                all_references = manuf_line.central_storage.all_allowed_references
+
+                # Data required : A name for each block, number of items of each reference for every block, remaining space for every block.
+                chart_data = {ref: [] for ref in all_references}
+                chart_data["Blocks"] = []
+                chart_data["Remaining space"] = []
+
+                # Retrieving data from the central storage
+                for side in manuf_line.central_storage.stores:
+                    for i, block in enumerate(manuf_line.central_storage.stores[side]):
+                        
+                        # Add the name of the block
+                        chart_data["Blocks"].append(f"{side.capitalize()}_block_{i+1}") 
+
+                        # Count the number of occurrences in the block of each reference, even the ones that are not allowed (value will then be 0)
+                        for ref in all_references:
+                            chart_data[ref].append([ref_data['name'] for ref_data in block['store'].items].count(ref))
+
+                        # Count the remaining space
+                        chart_data["Remaining space"].append(block['store'].capacity - len(block['store'].items))
+
+
+                fig = go.Figure()
+
+                # Add bar traces for each reference and the remaining space
+                for i, ref in enumerate(all_references):
+                    fig.add_trace(go.Bar(x=chart_data["Blocks"], y=chart_data[ref], name=ref.capitalize()))
+                
+                fig.add_trace(go.Bar(x=chart_data["Blocks"], y=chart_data["Remaining space"], name="Remaining", marker_color="rgba(255, 165, 0, 0.5)"))
+
+                # Update layout
+                fig.update_layout(
+                    title="Central storage",
+                    xaxis_title="Blocks",
+                    yaxis_title="Number of items",
+                    barmode="stack",  # Stack bars on top of each other
+                    legend=dict(
+                        orientation="h",  # Horizontal legend
+                        xanchor="center",  # Anchor legend to the right
+                        x=0.5  # Adjust horizontal position of the legend
+                    ),
+                    margin=dict(l=0, r=0, t=30, b=30)
+                )
+
+                # Display the Plotly figure
+                st.plotly_chart(fig, use_container_width=True)
        
     def assembly_section(self):
         uploaded_file_mbom = st.file_uploader("Upload Workplan", type=["xml"])
