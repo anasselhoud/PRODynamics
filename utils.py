@@ -565,11 +565,11 @@ class ManufLine:
 
             # Create machine with above parameters whether there were tasks already assigned
             try:
-                machine_has_robot = False if list_machines_config[9]==0 or len(self.robots_list) ==0 else True
+                machine_has_robot = False if machine_config[9]==0 or len(self.robots_list) ==0 else True
                 assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
                 machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot)
             except:
-                machine_has_robot = False if list_machines_config[9]==0 or len(self.robots_list) ==0 else True
+                machine_has_robot = False if machine_config[9]==0 or len(self.robots_list) ==0 else True
                 machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity , initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot)
 
             # Store the created machine
@@ -1639,6 +1639,9 @@ class Operator:
 
     def assign_machine(self, machine):
         self.assigned_machines.append(machine)
+    
+    def release_machine(self, machine):
+        self.assigned_machines.remove(machine)
 
 class CentralStorage:
     def __init__(self, env, central_storage_config, times_to_reach={}, strategy='stack') -> None:
@@ -1815,10 +1818,8 @@ class CentralStorage:
                             
         # Haven't found any reference to get
         raise Exception(f"Tried to get the reference '{ref}' in the central storage but couldn't.")
-
-    def release_machine(self, machine):
-        self.assigned_machines.remove(machine)
         
+
 def format_time(seconds, seconds_str=False):
 
     years, seconds = divmod(seconds, 31536000)  # 60 seconds/minute * 60 minutes/hour * 24 hours/day * 365.25 days/year

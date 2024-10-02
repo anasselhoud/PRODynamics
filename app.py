@@ -248,7 +248,6 @@ class PRODynamicsApp:
             data_gamma = pd.DataFrame({'Days': gamma_x, 'Probability': gamma_pdf})
             st.line_chart(data_gamma, x="Days", y="Probability")
 
-
     def process_data(self):
         uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
         tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
@@ -274,7 +273,6 @@ class PRODynamicsApp:
                         else:
                             st.error("Unsupported file format. Please upload a CSV or Excel file.")
                         st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-
 
                 with st.spinner('Uploading  in progress...'):        
                     if uploaded_file_line_data is not None:
