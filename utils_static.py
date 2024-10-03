@@ -590,7 +590,7 @@ def read_prepare_mbom(file_path, parts_data):
         return tasks
 
     updated_tasks = add_lower_level_precedencies(tasks)
-    tree = ET.parse('.\\assets\inputs\L76 Dual Passive MBOM.xml')
+    tree = ET.parse('./assets/inputs/L76 Dual Passive MBOM.xml')
     root = tree.getroot()
 
     # Update the precedencies in the XML file
@@ -600,7 +600,7 @@ def read_prepare_mbom(file_path, parts_data):
             task_elem.set('precedency', ';'.join(task_data['precedency']))
 
     # Save the modified XML file
-    tree.write('.\\assets\inputs\L76 Dual Passive MBOM_modif.xml')
+    tree.write('./assets/inputs/L76 Dual Passive MBOM_modif.xml')
 
     def task_distance(task1, task2):
         parts_sim = len(tasks[task1]['parts'].intersection(tasks[task2]['parts'])) / len(tasks[task1]['parts'].union(tasks[task2]['parts']))
