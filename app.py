@@ -249,44 +249,34 @@ class PRODynamicsApp:
             st.line_chart(data_gamma, x="Days", y="Probability")
 
     def process_data(self):
-        uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
+
         tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
         with tab1:
-            #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
+            uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=[ "csv", "xlsx", "xls"])
             st.subheader("Production Line Data")
+
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
                 updated_df = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_edit")
                 if not st.session_state.line_data.equals(updated_df):
                   st.session_state.line_data = updated_df
                   st.rerun()
-            else:
+            if uploaded_file_line_data is not None:
                 with st.spinner('Uploading in progress...'):        
-                    if uploaded_file_line_data is not None:
-                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+                    if uploaded_file_line_data.name.endswith('.csv'):
+                        st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
+                        
+                    elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
+                        st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
+                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                    else:
+                        st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                updated_df = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_upload_csv")
+                st.session_state.line_data = updated_df
+                #st.rerun()
+                uploaded_file_line_data = None
+                
 
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                        else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-
-                with st.spinner('Uploading  in progress...'):        
-                    if uploaded_file_line_data is not None:
-                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                        else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+                        
 
             if st.button("Display manufactoring line"):
                 with st.columns([1, 2, 1])[1]:
@@ -304,6 +294,7 @@ class PRODynamicsApp:
 
         with tab2:
             st.subheader("Product Reference Data")
+            uploaded_file_line_data_ref = st.file_uploader("Upload Product Reference Data", type=[ "csv", "xlsx", "xls"], key="upload_refs")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
                 updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
                 if not st.session_state.multi_ref_data.equals(updated_refs):
@@ -313,11 +304,11 @@ class PRODynamicsApp:
                 #     print("here problem? 2 ")
                 #     st.session_state.multi_ref_data = updated_refs.copy()
             else:
-                if uploaded_file_line_data is not None:
-                    if uploaded_file_line_data.name.endswith('.csv'):
-                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
+                if uploaded_file_line_data_ref is not None:
+                    if uploaded_file_line_data_ref.name.endswith('.csv'):
+                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data_ref)
                     elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data_ref, sheet_name="Multi-Ref")
                     else:
                         st.error("Unsupported file format. Please upload a CSV or Excel file.")
 
@@ -731,7 +722,6 @@ class PRODynamicsApp:
             available_machines = []
             for m in manuf_line.list_machines:
                 print("List of produced per machine = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
-                print("Waiting for op = ", np.mean(m.wc))
 
                 available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
                 #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
@@ -1046,7 +1036,64 @@ class PRODynamicsApp:
             # c3, c4= st.columns([0.5,0.5])
             #with c11:
             
-            st.markdown("### Best Sequence")
+            st.markdown("### Best Sequence Overview")
+            workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
+
+            #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
+
+            #Display each workstation and its corresponding parts
+            for workstation, parts in sorted(workstations.items()):
+                st.markdown(f"###### OP 0{workstation}")
+
+                # Retrieve the thumbnail for each part by matching the part reference to parts_data
+                part_thumbnails = []
+                for part_ref in parts:
+                    # Get the thumb URL from parts_data for this part_ref
+                    part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
+                    if not part_info.empty:
+                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
+                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+  
+                        # Add the thumb to the list (thumb_url and part_ref as caption)
+                        part_thumbnails.append((thumb_url, part_name))
+
+                if part_thumbnails:
+                    images, captions = zip(*part_thumbnails) 
+                    try:
+                        st.image(list(images), list(captions), width=100)  
+                    except:
+                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        st.image(list(unknown_images), list(captions), width=100) 
+
+
+            # for station_idx, station in enumerate(stations):
+            #     st.subheader(f"Station {station_idx + 1}")
+                
+            #     for workstation in station['workstations']:
+            #         st.markdown(f"###### OP 0{workstation}")
+            #         # Retrieve the thumbnail for each part by matching the part reference to parts_data
+            #         part_thumbnails = []
+            #         task_indices = workstations[workstation]['tasks']
+
+            #         for task_idx in task_indices:
+            #             assy_parts = st.session_state.mbom_data.loc[task_idx, "assy"].split(';')
+
+            #             for part_ref in assy_parts:
+            #                 part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
+            #                 if not part_info.empty:
+            #                     thumb_url = part_info['thumb'].values[0]
+            #                     part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+            #                     part_thumbnails.append((thumb_url, part_name))
+
+            #         if part_thumbnails:
+            #             images, captions = zip(*part_thumbnails) 
+            #             try:
+            #                 st.image(list(images), list(captions), width=100)  
+            #             except:
+            #                 unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+            #                 st.image(list(unknown_images), list(captions), width=100) 
+
+
             st.markdown("### Detailed Results")
             fig = go.Figure()
 
@@ -1079,12 +1126,46 @@ class PRODynamicsApp:
 
             st.plotly_chart(fig, use_container_width=True)
 
-            ### Section of assembly scenario details -- 
+            ### Section of assembly scenario details 
 
             time.sleep(1)
             with st.expander("Need more details?", expanded=False):
+
+
+                
                 columns = st.columns(2)
-            
+                
+                
+                env = simpy.Environment()
+                tasks = []
+                config_file = 'config.yaml'
+                self.manuf_line = ManufLine(env, tasks, config_file=config_file)
+                
+                manu_op_assignments = {
+                'M1': (1, 10),
+                'M2': (1, 10),
+                'M3': (2, 10),
+                'M4': (2, 10),
+                'M5':(2, 10),
+                'M6':(2, 10),
+                'M7':(3, 10),
+                'M8':(3, 10),
+                'EOL1': (4, 10),
+                'EOL2': (4, 10), 
+                'EOL3': (4, 10)}
+
+                
+                self.save_global_settings(self.manuf_line)
+                self.manuf_line.sim_time = 3600*24
+                st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
+                self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+                self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+                self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+                self.all_prepared = True
+                st.session_state.configuration["central_storage_enable"] = False
+                self.run_simulation(self.manuf_line)
+
+                
         return True
 
     def run_main(self):
