@@ -53,6 +53,9 @@ class PRODynamicsApp:
                 "central_storage_ttr": {'front': 100, "back": 100},
             }
 
+        if "uploaded_file" not in st.session_state:
+            st.session_state.uploaded_file = None
+
         if 'mbom_data' not in st.session_state:
             st.session_state.mbom_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
             st.session_state.parts_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//parts//part")
@@ -243,47 +246,42 @@ class PRODynamicsApp:
             st.line_chart(data_gamma, x="Days", y="Probability")
 
     def process_data(self):
-        uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
+        # Excel file loader
+        uploaded_file = st.file_uploader("Upload line & multi-reference data", type=["xlsx", "xls"])
+
+        if (uploaded_file is not None) and (uploaded_file != st.session_state.uploaded_file) :
+            with st.spinner('Uploading in progress...'): 
+
+                if uploaded_file.name.endswith(('.xls', '.xlsx')):
+                    st.session_state.uploaded_file = uploaded_file
+                    excel_df = pd.read_excel(st.session_state.uploaded_file, sheet_name=["Line Data", "Multi-Ref"])
+                    st.session_state.line_data  = excel_df["Line Data"].copy()
+                    st.session_state.multi_ref_data = excel_df["Multi-Ref"].copy()
+
+                else:
+                    st.error("Unsupported file format. Please upload a CSV or Excel file.")
+            st.rerun()  
+
+        # Tabs
         tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
         with tab1:
-            #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Production Line Data")
+
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
-                updated_df = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_edit")
-                if not st.session_state.line_data.equals(updated_df):
-                  st.session_state.line_data = updated_df
-                  st.rerun()
-            else:
-                with st.spinner('Uploading in progress...'):        
-                    if uploaded_file_line_data is not None:
-                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+                line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
+            
+            # Save button
+            with st.columns([0.47, 0.06, 0.47])[1]:
+                if st.button("Save", key="line_data_save"):
+                    st.session_state.line_data = line_data_editor.copy()
+                    st.rerun()
 
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                        else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+            # Graph display
+            with st.columns([0.42, 0.16, 0.42])[1]:
+                display_btn = st.button("Display manufactoring line")
 
-                with st.spinner('Uploading  in progress...'):        
-                    if uploaded_file_line_data is not None:
-                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                        else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-
-            if st.button("Display manufactoring line"):
-                with st.columns([1, 2, 1])[1]:
+            with st.columns([0.1, 0.8, 0.1])[1]:
+                if display_btn:
                     graph = graphviz.Digraph()
                     graph.attr(rankdir='LR')
                     for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
@@ -299,34 +297,21 @@ class PRODynamicsApp:
         with tab2:
             st.subheader("Product Reference Data")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
-                if not st.session_state.multi_ref_data.equals(updated_refs):
-                    st.session_state.multi_ref_data = updated_refs.copy()
-                    st.rerun()
-                # if not st.session_state.multi_ref_data.equals(updated_refs):
-                #     print("here problem? 2 ")
-                #     st.session_state.multi_ref_data = updated_refs.copy()
-            else:
-                if uploaded_file_line_data is not None:
-                    if uploaded_file_line_data.name.endswith('.csv'):
-                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
-                    elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                    else:
-                        st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
+                
+            # Save button
+            if st.button("Save", key="ref_data_save"):
+                st.session_state.multi_ref_data = ref_data_editor.copy()
+                st.rerun()
 
-                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
-
-            new_ref_name = st.text_input("Enter new reference name")
-            if st.button("+ Add Reference", key="add_new_ref"):
+            new_ref_name = st.text_input("Add a new reference", placeholder="Reference name")
+            if st.button("Add reference", key="add_new_ref"):
                 if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
                     if new_ref_name:
                         st.session_state.multi_ref_data[new_ref_name] = ""
                         st.rerun()
                     else:
                         st.warning("Please enter a column name")
-                    st.subheader("Product Reference Data")
-                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
         # Central Storage
         with tab3:
