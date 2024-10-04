@@ -540,16 +540,17 @@ class PRODynamicsApp:
         #             print("Level = ", len(self.manuf_line.shop_stock_out.items))
 
     def run_simulation(self, manuf_line):
-        with st.spinner('Simulation in progress...'):
-            manuf_line.run()
-            
+        # Run simulation and visualize its progress using a progress bar
+        my_bar_simulation = st.progress(0, text="Simulation in progress...")
+        manuf_line.run(my_bar_simulation)
+        my_bar_simulation.empty()
         st.success('Simulation completed!')
 
         st.markdown("""---""")
+
         st.header("Key Performance Indicators")
 
         # Global Cycle Time
-
         col = st.columns(5, gap='medium')
     
         with col[0]:

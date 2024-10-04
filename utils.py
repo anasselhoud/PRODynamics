@@ -229,7 +229,13 @@ class ManufLine:
         self.machines_breakdown.append([m.n_breakdowns for m in self.list_machines])
         self.sim_times_track.append(self.env.now)
 
-    def run(self):
+    def update_progress(self, progress_bar):
+        """Update the progress bar for the UI"""
+        while True:
+            yield self.env.timeout(self.sim_time/100)
+            progress_bar.progress(self.env.now/self.sim_time, text="Simulation in progress...")
+
+    def run(self, progress_bar=None):
         """
         Runs the manufacturing line until the simulation time is over.
         
@@ -283,6 +289,10 @@ class ManufLine:
             if self.dev_mode:
                 print(m.ID, m.buffer_in.capacity)
                 print(m.ID, m.buffer_out.capacity)
+
+        # Progress bar for UI
+        if progress_bar is not None:
+            self.env.process(self.update_progress(progress_bar))
 
         # Run the environment
         if self.dev_mode:
