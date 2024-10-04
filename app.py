@@ -44,10 +44,7 @@ class PRODynamicsApp:
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
                 "stock_capacity": "1",
-                "initial_stock": "0",
-                "refill_time": None,
                 "safety_stock": "1",
-                "refill_size": "1",
                 "n_repairmen": 3,
                 "enable_random_seed": True,
                 "enable_breakdowns": True,
@@ -131,10 +128,7 @@ class PRODynamicsApp:
             with columns[0]:
                 st.header("Stock Configuration")
                 st.session_state.configuration["stock_capacity"] = st.text_input("Input Stock Capacity", value=st.session_state.configuration.get("stock_capacity", "1"))
-                st.session_state.configuration["initial_stock"] = st.text_input("Initial Input Stock", value=st.session_state.configuration.get("initial_stock", "0"))
-                st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value=st.session_state.configuration.get("refill_time", "To be chosen later per product."), disabled=True)
                 st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value=st.session_state.configuration.get("safety_stock", "20"))
-                st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value=st.session_state.configuration.get("refill_size", "1"))
 
     def home(self):
         row0_spacer1, row0_1, row0_spacer2, row0_2, row0_spacer3 = st.columns((.1, 2.3, .1, 1.3, .1))
@@ -391,13 +385,14 @@ class PRODynamicsApp:
         if st.button("Run Simulation"):
             env = simpy.Environment()
             tasks = []
-            config_file = 'config.yaml'
-            self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-            self.save_global_settings(self.manuf_line)
-        
-            self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-            self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
-            self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+
+            configuration = st.session_state.configuration
+            references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            line_data = st.session_state.line_data.values.tolist()
+
+            self.manuf_line = ManufLine(env, tasks, config_file='config.yaml')
+            self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[])
+            self.manuf_line.create_machines(line_data)
 
             if st.session_state.configuration["central_storage_enable"]:
                 # Turn pd.DataFrame into dict to 
@@ -530,11 +525,10 @@ class PRODynamicsApp:
         #     env = simpy.Environment()
         #     tasks = []
         #     config_file = 'config.yaml'
+
         #     self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-        #     self.save_global_settings(self.manuf_line)
+        #     self.manuf_line.save_global_settings(self.manuf_line)
         
-        #     self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-        #     self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
         #     self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
         #     # self.manuf_line.initialize()
 
@@ -554,8 +548,8 @@ class PRODynamicsApp:
         #         # Run each action
         #         self.manuf_line.run_action(action)
         #         for m in self.manuf_line.list_machines:
-        #             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
-        #             print("Level = ",self.manuf_line.shop_stock_out.level)
+        #             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(len(m.buffer_in.items)) + " | " + str(len(m.buffer_out.items)) + "   -- " + str(m.waiting_time))
+        #             print("Level = ", len(self.manuf_line.shop_stock_out.items))
 
     def run_simulation(self, manuf_line):
         with st.spinner('Simulation in progress...'):
@@ -572,21 +566,21 @@ class PRODynamicsApp:
     
         with col[0]:
             print("last machine level = ",manuf_line.list_machines[-1].last )
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Simulated Production", value=format_time(manuf_line.sim_time))
 
         with col[1]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Global Cycle Time", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
         
         with col[2]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
         
         with col[3]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
 
         with col[4]:
@@ -694,7 +688,7 @@ class PRODynamicsApp:
         with c13:
             items_per_reference = []
             for item in list(manuf_line.references_config.keys()):
-                items_per_reference.append(manuf_line.inventory_out.items.count(item))
+                items_per_reference.append(manuf_line.shop_stock_out.items.count(item))
 
             # Convert the dictionary to lists for Plotly
             reference_names = list(manuf_line.references_config.keys())
@@ -730,13 +724,13 @@ class PRODynamicsApp:
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
             available_machines = []
             for m in manuf_line.list_machines:
-                print("List of produced per machine = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
+                print(f"Produced by machine {m.ID} = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
                 print("Waiting for op = ", np.mean(m.wc))
 
-                available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
-                #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
+                available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
+                #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
                 available_machines.append(100*available_machine)           
-            #machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1]) * m.ref_produced.count(ref) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
+            #machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3]) * m.ref_produced.count(ref) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
             machine_available_percentage = available_machines
             machine_available_percentage2 = [100 * ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)]
             #breakdown_percentage = [100 * float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
@@ -1116,49 +1110,6 @@ class PRODynamicsApp:
         elif selected == "Contact Us":
             # Rebuild a new page with different contacts (For dev, business & process)
             pass
-
-    def save_global_settings(self, manuf_line):
-        configuration = st.session_state.configuration
-
-        if configuration["enable_breakdowns"]:
-            manuf_line.breakdowns_switch = True
-        else:
-            manuf_line.breakdowns_switch = False
-
-        if configuration["enable_random_seed"]:
-            manuf_line.randomseed = True
-        else:
-            manuf_line.randomseed = False
-
-        available_strategies = ["Balanced Strategy", "Greedy Strategy"]
-
-        manuf_line.stock_capacity = float(configuration["stock_capacity"])
-        manuf_line.stock_initial = float(configuration["initial_stock"])
-        manuf_line.reset_shift_dec = bool(configuration["reset_shift"])
-        manuf_line.breakdown_law = str(configuration["breakdown_dist_distribution"])
-        # if value1-value2, then the refill time is random between two values
-        # pattern = r'^(\d+)-(\d+)$'
-        # match = re.match(pattern, str(configuration["refill_time"]))
-        # if match:
-        #     value1 = int(match.group(1))
-        #     value2 = int(match.group(2))
-        #     manuf_line.refill_time = [value1, value2]
-        #     print("refill time 1 = ", manuf_line.refill_time)
-        # else:
-        #     manuf_line.refill_time = float(configuration["refill_time"])
-        
-        manuf_line.safety_stock = float(configuration["safety_stock"])
-        manuf_line.refill_size = float(configuration["refill_size"])
-        manuf_line.n_robots = float(configuration["n_robots"])
-        manuf_line.n_repairmen = int(configuration["n_repairmen"])
-        manuf_line.robot_strategy = int(available_strategies.index(configuration["strategy"]))
-        manuf_line.repairmen = simpy.PreemptiveResource(manuf_line.env, capacity=int(configuration["n_repairmen"]))
-        manuf_line.supermarket_in = simpy.Container(manuf_line.env, capacity=manuf_line.stock_capacity, init=manuf_line.stock_initial)
-        manuf_line.shop_stock_out = simpy.Container(manuf_line.env, capacity=float(manuf_line.config["shopstock"]["capacity"]), init=float(manuf_line.config["shopstock"]["initial"]))
-        
-        manuf_line.sim_time = eval(str(configuration["sim_time"]))
-        print("sim time first = ",  manuf_line.sim_time)
-        manuf_line.takt_time = eval(str(configuration["takt_time"]))
   
 
 if __name__ == "__main__":
