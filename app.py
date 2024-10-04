@@ -43,6 +43,7 @@ class PRODynamicsApp:
                 "n_robots": 1,
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
+                "dev_mode":True,
                 "stock_capacity": "1",
                 "safety_stock": "1",
                 "n_repairmen": 3,
@@ -96,6 +97,7 @@ class PRODynamicsApp:
                 st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=st.session_state.configuration.get("n_robots", 1))
                 st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"], index=0 if st.session_state.configuration.get("strategy") == "Balanced Strategy" else 1)
                 st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration.get("reset_shift", False))
+                st.session_state.configuration["dev_mode"] = st.checkbox("Enable developer mode (slow down !)", value=st.session_state.configuration.get("dev_mode", True))
 
             with columns[1]:
                 st.header("Breakdowns Configuration")
@@ -486,7 +488,8 @@ class PRODynamicsApp:
                 bounds = [(1, None)]
                 result = minimize(objective_function, x0=1, args=(coeffs), bounds=bounds)
                 optimum_x = result.x[0]
-                print("Optimal = ", optimum_x)
+                if st.session_state.configuration["dev_mode"]:
+                    print("Optimal = ", optimum_x)
                 #fig.add_trace(go.Scatter(x=capacities, y=results))
                 optim_results.append(optimum_x)
                 fig.add_trace(go.Scatter(x=capacities, y=y_pred, mode='lines', name=f'Buffer {i + 1}'))
@@ -550,7 +553,8 @@ class PRODynamicsApp:
         col = st.columns(5, gap='medium')
     
         with col[0]:
-            print("last machine level = ",manuf_line.list_machines[-1].last )
+            if st.session_state.configuration["dev_mode"]:
+                print("last machine level = ",manuf_line.list_machines[-1].last )
             global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Simulated Production", value=format_time(manuf_line.sim_time))
@@ -702,15 +706,16 @@ class PRODynamicsApp:
             fig_m, ax_m = plt.subplots()
             ax_m.set_ylabel('Percentage (%)')
             # ax_m.set_title('Machine Utilization Rate')
-            
-            for op in manuf_line.manual_operators:
-                print("Operator WC = ", op.wc)
+            if st.session_state.configuration["dev_mode"]:
+                for op in manuf_line.manual_operators:
+                    print("Operator WC = ", op.wc)
 
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
             available_machines = []
             for m in manuf_line.list_machines:
-                print(f"Produced by machine {m.ID} = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
-                print("Waiting for op = ", np.mean(m.wc))
+                if st.session_state.configuration["dev_mode"]:
+                    print(f"Produced by machine {m.ID} = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
+                    print("Waiting for op = ", np.mean(m.wc))
 
                 available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
                 #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
@@ -719,12 +724,14 @@ class PRODynamicsApp:
             machine_available_percentage = available_machines
             machine_available_percentage2 = [100 * ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)]
             #breakdown_percentage = [100 * float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
-            print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
-            print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
-            print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
-            print(manuf_line.central_storage)
+            if st.session_state.configuration["dev_mode"]:
+                print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
+                print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
+                print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
+                print(manuf_line.central_storage)
             breakdown_percentage = [100 * float(np.sum(m.real_repair_time)) / manuf_line.sim_time for m in manuf_line.list_machines]
-            print('Breakdowns = ', breakdown_percentage)
+            if st.session_state.configuration["dev_mode"]:
+                print('Breakdowns = ', breakdown_percentage)
             waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
 
             chart_data = {
@@ -995,9 +1002,10 @@ class PRODynamicsApp:
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
             best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
-            print("Best Soluton = ", best_solution)
-            print("Machines = ", ressource_list[1])
-            print("Operators = ", operators_list[1])
+            if st.session_state.configuration["dev_mode"]:
+                print("Best Soluton = ", best_solution)
+                print("Machines = ", ressource_list[1])
+                print("Operators = ", operators_list[1])
 
 
             st.header("Results")

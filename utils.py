@@ -111,7 +111,8 @@ class ManufLine:
                 writer = csv.writer(csvfile)
 
                 sim_time = list(self.sim_times_track)
-                print("Sim time = ", sim_time)
+                if self.dev_mode:
+                    print("Sim time = ", sim_time)
                 waiting_times = list(self.machines_idle_times)
                 breakdowns =  list(self.machines_breakdown)
                 buffer_tracks = self.buffer_tracks
@@ -120,8 +121,9 @@ class ManufLine:
                 machines_ct = self.machines_CT
                 tracksim = False
                 cycle_time = self.sim_time/len(self.shop_stock_out.items)
-                if  tracksim:
-                    print("Printed track sim")
+                if tracksim:
+                    if self.dev_mode:
+                        print("Printed track sim")
                     if experiment_number == 1:
                         writer.writerow(["Sim Instant", "Robot State", "Machines State", "Machine CT", "Machines Breakdowns", "Machines Idle Time", "Buffers State"])
                 
@@ -154,7 +156,8 @@ class ManufLine:
                 mean_ct = [self.sim_time/machine.parts_done for machine in self.list_machines]
                 parts_done = len(self.shop_stock_out.items)
                 cycle_time = self.sim_time/len(self.shop_stock_out.items)
-                print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
+                if self.dev_mode:
+                    print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
                 writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
             return waiting_times, cycle_time, breakdowns
         
@@ -244,12 +247,15 @@ class ManufLine:
         # Process the refill of each input reference of the supermarket
         self.expected_refill_time = [0] * len(self.references_config.keys())
         for ref in list(self.references_config.keys()):
-            print("Reference confirmed = ", ref)
+            if self.dev_mode:
+                print("Reference confirmed = ", ref)
             self.env.process(self.refill_market(ref))
 
         # Order machines related to each robot and process all robots
-        print(str(len(self.robots_list)) + "  -- Robot Included")
-        print("First machine = " , [m.first for m in self.list_machines])
+        if self.dev_mode:
+            print(str(len(self.robots_list)) + "  -- Robot Included")
+        if self.dev_mode:
+            print("First machine = " , [m.first for m in self.list_machines])
         
         for i in range(len(self.robots_list)):
             self.robots_list[i].order = [int(j) for j in self.robots_list[i].order]
@@ -266,18 +272,21 @@ class ManufLine:
             # self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process_unique())
 
         #TODO: fix problem of reset shift with multi references
-        print("Resetting shift = ", self.reset_shift_dec)
+        if self.dev_mode:
+            print("Resetting shift = ", self.reset_shift_dec)
         if self.reset_shift_dec:
             self.env.process(self.reset_shift())
 
         # Track outputs 
         self.env.process(self.track_output())
         for m in self.list_machines:
-            print(m.ID, m.buffer_in.capacity)
-            print(m.ID, m.buffer_out.capacity)
+            if self.dev_mode:
+                print(m.ID, m.buffer_in.capacity)
+                print(m.ID, m.buffer_out.capacity)
 
         # Run the environment
-        print("Starting the sim now.")
+        if self.dev_mode:
+            print("Starting the sim now.")
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
 
@@ -321,7 +330,8 @@ class ManufLine:
         self.randomseed = configuration.get("enable_random_seed", False)
 
         self.stock_capacity = float(configuration["stock_capacity"])
-        self.reset_shift_dec = bool(configuration["reset_shift"])        
+        self.reset_shift_dec = bool(configuration["reset_shift"])
+        self.dev_mode = bool(configuration["dev_mode"])        
         self.safety_stock = float(configuration["safety_stock"])
 
         self.breakdown_law = str(configuration["breakdown_dist_distribution"])
@@ -337,7 +347,8 @@ class ManufLine:
 
         # Set up the supermarket with initial stock
         self.supermarket_in = simpy.Store(self.env, capacity=self.stock_capacity)
-        print("supermarket ", self.supermarket_in.capacity)
+        if self.dev_mode:
+            print("supermarket ", self.supermarket_in.capacity)
         for ref in self.references_config.keys():
             for _ in range(int(self.references_config[ref][1])):
                 self.supermarket_in.put(ref)
@@ -346,7 +357,8 @@ class ManufLine:
 
         # Set simulation time and takt time
         self.sim_time = eval(str(configuration["sim_time"]))
-        print("sim time first = ",  self.sim_time)
+        if self.dev_mode:
+            print("sim time first = ",  self.sim_time)
         self.takt_time = eval(str(configuration["takt_time"]))
 
         # Update buffer sizes if provided
@@ -363,7 +375,8 @@ class ManufLine:
 
         self.expected_refill_time = [0 for _ in range(len(self.references_config.keys()))]
         for ref in list(self.references_config.keys()):
-            print("Reference confirmed = ", ref)
+            if self.dev_mode:
+                print("Reference confirmed = ", ref)
             self.env.process(self.refill_market(ref))
         
         self.env.process(self.reset_shift())
@@ -377,7 +390,8 @@ class ManufLine:
         Returns:
         None
         """
-        print('Going from ' + str(action[0]) + " " + str(action[1]) )
+        if self.dev_mode:
+            print('Going from ' + str(action[0]) + " " + str(action[1]) )
         self.robot.process = self.env.process(self.robot.robot_process_local(action[0], action[1]))
         self.env.run(until=self.env.now + 1000)
 
@@ -403,7 +417,8 @@ class ManufLine:
         while True:
             # Shift every 8 hours
             yield self.env.timeout(3600 * 8)
-            print("Resetting Shift")
+            if self.dev_mode:
+                print("Resetting Shift")
             
             self.num_cycles = self.num_cycles + 1
             self.reset_shift_bool = True
@@ -413,7 +428,8 @@ class ManufLine:
 
                 # No robots in the manufacturing line -> Be careful about supermarket and shop stock 
                 if self.robots_list == []:
-                    print("Reseting with no robot")
+                    if self.dev_mode:
+                        print("Reseting with no robot")
                     if not machine.last:
                         while len(machine.buffer_out.items) > 0:
                             machine.buffer_out.get()
@@ -460,14 +476,16 @@ class ManufLine:
                     time_to_break = machine.time_to_failure()
                     yield self.env.timeout(time_to_break)
                     self.operationg = False
-                    print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
+                    if self.dev_mode:
+                        print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
                     machine.n_breakdowns += 1
                     machine.process.interrupt()
     
     def monitor_waiting_time(self, machine):
         while True:
             if not machine.operating:
-                print(machine.ID + " Not Operating")
+                if self.dev_mode:
+                    print(machine.ID + " Not Operating")
                 yield self.env.timeout(10)
                 machine.waiting_time_rl += 10
 
@@ -514,7 +532,8 @@ class ManufLine:
                 for _ in range(amount):
                     yield self.supermarket_in.put(ref) 
 
-                print("Refilled at = " + str(self.env.now) + "  with " + str(amount) + " " + ref)         
+                if self.dev_mode:
+                    print("Refilled at = " + str(self.env.now) + "  with " + str(amount) + " " + ref)         
                 self.supermarket_n_refills += 1
             except:
                 pass
@@ -825,7 +844,7 @@ class Machine:
             # else:
             #     k = initial_k
 
-        else:
+        elif self.manuf_line.dev_mode:
             print("No law given. ")
 
         return val
@@ -907,11 +926,13 @@ class Machine:
                             self.operator.busy = False 
 
                     # Take product from input buffer / store
-                    print("before in " + self.ID + "= " +str(self.buffer_in.items) + " - PROD " )
+                    if self.manuf_line.dev_mode:
+                        print("before in " + self.ID + "= " +str(self.buffer_in.items) + " - PROD " )
                     product = yield self.buffer_in.get()
                     self.current_product = product
-                    print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
-                    print("after in " + self.ID + "= " + str(self.buffer_in.items) + " - PROD " + product)
+                    if self.manuf_line.dev_mode:
+                        print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
+                        print("after in " + self.ID + "= " + str(self.buffer_in.items) + " - PROD " + product)
 
                     # if not self.operator.busy:
                     #     print("Operator is free. Start Operation.")
@@ -942,7 +963,8 @@ class Machine:
                 # Handle breakdown 
                 except simpy.Interrupt:                        
                     self.broken = True
-                    print(self.ID +" broken at loading at  = "+ str(self.env.now))
+                    if self.manuf_line.dev_mode:
+                        print(self.ID +" broken at loading at  = "+ str(self.env.now))
 
                     # Call a repairman
                     repair_in = self.env.now
@@ -951,7 +973,8 @@ class Machine:
                         yield self.env.timeout(self.MTTR) # Time to repair
                         repair_end = self.env.now
                         self.real_repair_time.append(float(repair_end - repair_in))
-                    print(self.ID +" repaired at loading at  = "+ str(self.env.now))
+                    if self.manuf_line.dev_mode:
+                        print(self.ID +" repaired at loading at  = "+ str(self.env.now))
 
                     # When the interruption happened before getting a product
                     if product is None:
@@ -1003,7 +1026,8 @@ class Machine:
                         repair_end = self.env.now
                         yield self.env.timeout(self.MTTR) # Time to repair
                         self.real_repair_time.append(float(repair_end - repair_in + float(self.MTTR)))
-                    print(self.ID +" repaired at operating  buffer in level at " + str(self.env.now))
+                    if self.manuf_line.dev_mode:
+                        print(self.ID +" repaired at operating  buffer in level at " + str(self.env.now))
 
                     self.broken = False
                     self.operating = False
@@ -1022,14 +1046,16 @@ class Machine:
                 self.parts_done_shift = self.parts_done_shift+1
                 self.loaded_bol = False
                 self.done_bool = False
-                print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
+                if self.manuf_line.dev_mode:
+                    print("Part " + product + " produced by " + self.ID  + " at " +  str(self.env.now))
 
             # Product not done yet OR must be passed to the next machine
             else:
                 start = self.env.now
                 if done_in == 0:
                     try:
-                        print("Passed zero no process = " + product + " In " + self.ID + " at " + str(self.env.now))
+                        if self.manuf_line.dev_mode:
+                            print("Passed zero no process = " + product + " In " + self.ID + " at " + str(self.env.now))
                         entry_wait = self.env.now
                         yield self.buffer_out.put(product)
                         self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
@@ -1041,7 +1067,8 @@ class Machine:
 
                     except simpy.Interrupt: 
                         if not self.passed_to_next:
-                            print("Passed zero no process = " + product + " In " + self.ID)
+                            if self.manuf_line.dev_mode:
+                                print("Passed zero no process = " + product + " In " + self.ID)
                             entry_wait = self.env.now
                             yield self.buffer_out.put(product)
                             self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
@@ -1083,17 +1110,20 @@ class Robot:
     
         # Skip transport if the robot is already busy
         if self.busy:
-            print("Busy")
+            if self.manuf_line.dev_mode:
+                print("Busy")
             yield self.env.timeout(0)
             return
 
         # Transport between two machines
         if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
-            print("Transporting from " + from_entity.ID + " to " + to_entity.ID +" at time = " + str(self.env.now) )
+            if self.manuf_line.dev_mode:
+                print("Transporting from " + from_entity.ID + " to " + to_entity.ID +" at time = " + str(self.env.now) )
             
             # Skip transport if any machine is broken 
             if to_entity.broken or from_entity.broken:
-                print("A machine is broken, skipping remaining instructions")
+                if self.manuf_line.dev_mode:
+                    print("A machine is broken, skipping remaining instructions")
                 yield self.env.timeout(10) 
                 return
         
@@ -1105,7 +1135,8 @@ class Robot:
 
                 # Skip transport if any machine is broken 
                 if from_entity.broken or to_entity.broken:
-                    print("A machine is broken, skipping remaining instructions")
+                    if self.manuf_line.dev_mode:
+                        print("A machine is broken, skipping remaining instructions")
                     self.busy = False
                     yield self.env.timeout(10)
                     return
@@ -1123,7 +1154,8 @@ class Robot:
 
                 # Skip transport if the machine to deliver is broken 
                 if to_entity.broken:
-                    print("To entity is broken, skipping remaining instructions")
+                    if self.manuf_line.dev_mode:
+                        print("To entity is broken, skipping remaining instructions")
                     self.busy = False
                     yield self.env.timeout(10)
                     return 
@@ -1137,25 +1169,30 @@ class Robot:
 
         # Transport from supermarket to a machine
         elif isinstance(from_entity, simpy.Store) and isinstance(to_entity, Machine):
-            print("Transporting from " + str(from_entity) + " to " + to_entity.ID + " at time = " + str(self.env.now))
+            if self.manuf_line.dev_mode:
+                print("Transporting from " + str(from_entity) + " to " + to_entity.ID + " at time = " + str(self.env.now))
 
             # SKip transport if the machine to deliver is broken 
             if to_entity.broken:
-                print("To entity is broken, skipping remaining instructions")
+                if self.manuf_line.dev_mode:
+                    print("To entity is broken, skipping remaining instructions")
                 yield self.env.timeout(10) 
                 return
 
             # Start by waiting for an available input resource from entity
             self.busy = True
             entry = self.env.now
-            print("Start to wait at - ", entry)
-            print("Level of buff = ", len(from_entity.items))
+            if self.manuf_line.dev_mode:
+                print("Start to wait at - ", entry)
+                print("Level of buff = ", len(from_entity.items))
             yield self.env.timeout(10)
             product = yield from_entity.get()
-            print("got it")
+            if self.manuf_line.dev_mode:
+                print("got it")
 
             # Move robot and unload / load
-            print("Ready  at - ", self.env.now)
+            if self.manuf_line.dev_mode:
+                print("Ready  at - ", self.env.now)
             to_entity.loaded +=1
             self.waiting_time += self.env.now-entry
             yield self.env.timeout(abs(to_entity.move_robot_time)+self.loadunload_time)
@@ -1167,7 +1204,8 @@ class Robot:
 
                 # SKip transport if the machine to deliver breaks down while waiting
                 if to_entity.broken:
-                    print("From entity is broken, skipping remaining instructions")
+                    if self.manuf_line.dev_mode:
+                        print("From entity is broken, skipping remaining instructions")
                     self.busy = False
                     yield self.env.timeout(0) 
             
@@ -1180,7 +1218,8 @@ class Robot:
 
         # Transport from a machine to the central storage
         elif isinstance(from_entity, Machine) and isinstance(to_entity, CentralStorage):
-            print("Transporting from " + from_entity.ID + " to " + to_entity.ID + " at time = " + str(self.env.now))
+            if self.manuf_line.dev_mode:
+                print("Transporting from " + from_entity.ID + " to " + to_entity.ID + " at time = " + str(self.env.now))
             entry = self.env.now
             self.busy = True
 
@@ -1190,7 +1229,8 @@ class Robot:
                 yield self.env.timeout(10)
                 # Skip transport if the machine breaks down while waiting for it
                 if from_entity.broken:
-                    print(f"From entity {from_entity.ID} is broken, skipping remaining instructions.")
+                    if self.manuf_line.dev_mode:
+                        print(f"From entity {from_entity.ID} is broken, skipping remaining instructions.")
                     self.busy = False
                     yield self.env.timeout(1)
                     return
@@ -1212,7 +1252,8 @@ class Robot:
 
         # Transport from a machine to shop stock 
         elif isinstance(from_entity, Machine) and  isinstance(to_entity, simpy.Store):
-            print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
+            if self.manuf_line.dev_mode:
+                print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
 
             # Start by waiting for an available input resource from entity
             entry = self.env.now
@@ -1222,7 +1263,8 @@ class Robot:
 
                 # Skip transport if the machine breaks down while waiting for it
                 if from_entity.broken:
-                    print("From entity is broken, skipping remaining instructions")
+                    if self.manuf_line.dev_mode:
+                        print("From entity is broken, skipping remaining instructions")
                     self.busy = False
                     yield self.env.timeout(1)
                     return
@@ -1354,7 +1396,8 @@ class Robot:
                     # Handle shift reset
                     if self.manuf_line.reset_shift_bool:
                         self.manuf_line.reset_shift_bool = False
-                        print("Reseting Robot Process.")
+                        if self.manuf_line.dev_mode:
+                            print("Reseting Robot Process.")
                         break
                     
                     # When we are feeding the first machines, from the supermarket
@@ -1404,7 +1447,8 @@ class Robot:
                                     yield from self.transport(from_entity, to_entity)
 
             except simpy.Interrupt:
-                print("Reseting Robot Process.")
+                if self.manuf_line.dev_mode:
+                    print("Reseting Robot Process.")
 
             finally:
                 # Need to pause the process when there are many robots.
@@ -1522,7 +1566,8 @@ class Robot:
 
                     if self.manuf_line.reset_shift_bool:
                         self.manuf_line.reset_shift_bool = False
-                        print("Reseting Robot Process.")
+                        if self.manuf_line.dev_mode:
+                            print("Reseting Robot Process.")
                         break
 
                     try:
@@ -1560,7 +1605,8 @@ class Robot:
                             else:
                                 continue
             except simpy.Interrupt:
-                print("Reseting Robot Process.")
+                if self.manuf_line.dev_mode:
+                    print("Reseting Robot Process.")
                 yield self.env.timeout(0)                      
 
     def find_next_entity(self, machine, entities_order):
@@ -1625,7 +1671,8 @@ class Robot:
                 else:
                     yield self.env.timeout(0)
             except Exception as e:
-                print("Exception 1 :", e)
+                if self.manuf_line.dev_mode:
+                    print("Exception 1 :", e)
                 if from_entity == True:
                     yield self.env.timeout(0)
                 elif len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity and len(from_entity.items) > 0:
@@ -1636,8 +1683,9 @@ class Robot:
                     yield self.env.timeout(0)
         except Exception as e:
             # If the machine breaks while loading by robot
-            print("Machine broke while loading by robot " + tobe_loaded_machine.ID + " - Broken = " + str(from_entity.broken)   + " " + str(tobe_loaded_machine.broken) ) 
-            print("Exception 2 :", e)
+            if self.manuf_line.dev_mode:
+                print("Machine broke while loading by robot " + tobe_loaded_machine.ID + " - Broken = " + str(from_entity.broken)   + " " + str(tobe_loaded_machine.broken) ) 
+                print("Exception 2 :", e)
             yield self.env.timeout(0)
 
     def unload_machine(self, tobe_unloaded_machine, first=True):
@@ -1769,16 +1817,19 @@ class CentralStorage:
             for block in self.stores[side]:
                 # Return True if there is any space when the reference is not specified.
                 if ref is None and len(block['store'].items) < block['store'].capacity:
-                    print(f'The central storage is not full.')
+                    if self.manuf_line.dev_mode:
+                        print(f'The central storage is not full.')
                     return True
                 
                 # Return True if there is any space and the specified reference is allowed in the block.
                 if ref is not None and len(block['store'].items) < block['store'].capacity and ref in block['allowed_ref']:
-                    print(f'There is an available spot for reference "{ref}" in the central storage.')
+                    if self.manuf_line.dev_mode:
+                        print(f'There is an available spot for reference "{ref}" in the central storage.')
                     return True
 
         # No space has been found.
-        print(f'There is NO available spot for reference "{ref}" in the central storage.')
+        if self.manuf_line.dev_mode:
+            print(f'There is NO available spot for reference "{ref}" in the central storage.')
         return False
 
     def available_ref(self, ref=None) -> bool:
@@ -1795,14 +1846,16 @@ class CentralStorage:
             for block in self.stores[side]:
                 # Return True if there is any item when the reference is not specified.
                 if ref is None and len(block['store'].items) > 0:
-                    print(f'The central storage is empty.')
+                    if self.manuf_line.dev_mode:
+                        print(f'The central storage is empty.')
                     return True
                 
                 # Return True if there is a specified reference that is allowed and present.
                 if ref is not None and ref in block['allowed_ref']:
                     for ref_data in block['store'].items:
                         if ref_data['name'] == ref:
-                            print(f'The specified reference "{ref}" is available in the central storage.')
+                            if self.manuf_line.dev_mode:
+                                print(f'The specified reference "{ref}" is available in the central storage.')
                             return True
 
         # No reference has been found.
@@ -1831,7 +1884,8 @@ class CentralStorage:
                         store = block['store']
                         # Check if there is an available spot to put the reference.
                         if len(store.items) < store.capacity:
-                            print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['origin']}" in the central storage.""")
+                            if self.manuf_line.dev_mode:
+                                print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['origin']}" in the central storage.""")
                             store.put(ref_data)
                             return
                         
@@ -1855,14 +1909,16 @@ class CentralStorage:
                 for block in self.stores[side]:
                     # When the reference is not specified (None), get as soon as the block is not empty.
                     if ref is None and len(block['store'].items) > 0 :
-                        print(f'Got the first reference "{ref}" in the central storage.')
+                        if self.manuf_line.dev_mode:
+                            print(f'Got the first reference "{ref}" in the central storage.')
                         return block['store'].get() 
                         
                     # When the reference is specified, get as soon as one is present in a block.
                     if ref is not None:
                         for ref_data in block['store'].items:
                             if ref_data['name'] == ref:
-                                print(f'Got the specified reference "{ref}" in the central storage.')
+                                if self.manuf_line.dev_mode:
+                                    print(f'Got the specified reference "{ref}" in the central storage.')
                                 return block['store'].get(lambda x: x['name']==ref)
                             
         # Haven't found any reference to get
