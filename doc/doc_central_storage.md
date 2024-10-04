@@ -14,6 +14,7 @@ For instance, the **first storage** can own two sections : the first one allowin
 ```python
 self.ID = 'Central Storage'
 self.env # simpy.Environment
+self.manuf_line # Manufactoring line holding the central storage
 self.strategy # Strategy to fill the two storages within ('stack' by default)
 self.times_to_reach # Time to go to each storage (supposed different)
 

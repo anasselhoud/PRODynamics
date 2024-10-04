@@ -50,7 +50,7 @@ class PRODynamicsApp:
                 "enable_random_seed": True,
                 "enable_breakdowns": True,
                 "breakdown_dist_distribution": "Weibull Distribution",
-                "central_storage_enable": True,
+                "central_storage_enable": False,
                 "central_storage_ttr": {'front': 100, "back": 100},
             }
 
@@ -390,7 +390,7 @@ class PRODynamicsApp:
                         central_storage_config[side].append({'allowed_ref': eval(allowed), 'capacity': capacity})
 
                 # Add the central storage to the manufactoring line
-                self.manuf_line.central_storage = CentralStorage(env, central_storage_config, st.session_state.configuration["central_storage_ttr"])
+                self.manuf_line.central_storage = CentralStorage(env, self.manuf_line, central_storage_config, st.session_state.configuration["central_storage_ttr"])
         
             self.all_prepared = True
             self.run_simulation(self.manuf_line)

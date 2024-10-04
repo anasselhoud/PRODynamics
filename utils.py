@@ -1739,7 +1739,7 @@ class Operator:
 
 
 class CentralStorage:
-    def __init__(self, env, central_storage_config, times_to_reach={}, strategy='stack') -> None:
+    def __init__(self, env, manuf_line central_storage_config, times_to_reach={}, strategy='stack') -> None:
         """Hold two storages : back and front, each having several blocks allowing one or many references.
 
         Parameters:
@@ -1770,6 +1770,7 @@ class CentralStorage:
         """
         self.ID = 'Central Storage'
         self.env = env
+        self.manuf_line = manuf_line
         self.strategy = strategy
         self.times_to_reach = list(times_to_reach.values())
         self.stores = deepcopy(central_storage_config)
