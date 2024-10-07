@@ -11,6 +11,12 @@ import os
 import sys
 
 
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='example.log', level=logging.DEBUG)
+
+
+
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
@@ -577,10 +583,12 @@ class ManufLine:
         "4 : Initial Buffer",
         "5 : MTTF",
         "6 : MTTR",
-        "7 : Robot Transport time in",
+        "7 : Transport time",
         "8 : Transport order",
-        "9 : Robot asignement", 
-        "10 : Same station as"] 
+        "9 : Transporter ID", 
+        "10 : Operator ID",
+        "11 : Manual Time",
+        "12 : Identical Station] 
         """
         # Not understood
         if self.operators_assignement or self.tasks_assignement:
@@ -914,13 +922,12 @@ class Machine:
                 try: 
                     product = None
                     
-                    if len(self.buffer_in.items) !=0:
-                        # The product should not be processed in this machine and to be passed to the next
-                        if float(self.manuf_line.references_config[self.buffer_in.items[0]][self.manuf_line.list_machines.index(self)+3]) ==0:
-                            self.to_be_passed = True
-                            product = yield self.buffer_in.get()
-                            self.current_product = product
-                            break
+                    # If there is an available product that has a process time of 0 in the machine -> pass it to the next one
+                    if len(self.buffer_in.items) !=0 and float(self.manuf_line.references_config[self.buffer_in.items[0]][self.manuf_line.list_machines.index(self)+3]) ==0:
+                        self.to_be_passed = True
+                        product = yield self.buffer_in.get()
+                        self.current_product = product
+                        break
 
                     if self.operator:
                         entry_time = self.env.now
@@ -935,11 +942,13 @@ class Machine:
                             self.wc.append(self.env.now-entry_time)
                             self.operator.busy = False 
 
-                    # Take product from input buffer / store
                     if self.manuf_line.dev_mode:
                         print("before in " + self.ID + "= " +str(self.buffer_in.items) + " - PROD " )
+
+                    # Take product from input buffer 
                     product = yield self.buffer_in.get()
                     self.current_product = product
+
                     if self.manuf_line.dev_mode:
                         print("Product " + product + " passed in " + self.ID + " at " + str(self.env.now))
                         print("after in " + self.ID + "= " + str(self.buffer_in.items) + " - PROD " + product)
@@ -1233,18 +1242,7 @@ class Robot:
             entry = self.env.now
             self.busy = True
 
-            # Start by waiting for an available input resource from entity 
-            # (supposed to be skipped since the function is called if 'from_entity' has its 'buffer_out' full)
-            while len(from_entity.buffer_out.items) == 0:
-                yield self.env.timeout(10)
-                # Skip transport if the machine breaks down while waiting for it
-                if from_entity.broken:
-                    if self.manuf_line.dev_mode:
-                        print(f"From entity {from_entity.ID} is broken, skipping remaining instructions.")
-                    self.busy = False
-                    yield self.env.timeout(1)
-                    return
-            # Get the product now available
+            # Get the available product 
             product = yield from_entity.buffer_out.get()
 
             # Move robot and unload / load
@@ -1430,7 +1428,7 @@ class Robot:
                                 yield from self.transport(from_entity, to_entity)
 
                             # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
-                            elif (self.manuf_line.central_storage is not None) and (len(to_entity.buffer_in.items) == to_entity.buffer_in.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref=from_entity.buffer_out.items[0])):
+                            elif (self.manuf_line.central_storage is not None) and (len(to_entity.buffer_in.items) == to_entity.buffer_in.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and (self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
                                 yield from self.transport(from_entity, self.manuf_line.central_storage)
 
                         except Exception as e:
@@ -1445,7 +1443,7 @@ class Robot:
                                     yield from self.transport(from_entity, to_entity)
 
                                 # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
-                                elif (self.manuf_line.central_storage is not None) and (len(to_entity.items) == to_entity.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref=from_entity.buffer_out.items[0])):
+                                elif (self.manuf_line.central_storage is not None) and (len(to_entity.items) == to_entity.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
                                     yield from self.transport(from_entity, self.manuf_line.central_storage)
 
                             # Useless ?     
@@ -1739,7 +1737,7 @@ class Operator:
 
 
 class CentralStorage:
-    def __init__(self, env, manuf_line central_storage_config, times_to_reach={}, strategy='stack') -> None:
+    def __init__(self, env, manuf_line, central_storage_config, times_to_reach={}, strategy='stack') -> None:
         """Hold two storages : back and front, each having several blocks allowing one or many references.
 
         Parameters:
@@ -1775,11 +1773,18 @@ class CentralStorage:
         self.times_to_reach = list(times_to_reach.values())
         self.stores = deepcopy(central_storage_config)
 
-        # Turn the 'capacity' attributes to 'simpy.Store' objects
+        self.available_stored_by_ref = {ref: 0 for ref in self.all_allowed_references}
+        self.available_spots_by_ref = {ref: 0 for ref in self.all_allowed_references}
+
+        # Build the stores and initialise counters for available spots
         for side in self.stores.keys():
             for block in self.stores[side]:
+                # Stores
                 block['store'] = simpy.FilterStore(env, block['capacity'])
                 del block['capacity']
+                # Available spots
+                for ref_name in block['allowed_ref']:
+                    self.available_spots_by_ref[ref_name] += block['store'].capacity
 
     def __str__(self) -> str:
         """Display what is inside the front and back stores.
@@ -1816,62 +1821,60 @@ class CentralStorage:
         # Return a list with uniqueness
         return list(set(all_references))
 
-    def available_spot(self, ref=None) -> bool:
+    def available_spot(self, ref_name=None) -> bool:
         """Check if there is an available spot.
         
         If a reference is specified, check an available spot for this specific reference.
         Otherwise, check if there is any available spot no matter the reference.
 
         """
+        try :
+            if ref_name is None:
+                is_full = all([n_available == 0 for n_available in self.available_spots_by_ref.values()])
+            
+            else:
+                is_full = (self.available_spots_by_ref[ref_name] == 0)
 
-        for side in self.stores.keys():
-            for block in self.stores[side]:
-                # Return True if there is any space when the reference is not specified.
-                if ref is None and len(block['store'].items) < block['store'].capacity:
-                    if self.manuf_line.dev_mode:
-                        print(f'The central storage is not full.')
-                    return True
-                
-                # Return True if there is any space and the specified reference is allowed in the block.
-                if ref is not None and len(block['store'].items) < block['store'].capacity and ref in block['allowed_ref']:
-                    if self.manuf_line.dev_mode:
-                        print(f'There is an available spot for reference "{ref}" in the central storage.')
-                    return True
+        # ref_name that does not exist in the entire central storage
+        except KeyError:
+            is_full = True
 
-        # No space has been found.
-        if self.manuf_line.dev_mode:
-            print(f'There is NO available spot for reference "{ref}" in the central storage.')
-        return False
+        finally:
+            if self.manuf_line.dev_mode :
+                if is_full:
+                    print(f'There is NO available spot for reference "{ref_name}" in the central storage.')
+                else:
+                    print(f'There is an available spot for reference "{ref_name}" in the central storage.')
 
-    def available_ref(self, ref=None) -> bool:
+            return not is_full
+
+    def available_ref(self, ref_name=None) -> bool:
         """Check if there is an available reference.
         
         If a reference is specified, check this specific reference.
         Otherwise, check if there is at least 1 reference no matter which one.
 
-        TODO: Check the status of the reference to get it or not. Waiting for more details from Vivi.
-
         """
+        try :
+            if ref_name is None:
+                is_ref_available = any([count > 0 for count in self.available_stored_by_ref.values()])
+            
+            else:
+                is_ref_available = self.available_stored_by_ref[ref_name] > 0
 
-        for side in self.stores.keys():
-            for block in self.stores[side]:
-                # Return True if there is any item when the reference is not specified.
-                if ref is None and len(block['store'].items) > 0:
-                    if self.manuf_line.dev_mode:
-                        print(f'The central storage is empty.')
-                    return True
-                
-                # Return True if there is a specified reference that is allowed and present.
-                if ref is not None and ref in block['allowed_ref']:
-                    for ref_data in block['store'].items:
-                        if ref_data['name'] == ref:
-                            if self.manuf_line.dev_mode:
-                                print(f'The specified reference "{ref}" is available in the central storage.')
-                            return True
+        # ref_name that does not exist in the entire central storage
+        except KeyError:
+            is_ref_available = True
 
-        # No reference has been found.
-        print(f'There is NO available reference "{ref}" in the central storage.')
-        return False
+        finally:
+            # Print
+            if self.manuf_line.dev_mode :
+                if is_ref_available:
+                    print(f'There is an available reference "{ref_name}" in the central storage.')
+                else:
+                    print(f'There is NO available spot for reference "{ref_name}" in the central storage.')
+
+            return is_ref_available
 
     def put(self, ref_data):
         """Try to put a reference in the storage determined by the strategy of the central storage.
@@ -1895,15 +1898,22 @@ class CentralStorage:
                         store = block['store']
                         # Check if there is an available spot to put the reference.
                         if len(store.items) < store.capacity:
+                            # Put the reference
                             if self.manuf_line.dev_mode:
                                 print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['origin']}" in the central storage.""")
                             store.put(ref_data)
+
+                            # Decrease the number of available spot
+                            for ref_name in block['allowed_ref']:
+                                self.available_spots_by_ref[ref_name] -= 1
+                            # Increase the counter of stored references
+                            self.available_stored_by_ref[ref_name] += 1
                             return
                         
         # Haven't found any place to put the reference
         raise Exception(f"Tried to put the reference {ref_data} in the central storage BUT it's FULL.")
     
-    def get(self, ref=None):
+    def get(self, ref_name=None):
         """Try to get a reference in the storage determined by the strategy of the central storage.
         
         If a reference is specified, get this specific reference.
@@ -1919,21 +1929,39 @@ class CentralStorage:
             for side in self.stores.keys():
                 for block in self.stores[side]:
                     # When the reference is not specified (None), get as soon as the block is not empty.
-                    if ref is None and len(block['store'].items) > 0 :
+                    if ref_name is None and len(block['store'].items) > 0 :
+                        # Get the reference
+                        ref_got = block['store'].get().value
                         if self.manuf_line.dev_mode:
-                            print(f'Got the first reference "{ref}" in the central storage.')
-                        return block['store'].get() 
+                            print(f"""Got the first reference "{ref_got['name']}" in the central storage.""")
+
+                        # Increase the number of available spots
+                        for allowed_ref_name in block['allowed_ref']:
+                            self.available_spots_by_ref[allowed_ref_name] += 1
+                        # Decrease the counter of stored references
+                            self.available_stored_by_ref[ref_got['name']] -= 1
+
+                        return ref_got
                         
                     # When the reference is specified, get as soon as one is present in a block.
-                    if ref is not None:
+                    if ref_name is not None:
                         for ref_data in block['store'].items:
-                            if ref_data['name'] == ref:
+                            if ref_data['name'] == ref_name:
+                                # Get the reference
+                                ref_got = block['store'].get(lambda x: x['name']==ref_name).value
                                 if self.manuf_line.dev_mode:
-                                    print(f'Got the specified reference "{ref}" in the central storage.')
-                                return block['store'].get(lambda x: x['name']==ref)
+                                    print(f"""Got the specified reference "{ref_got['name']}" in the central storage.""")
+
+                                # Increase the number of available spots
+                                for allowed_ref_name in block['allowed_ref']:
+                                    self.available_spots_by_ref[allowed_ref_name] += 1
+                                # Decrease the counter of stored references
+                                self.available_stored_by_ref[ref_got['name']] -= 1
+
+                                return ref_got
                             
         # Haven't found any reference to get
-        raise Exception(f"Tried to get the reference '{ref}' in the central storage but couldn't.")
+        raise Exception(f"Tried to get the reference '{ref_name}' in the central storage but couldn't.")
         
 
 def format_time(seconds, seconds_str=False):

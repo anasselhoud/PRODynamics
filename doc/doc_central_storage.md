@@ -18,6 +18,9 @@ self.manuf_line # Manufactoring line holding the central storage
 self.strategy # Strategy to fill the two storages within ('stack' by default)
 self.times_to_reach # Time to go to each storage (supposed different)
 
+self.available_stored_by_ref = # Count the number of each reference in the storage
+self.available_spots_by_ref = # Count the number of available spots for each reference
+
 self.stores # Holds the items
 ```
 
@@ -79,18 +82,20 @@ In order to have **additional useful details** about the added products, items s
 4 main methods have been implemented so far. They take advantage of the `simpy.FilterStore` structure in order to **check** if reference can be either put or gotten, then **put or get** one.
 
  ```python
-def available_spot(self, ref=None) -> bool:
+def available_spot(self, ref_name=None) -> bool:
     """Check if there is an available spot."""
 
-def available_ref(self, ref=None) -> bool:
+def available_ref(self, ref_name=None) -> bool:
     """Check if there is an available reference."""
 
 def put(self, ref_data):
     """Try to put a reference in the storage determined by the strategy of the central storage."""
 
-def get(self, ref=None):
+def get(self, ref_name=None):
     """Try to get a reference in the storage determined by the strategy of the central storage."""
  ```
 
  - Except from `put()` where the whole item dictionnary is required, other methods **only require the reference name** (or None when there are no restrictions).
+ - `available_ref()` takes advantage of the attribute `self.available_stored_by_ref` to quickly return `True` or `False`. The attribute is constantly increased and decreased each time either `put()` or `get()` is used. 
+ - Same goes for `available_spot()` with `self.available_spots_by_ref`.
 
