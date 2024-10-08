@@ -690,7 +690,7 @@ class ManufLine:
                 
                 # Assign the current machine (i) to the operator
                 machine.operator = operators[operator_id]
-                machine.wc = float(list_machines_config[i][11]) if list_machines_config[i][11] else 0
+                machine.manual_time = float(list_machines_config[i][11]) if list_machines_config[i][11] else 0
                 #machine.operator.wc = list_machines_config[i][7]
                 machine.operator.assign_machine(self.list_machines[i])
             
