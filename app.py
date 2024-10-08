@@ -1,3 +1,4 @@
+import graphviz
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -42,26 +43,43 @@ class PRODynamicsApp:
                 "n_robots": 1,
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
+                "dev_mode":True,
                 "stock_capacity": "1",
-                "initial_stock": "0",
-                "refill_time": None,
                 "safety_stock": "1",
-                "refill_size": "1",
                 "n_repairmen": 3,
                 "enable_random_seed": True,
                 "enable_breakdowns": True,
-                "breakdown_dist_distribution": "Weibull Distribution"
+                "breakdown_dist_distribution": "Weibull Distribution",
+                "central_storage_enable": False,
+                "central_storage_ttr": {'front': 100, "back": 100},
             }
+
+        if "uploaded_file" not in st.session_state:
+            st.session_state.uploaded_file = None
+
         if 'mbom_data' not in st.session_state:
             st.session_state.mbom_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//weldings//welding")
             st.session_state.parts_data = pd.read_xml('./assets/inputs/L76 Dual Passive MBOM.xml', xpath=".//parts//part")
 
-        st.session_state.configuration_static = {
+        if "configuration_static" not in st.session_state:
+            st.session_state.configuration_static = {
                 "Exploration Mode": "Standard",
                 "Search Speed": "Fast",
                 "Target CT": "100",
                 "Tolerance": "0.1",
             }
+        
+        # Central Storage
+        if "central_storage" not in st.session_state:        
+            st.session_state.central_storage = {
+                'front': pd.DataFrame([
+                    {'Allowed references' : "",
+                     'Capacity': 336}]),
+
+                'back': pd.DataFrame([
+                    {'Allowed references' : "",
+                     'Capacity': 376}])
+                }
 
         self.all_prepared = False
         self.selected = None
@@ -79,6 +97,7 @@ class PRODynamicsApp:
                 st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=st.session_state.configuration.get("n_robots", 1))
                 st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"], index=0 if st.session_state.configuration.get("strategy") == "Balanced Strategy" else 1)
                 st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration.get("reset_shift", False))
+                st.session_state.configuration["dev_mode"] = st.checkbox("Enable developer mode (slow down !)", value=st.session_state.configuration.get("dev_mode", True))
 
             with columns[1]:
                 st.header("Breakdowns Configuration")
@@ -114,10 +133,7 @@ class PRODynamicsApp:
             with columns[0]:
                 st.header("Stock Configuration")
                 st.session_state.configuration["stock_capacity"] = st.text_input("Input Stock Capacity", value=st.session_state.configuration.get("stock_capacity", "1"))
-                st.session_state.configuration["initial_stock"] = st.text_input("Initial Input Stock", value=st.session_state.configuration.get("initial_stock", "0"))
-                st.session_state.configuration["refill_time"] = st.text_input("Refill Time (s)", value=st.session_state.configuration.get("refill_time", "To be chosen later per product."), disabled=True)
                 st.session_state.configuration["safety_stock"] = st.text_input("Safety Stock", value=st.session_state.configuration.get("safety_stock", "20"))
-                st.session_state.configuration["refill_size"] = st.text_input("Refill Size", value=st.session_state.configuration.get("refill_size", "1"))
 
     def home(self):
         row0_spacer1, row0_1, row0_spacer2, row0_2, row0_spacer3 = st.columns((.1, 2.3, .1, 1.3, .1))
@@ -232,77 +248,113 @@ class PRODynamicsApp:
             st.line_chart(data_gamma, x="Days", y="Probability")
 
     def process_data(self):
-        uploaded_file_line_data = st.file_uploader("Upload Multi-Reference Data", type=["xlsx", "xls", "csv"])
-        tab1, tab2 = st.tabs(["Production Line Data", "Product Reference Data"])
+              # Excel file loader
+        uploaded_file = st.file_uploader("Upload line & multi-reference data", type=["xlsx", "xls"])
+
+        if (uploaded_file is not None) and (uploaded_file != st.session_state.uploaded_file) :
+            with st.spinner('Uploading in progress...'): 
+
+                if uploaded_file.name.endswith(('.xls', '.xlsx')):
+                    st.session_state.uploaded_file = uploaded_file
+                    excel_df = pd.read_excel(st.session_state.uploaded_file, sheet_name=["Line Data", "Multi-Ref"])
+                    st.session_state.line_data  = excel_df["Line Data"].copy()
+                    st.session_state.multi_ref_data = excel_df["Multi-Ref"].copy()
+
+                else:
+                    st.error("Unsupported file format. Please upload a CSV or Excel file.")
+            st.rerun()  
+
+        # Tabs
+        tab1, tab2, tab3 = st.tabs(["Production Line Data", "Product Reference Data", "Central Storage"])
         with tab1:
-            #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Production Line Data")
+
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
-                updated_df = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_edit")
-                if not st.session_state.line_data.equals(updated_df):
-                  st.session_state.line_data = updated_df
-                  st.rerun()
-            else:
-                with st.spinner('Uploading in progress...'):        
-                    if uploaded_file_line_data is not None:
-                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+                line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
+            
+            # Save button
+            if st.button("Save", key="line_data_save"):
+                st.session_state.line_data = line_data_editor.copy()
+                st.rerun()
 
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
+            # Graph display
+            display_btn = st.button("Display manufactoring line")
+
+            with st.columns([0.1, 0.8, 0.1])[1]:
+                if display_btn:
+                    graph = graphviz.Digraph()
+                    graph.attr(rankdir='LR')
+                    # graph.attr(bgcolor='transparent')
+
+                    # Legend for central storage
+                    if st.session_state.configuration["central_storage_enable"]:
+                        graph.node("Central Storage", shape='box', style='filled', fontcolor='dark', fillcolor='#77B5FE', height='0.3', width='0.5', margin='0.01')
+
+                    # Generate nodes, and colour machines linked to the central storage
+                    for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
+                        if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
+                            graph.node(machine, style='filled', fillcolor='#77B5FE')
                         else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+                            graph.node(machine)
 
+                    # Generate the edges origin -> destination
+                    for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
+                        try:
+                            destinations = eval(destination)
+                            for dest in destinations:
+                                graph.edge(origin, dest)
+                        except:
+                            graph.edge(origin, destination)
 
-                with st.spinner('Uploading  in progress...'):        
-                    if uploaded_file_line_data is not None:
-                        # st.session_state.line_data = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                        # st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
-
-                        if uploaded_file_line_data.name.endswith('.csv'):
-                            st.session_state.line_data  = pd.read_csv(uploaded_file_line_data)
-                        elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                            st.session_state.line_data  = pd.read_excel(uploaded_file_line_data, sheet_name="Line Data")
-                            st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                        else:
-                            st.error("Unsupported file format. Please upload a CSV or Excel file.")
-                        st.data_editor(st.session_state.line_data, num_rows="dynamic", key="data_editor")
+                    # Plot
+                    st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
             st.subheader("Product Reference Data")
+            uploaded_file_line_data_ref = st.file_uploader("Upload Product Reference Data", type=[ "csv", "xlsx", "xls"], key="upload_refs")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                updated_refs = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="data_ref_edit")
-                if not st.session_state.multi_ref_data.equals(updated_refs):
-                    st.session_state.multi_ref_data = updated_refs.copy()
-                    st.rerun()
-                # if not st.session_state.multi_ref_data.equals(updated_refs):
-                #     print("here problem? 2 ")
-                #     st.session_state.multi_ref_data = updated_refs.copy()
-            else:
-                if uploaded_file_line_data is not None:
-                    if uploaded_file_line_data.name.endswith('.csv'):
-                        st.session_state.multi_ref_data = pd.read_csv(uploaded_file_line_data)
-                    elif uploaded_file_line_data.name.endswith(('.xls', '.xlsx')):
-                        st.session_state.multi_ref_data = pd.read_excel(uploaded_file_line_data, sheet_name="Multi-Ref")
-                    else:
-                        st.error("Unsupported file format. Please upload a CSV or Excel file.")
+                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
+                
+            # Save button
+            if st.button("Save", key="ref_data_save"):
+                st.session_state.multi_ref_data = ref_data_editor.copy()
+                st.rerun()
 
-                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
 
-            new_ref_name = st.text_input("Enter new reference name")
-            if st.button("+ Add Reference", key="add_new_ref"):
+            new_ref_name = st.text_input("Add a new reference", placeholder="Reference name")
+            if st.button("Add reference", key="add_new_ref"):
                 if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
                     if new_ref_name:
                         st.session_state.multi_ref_data[new_ref_name] = ""
                         st.rerun()
                     else:
                         st.warning("Please enter a column name")
-                    st.subheader("Product Reference Data")
-                    st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic")
+
+        # Central Storage
+        with tab3:
+            st.subheader("Central Storage")                
+            st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
+                
+            # Allow all references by default according 
+            all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
+
+            sides = ['front', 'back']
+            for side in sides:
+                for i, value in enumerate(st.session_state.central_storage[side]['Allowed references'].values):
+                    if not value:
+                        st.session_state.central_storage[side]['Allowed references'].values[i] = str(all_references)
+
+            # Display for each side of the central storage
+            cols = st.columns(len(sides))
+            for i, side in enumerate(sides):
+                with cols[i]:
+                    # Side, time to reach, table to edit date, save button
+                    st.subheader(side.capitalize())
+                    st.session_state.configuration['central_storage_ttr'][side] = st.number_input("Time to reach (s)", value=st.session_state.configuration['central_storage_ttr'][side], format='%i', key=f'central_storage_ttr_{side}')
+                    editor = st.data_editor(st.session_state.central_storage[side], num_rows="dynamic", key=f"central_storage_{side}")
+
+                    if st.button("Save", key=f"central_storage_save_{side}"):
+                        st.session_state.central_storage[side] = editor.copy()
 
     def simulation_page(self):
         st.markdown("##### Simulation Data Summary")
@@ -322,25 +374,67 @@ class PRODynamicsApp:
         with column2:
             st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
+            st.write("Central Storage:", st.session_state.configuration["central_storage_enable"])
         
         with column4:
             st.write("Number of References : ", len(st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')))
             st.write("Shift Reset:", st.session_state.configuration["reset_shift"])
             st.write("Enable Random Seed:", st.session_state.configuration["enable_random_seed"])
         
+        # Display manufacturing line graph
+        with st.columns([0.2, 0.6, 0.2])[1]:
+            graph = graphviz.Digraph()
+            graph.attr(rankdir='LR')
+            # graph.attr(bgcolor='transparent')
+
+            # Legend for central storage
+            if st.session_state.configuration["central_storage_enable"]:
+                graph.node("Central Storage", shape='box', style='filled', fontcolor='dark', fillcolor='#77B5FE', height='0.3', width='0.5', margin='0.01')
+
+            # Generate nodes, and colour machines linked to the central storage
+            for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
+                if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
+                    graph.node(machine, style='filled', fillcolor='#77B5FE')
+                else:
+                    graph.node(machine)
+
+            # Generate the edges origin -> destination
+            for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
+                try:
+                    destinations = eval(destination)
+                    for dest in destinations:
+                        graph.edge(origin, dest)
+                except:
+                    graph.edge(origin, destination)
+
+            # Plot
+            st.graphviz_chart(graph, use_container_width=True)
+
         st.markdown("""---""")
 
         c1, c2 = st.columns(2)
         if st.button("Run Simulation"):
             env = simpy.Environment()
             tasks = []
-            config_file = 'config.yaml'
-            self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-            self.save_global_settings(self.manuf_line)
-        
-            self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-            self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
-            self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+
+            configuration = st.session_state.configuration
+            references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            line_data = st.session_state.line_data.values.tolist()
+
+            self.manuf_line = ManufLine(env, tasks, config_file='config.yaml')
+            self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[])
+            self.manuf_line.create_machines(line_data)
+
+            if st.session_state.configuration["central_storage_enable"]:
+                # Turn pd.DataFrame into dict to 
+                central_storage_config = {}
+                for side in ['front', 'back']:
+                    central_storage_config[side] = []
+                    for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
+                        central_storage_config[side].append({'allowed_ref': eval(allowed), 'capacity': capacity})
+
+                # Add the central storage to the manufactoring line
+                self.manuf_line.central_storage = CentralStorage(env, self.manuf_line, central_storage_config, st.session_state.configuration["central_storage_ttr"])
         
             self.all_prepared = True
             self.run_simulation(self.manuf_line)
@@ -438,7 +532,8 @@ class PRODynamicsApp:
                 bounds = [(1, None)]
                 result = minimize(objective_function, x0=1, args=(coeffs), bounds=bounds)
                 optimum_x = result.x[0]
-                print("Optimal = ", optimum_x)
+                if st.session_state.configuration["dev_mode"]:
+                    print("Optimal = ", optimum_x)
                 #fig.add_trace(go.Scatter(x=capacities, y=results))
                 optim_results.append(optimum_x)
                 fig.add_trace(go.Scatter(x=capacities, y=y_pred, mode='lines', name=f'Buffer {i + 1}'))
@@ -462,11 +557,10 @@ class PRODynamicsApp:
         #     env = simpy.Environment()
         #     tasks = []
         #     config_file = 'config.yaml'
+
         #     self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-        #     self.save_global_settings(self.manuf_line)
+        #     self.manuf_line.save_global_settings(self.manuf_line)
         
-        #     self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-        #     self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
         #     self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
         #     # self.manuf_line.initialize()
 
@@ -486,39 +580,41 @@ class PRODynamicsApp:
         #         # Run each action
         #         self.manuf_line.run_action(action)
         #         for m in self.manuf_line.list_machines:
-        #             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(m.buffer_in.level) + " | " + str(m.buffer_out.level) + "   -- " + str(m.waiting_time))
-        #             print("Level = ",self.manuf_line.shop_stock_out.level)
+        #             print(m.ID + " - Operating = " +str(m.operating) + " - " + str(len(m.buffer_in.items)) + " | " + str(len(m.buffer_out.items)) + "   -- " + str(m.waiting_time))
+        #             print("Level = ", len(self.manuf_line.shop_stock_out.items))
 
     def run_simulation(self, manuf_line):
-        with st.spinner('Simulation in progress...'):
-            manuf_line.run()
-            
+        # Run simulation and visualize its progress using a progress bar
+        my_bar_simulation = st.progress(0, text="Simulation in progress...")
+        manuf_line.run(my_bar_simulation)
+        my_bar_simulation.empty()
         st.success('Simulation completed!')
 
         st.markdown("""---""")
+
         st.header("Key Performance Indicators")
 
         # Global Cycle Time
-
         col = st.columns(5, gap='medium')
     
         with col[0]:
-            print("last machine level = ",manuf_line.list_machines[-1].last )
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            if st.session_state.configuration["dev_mode"]:
+                print("last machine level = ",manuf_line.list_machines[-1].last )
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Simulated Production", value=format_time(manuf_line.sim_time))
 
         with col[1]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Global Cycle Time", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
         
         with col[2]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
         
         with col[3]:
-            global_cycle_time= manuf_line.sim_time/manuf_line.shop_stock_out.level
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
 
         with col[4]:
@@ -626,7 +722,7 @@ class PRODynamicsApp:
         with c13:
             items_per_reference = []
             for item in list(manuf_line.references_config.keys()):
-                items_per_reference.append(manuf_line.inventory_out.items.count(item))
+                items_per_reference.append(manuf_line.shop_stock_out.items.count(item))
 
             # Convert the dictionary to lists for Plotly
             reference_names = list(manuf_line.references_config.keys())
@@ -655,24 +751,32 @@ class PRODynamicsApp:
             fig_m, ax_m = plt.subplots()
             ax_m.set_ylabel('Percentage (%)')
             # ax_m.set_title('Machine Utilization Rate')
-            
+            if st.session_state.configuration["dev_mode"]:
+                for op in manuf_line.manual_operators:
+                    print("Operator WC = ", op.wc)
+
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
             available_machines = []
             for m in manuf_line.list_machines:
-                print("List of produced per machine = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
-                available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
-                #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
+                if st.session_state.configuration["dev_mode"]:
+                    print(f"Produced by machine {m.ID} = ", [m.ref_produced.count(ref) for ref in  manuf_line.references_config.keys() ])
+                    print("Waiting for op = ", np.mean(m.wc))
+
+                available_machine = np.sum([float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])/ manuf_line.sim_time
+                #print("List available per machine = ", [float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3])* m.ref_produced.count(ref)  for ref in  manuf_line.references_config.keys()])
                 available_machines.append(100*available_machine)           
-            #machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+1]) * m.ref_produced.count(ref) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
+            #machine_available_percentage = [100*float(manuf_line.references_config[ref][manuf_line.list_machines.index(m)+3]) * m.ref_produced.count(ref) / manuf_line.sim_time for ref in  manuf_line.references_config.keys() for m in manuf_line.list_machines]
             machine_available_percentage = available_machines
             machine_available_percentage2 = [100 * ct / manuf_line.sim_time for m, ct in zip(manuf_line.list_machines, machines_CT)]
             #breakdown_percentage = [100 * float(m.MTTR * float(m.n_breakdowns)) / manuf_line.sim_time for m in manuf_line.list_machines]
-            print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
-            print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
-            print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
-            
+            if st.session_state.configuration["dev_mode"]:
+                print("Nmb of breakdowns = ", [m.n_breakdowns for m in manuf_line.list_machines])
+                print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
+                print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
+                print(manuf_line.central_storage)
             breakdown_percentage = [100 * float(np.sum(m.real_repair_time)) / manuf_line.sim_time for m in manuf_line.list_machines]
-            print('Breakdowns = ', breakdown_percentage)
+            if st.session_state.configuration["dev_mode"]:
+                print('Breakdowns = ', breakdown_percentage)
             waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
 
             chart_data = {
@@ -792,7 +896,85 @@ class PRODynamicsApp:
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
 
-        # Additional Plots
+
+        col_operator_work, col_central_storage = st.columns(2)
+        
+        # Operator Plot
+        with col_operator_work:
+            fig = go.Figure()
+
+            # Add bar traces for each utilization type
+            op_WCs = []
+            for op in manuf_line.manual_operators:
+                op_WCs.append(op.wc)
+            fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
+
+            # Update layout
+            fig.update_layout(
+                title="Operator Work Content",
+                xaxis_title="Operator",
+                yaxis_title="Cumulated Work Content (s)",
+                barmode="stack",  # Stack bars on top of each other
+                legend=dict(
+                    orientation="h",  # Horizontal legend
+                    xanchor="center",  # Anchor legend to the right
+                    x=0.5  # Adjust horizontal position of the legend
+                ),
+                margin=dict(l=0, r=0, t=30, b=30)
+            )
+            # Display the Plotly figure
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Central storage plot
+        if st.session_state.configuration["central_storage_enable"]:
+            with col_central_storage:
+
+                all_references = manuf_line.central_storage.all_allowed_references
+
+                # Data required : A name for each block, number of items of each reference for every block, remaining space for every block.
+                chart_data = {ref: [] for ref in all_references}
+                chart_data["Blocks"] = []
+                chart_data["Remaining space"] = []
+
+                # Retrieving data from the central storage
+                for side in manuf_line.central_storage.stores:
+                    for i, block in enumerate(manuf_line.central_storage.stores[side]):
+                        
+                        # Add the name of the block
+                        chart_data["Blocks"].append(f"{side.capitalize()}_block_{i+1}") 
+
+                        # Count the number of occurrences in the block of each reference, even the ones that are not allowed (value will then be 0)
+                        for ref in all_references:
+                            chart_data[ref].append([ref_data['name'] for ref_data in block['store'].items].count(ref))
+
+                        # Count the remaining space
+                        chart_data["Remaining space"].append(block['store'].capacity - len(block['store'].items))
+
+
+                fig = go.Figure()
+
+                # Add bar traces for each reference and the remaining space
+                for i, ref in enumerate(all_references):
+                    fig.add_trace(go.Bar(x=chart_data["Blocks"], y=chart_data[ref], name=ref.capitalize()))
+                
+                fig.add_trace(go.Bar(x=chart_data["Blocks"], y=chart_data["Remaining space"], name="Remaining", marker_color="rgba(255, 165, 0, 0.5)"))
+
+                # Update layout
+                fig.update_layout(
+                    title="Central storage",
+                    xaxis_title="Blocks",
+                    yaxis_title="Number of items",
+                    barmode="stack",  # Stack bars on top of each other
+                    legend=dict(
+                        orientation="h",  # Horizontal legend
+                        xanchor="center",  # Anchor legend to the right
+                        x=0.5  # Adjust horizontal position of the legend
+                    ),
+                    margin=dict(l=0, r=0, t=30, b=30)
+                )
+
+                # Display the Plotly figure
+                st.plotly_chart(fig, use_container_width=True)
        
     def assembly_section(self):
         uploaded_file_mbom = st.file_uploader("Upload Workplan", type=["xml"])
@@ -865,9 +1047,10 @@ class PRODynamicsApp:
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
             best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
-            print("Best Soluton = ", best_solution)
-            print("Machines = ", ressource_list[1])
-            print("Operators = ", operators_list[1])
+            if st.session_state.configuration["dev_mode"]:
+                print("Best Soluton = ", best_solution)
+                print("Machines = ", ressource_list[1])
+                print("Operators = ", operators_list[1])
 
 
             st.header("Results")
@@ -895,7 +1078,64 @@ class PRODynamicsApp:
             # c3, c4= st.columns([0.5,0.5])
             #with c11:
             
-            st.markdown("### Best Sequence")
+            st.markdown("### Best Sequence Overview")
+            workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
+
+            #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
+
+            #Display each workstation and its corresponding parts
+            for workstation, parts in sorted(workstations.items()):
+                st.markdown(f"###### OP 0{workstation}")
+
+                # Retrieve the thumbnail for each part by matching the part reference to parts_data
+                part_thumbnails = []
+                for part_ref in parts:
+                    # Get the thumb URL from parts_data for this part_ref
+                    part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
+                    if not part_info.empty:
+                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
+                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+  
+                        # Add the thumb to the list (thumb_url and part_ref as caption)
+                        part_thumbnails.append((thumb_url, part_name))
+
+                if part_thumbnails:
+                    images, captions = zip(*part_thumbnails) 
+                    try:
+                        st.image(list(images), list(captions), width=100)  
+                    except:
+                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        st.image(list(unknown_images), list(captions), width=100) 
+
+
+            # for station_idx, station in enumerate(stations):
+            #     st.subheader(f"Station {station_idx + 1}")
+                
+            #     for workstation in station['workstations']:
+            #         st.markdown(f"###### OP 0{workstation}")
+            #         # Retrieve the thumbnail for each part by matching the part reference to parts_data
+            #         part_thumbnails = []
+            #         task_indices = workstations[workstation]['tasks']
+
+            #         for task_idx in task_indices:
+            #             assy_parts = st.session_state.mbom_data.loc[task_idx, "assy"].split(';')
+
+            #             for part_ref in assy_parts:
+            #                 part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
+            #                 if not part_info.empty:
+            #                     thumb_url = part_info['thumb'].values[0]
+            #                     part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+            #                     part_thumbnails.append((thumb_url, part_name))
+
+            #         if part_thumbnails:
+            #             images, captions = zip(*part_thumbnails) 
+            #             try:
+            #                 st.image(list(images), list(captions), width=100)  
+            #             except:
+            #                 unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+            #                 st.image(list(unknown_images), list(captions), width=100) 
+
+
             st.markdown("### Detailed Results")
             fig = go.Figure()
 
@@ -905,8 +1145,8 @@ class PRODynamicsApp:
             # Update layout
             fig.update_layout(
                 title='Machine Times per Machine',
-                xaxis_title='Machines',
-                yaxis_title='Machine Time MT (s)',
+                xaxis_title='Machines ID',
+                yaxis_title='Machine Time | MT (s)',
                 margin=dict(l=0, r=0, t=30, b=20)
             )
 
@@ -928,7 +1168,46 @@ class PRODynamicsApp:
 
             st.plotly_chart(fig, use_container_width=True)
 
-            
+            ### Section of assembly scenario details 
+
+            time.sleep(1)
+            with st.expander("Need more details?", expanded=False):
+
+
+                
+                columns = st.columns(2)
+                
+                
+                env = simpy.Environment()
+                tasks = []
+                config_file = 'config.yaml'
+                self.manuf_line = ManufLine(env, tasks, config_file=config_file)
+                
+                manu_op_assignments = {
+                'M1': (1, 10),
+                'M2': (1, 10),
+                'M3': (2, 10),
+                'M4': (2, 10),
+                'M5':(2, 10),
+                'M6':(2, 10),
+                'M7':(3, 10),
+                'M8':(3, 10),
+                'EOL1': (4, 10),
+                'EOL2': (4, 10), 
+                'EOL3': (4, 10)}
+
+                
+                self.save_global_settings(self.manuf_line)
+                self.manuf_line.sim_time = 3600*24
+                st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
+                self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+                self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+                self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+                self.all_prepared = True
+                st.session_state.configuration["central_storage_enable"] = False
+                self.run_simulation(self.manuf_line)
+
+                
         return True
 
     def run_main(self):
@@ -960,53 +1239,7 @@ class PRODynamicsApp:
         elif selected == "Contact Us":
             # Rebuild a new page with different contacts (For dev, business & process)
             pass
-
-    def save_global_settings(self, manuf_line):
-        configuration = st.session_state.configuration
-
-        if configuration["enable_breakdowns"]:
-            manuf_line.breakdowns_switch = True
-        else:
-            manuf_line.breakdowns_switch = False
-
-        if configuration["enable_random_seed"]:
-            manuf_line.randomseed = True
-        else:
-            manuf_line.randomseed = False
-
-        available_strategies = ["Balanced Strategy", "Greedy Strategy"]
-
-        manuf_line.stock_capacity = float(configuration["stock_capacity"])
-        manuf_line.stock_initial = float(configuration["initial_stock"])
-        manuf_line.reset_shift_dec = bool(configuration["reset_shift"])
-        manuf_line.breakdown_law = str(configuration["breakdown_dist_distribution"])
-        # if value1-value2, then the refill time is random between two values
-        # pattern = r'^(\d+)-(\d+)$'
-        # match = re.match(pattern, str(configuration["refill_time"]))
-        # if match:
-        #     value1 = int(match.group(1))
-        #     value2 = int(match.group(2))
-        #     manuf_line.refill_time = [value1, value2]
-        #     print("refill time 1 = ", manuf_line.refill_time)
-        # else:
-        #     manuf_line.refill_time = float(configuration["refill_time"])
-        
-        manuf_line.safety_stock = float(configuration["safety_stock"])
-        manuf_line.refill_size = float(configuration["refill_size"])
-        manuf_line.n_robots = float(configuration["n_robots"])
-        manuf_line.n_repairmen = int(configuration["n_repairmen"])
-        manuf_line.robot_strategy = int(available_strategies.index(configuration["strategy"]))
-        manuf_line.repairmen = simpy.PreemptiveResource(manuf_line.env, capacity=int(configuration["n_repairmen"]))
-        manuf_line.supermarket_in = simpy.Container(manuf_line.env, capacity=manuf_line.stock_capacity, init=manuf_line.stock_initial)
-        manuf_line.shop_stock_out = simpy.Container(manuf_line.env, capacity=float(manuf_line.config["shopstock"]["capacity"]), init=float(manuf_line.config["shopstock"]["initial"]))
-        
-        manuf_line.sim_time = eval(str(configuration["sim_time"]))
-        print("sim time first = ",  manuf_line.sim_time)
-        manuf_line.takt_time = eval(str(configuration["takt_time"]))
   
-
-
-        
 
 if __name__ == "__main__":
     app = PRODynamicsApp()

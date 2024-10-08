@@ -155,11 +155,10 @@ class QLearning:
         # Initial allocation of tasks to workstations
         num_workstations, ct_WS, tasks_WS = allocate_tasks(self.target)
 
-        # Ensure the number of workstations is odd (optional, depending on use case)
+        # # Ensure the number of workstations is odd (optional, depending on use case)
         if num_workstations % 2 != 0:
             # Rebalance tasks to adjust for new number of workstations
-            num_workstations, ct_WS, tasks_WS = allocate_tasks(num_workstations * self.target / (num_workstations + 1))
-
+            num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations)*self.target / (num_workstations+1))
         return num_workstations, ct_WS, tasks_WS
 
     def objectiveR2(self):
@@ -211,27 +210,12 @@ class QLearning:
     def sequence_to_scenario(self, indiv):
       Tasks_ID = [task.id for task in self.Tasks]
 
-      total_ct = 0
-      groups = []
-      group = []
-      for i in indiv:
-          total_ct += float(self.Tasks[i].CT)
-          group.append(i)
-          if total_ct >= (1+self.tolerance)*(self.target / 2):
-              groups.append(group.copy())
-              total_ct = 0
-              group=[]
-
-      if total_ct > 0:
-        if total_ct <= 0.3*(self.target / 2):
-          groups[-1] = groups[-1] + group
-        else:
-          groups.append(group.copy())
-
+      _,_, groups = self.get_nworkstations()
+      
       scenario = [0 for i in range(len(Tasks_ID))]
       for i in range(len(groups)):
         for j in groups[i]:
-          scenario[j] = i+1
+          scenario[Tasks_ID.index(j)] = i+1
       return scenario
 
     def sequence_to_scenario2(self, ant, final=False):
@@ -709,5 +693,198 @@ def vizualize_QL_results(self):
     plt.show()
     return True
 
+
+
+def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments):
+    
+    """
+    This function build the dataframe to convert the assembly sequence optimization to full assembly line that can be simulated and estimated using AMDO dynamics.
+
+    manu_op_assignments = {
+    'M1': (1, 20),
+    'M2': (2, 25),
+    'M3': (3, 15),
+    'EOL1': (4, 10),
+    'EOL2': (5, 12) }
+    """
+
+
+    # Base data for machines
+    machines = [f'M{i}' for i in range(1, len(machines_CT) + 1)]
+    
+    # Base data for EOL stations
+    eol_stations = [f'EOL{i}' for i in range(1, len(EOL_stations_CT) + 1)]
+    
+    # Combine both lists to form the final list of all stations
+    all_stations = machines + eol_stations
+    
+    # Linear links for machines, each machine points to the next one
+    links = [f'[\"{machines[i+1]}\"]' if i < len(machines) - 1 else f'[\"{eol_stations[0]}\"]' for i in range(len(machines))]
+    
+    # Linear links for EOL stations, last one points to "END"
+    eol_links = [f'[\"{eol_stations[i+1]}\"]' if i < len(eol_stations) - 1 else 'END' for i in range(len(eol_stations))]
+    
+    # Combine machine and EOL links
+    links.extend(eol_links)
+    
+    # Descriptions (placeholder names)
+    descriptions = [f'Machine {i} OP' for i in range(1, len(machines_CT) + 1)] + \
+                   [f'EOL Station {i}' for i in range(1, len(EOL_stations_CT) + 1)]
+    
+    # Static values based on the image
+    buffer_capacity = [1000] * len(all_stations)
+    initial_buffer = [0] * len(all_stations)
+    mttf = ['3600*24*5'] * len(all_stations)
+    mttr = [3600] * len(all_stations)
+    transport_time = [np.nan for i in range(len(all_stations))]
+    transport_order = list(range(1, len(all_stations) + 1))
+    transporter_id = [1] * len(all_stations)
+    
+    # Identical station logic for machines
+    identical_station = []
+    for i in range(len(machines)):
+        if (i + 1) % 2 != 0:  # If odd index (M1, M3, etc.)
+            if i + 1 < len(machines):
+                identical_station.append(machines[i + 1])  # Station after
+            else:
+                identical_station.append('')  # No station after last
+        else:
+            identical_station.append(machines[i - 1])  # Station before
+
+    # EOL stations have empty identical station
+    identical_station.extend([''] * len(eol_stations))
+    
+    # Operator IDs and manual time based on manu_op_assignments
+    operator_id = []
+    manual_time = []
+    
+    for station in all_stations:
+        # If the station is in the assignments, extract operator_id and manual_time
+        if station in manu_op_assignments:
+            operator_id.append(manu_op_assignments[station][0])  # operator ID
+            manual_time.append(manu_op_assignments[station][1])  # manual time
+        else:
+            operator_id.append(0)  # default operator ID
+            manual_time.append(0)  # default manual time
+    
+    # Create the DataFrame
+    assembly_line = pd.DataFrame({
+        'Machine': all_stations,
+        'Description': descriptions,
+        'Link': links,
+        'Buffer Capacity': buffer_capacity,
+        'Initial Buffer': initial_buffer,
+        'MTTF': mttf,
+        'MTTR': mttr,
+        'Transport Time': transport_time,
+        'Transport Order': transport_order,
+        'Transporter ID': transporter_id,
+        'Operator ID': operator_id,
+        'Manual Time': manual_time,
+        'Identical Station': identical_station
+    })
+
+    # Combine machine and EOL cycle times
+    cycle_times = machines_CT + EOL_stations_CT
+    
+    # Create the reference DataFrame with 'Ref A' and 'Ref B'
+    df_ref = pd.DataFrame({
+        'Machine': machines + eol_stations,
+        'Ref A': cycle_times
+    })
+    
+    # Add Input row
+    input_row = pd.DataFrame({
+        'Machine': ['Input'],
+        'Ref A': ['1-2']
+    })
+    
+    # Concatenate the Input row with the rest of the table
+    references_config = pd.concat([input_row, df_ref], ignore_index=True)
+    
+    return assembly_line, references_config
+    
 # Tasks = read_prepare_mbom(".\\assets\\inputs\\240426_EBOM_4391567_01.xlsx")
 # run_QL(100000, Tasks, 38, 0.1)
+
+
+
+def parts_to_workstation(mbom_data, parts_data, best_solution):
+  workstations = {}
+
+  # Iterate through the best_solution list and group tasks by workstation
+  for task_idx, workstation in enumerate(best_solution):
+      # Get the 'assy' column value from mbom_data for the current task
+      assy_parts = mbom_data.loc[task_idx, "assy"]
+
+      # Split the 'assy' column by ';' to get individual part references
+      part_refs = assy_parts.split(';')
+
+      # Add parts to the respective workstation in the dictionary
+      if workstation not in workstations:
+          workstations[workstation] = set()  # Use a set to avoid duplicates
+
+      # Iterate over the part references and add them to the workstation's set
+      for part_ref in part_refs:
+          workstations[workstation].add(part_ref)
+
+  # Display the parts being assembled at each workstation:
+  for workstation, parts in workstations.items():
+      print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
+
+  return workstations
+
+
+# def parts_to_workstation_n(mbom_data, parts_data, best_solution):
+#   # Step 1: Group tasks by workstations
+#   workstations = {}
+
+#   for task_idx, workstation in enumerate(best_solution):
+#       # Get the task's duration and part reference
+#       task_duration = mbom_data.loc[task_idx, 'cycleTime']
+
+#       # Add task duration to the corresponding workstation
+#       if workstation not in workstations:
+#           workstations[workstation] = {
+#               'tasks': [],
+#               'total_duration': 0
+#           }
+
+#       # Append task to the workstation's list and sum the duration
+#       workstations[workstation]['tasks'].append(task_idx)
+#       workstations[workstation]['total_duration'] += task_duration
+
+#   # Step 2: Sort workstations by total duration (to balance the workload)
+#   workstation_items = sorted(workstations.items(), key=lambda x: x[1]['total_duration'], reverse=True)
+
+#   # Step 3: Create stations by merging workstations
+#   stations = []
+#   i = 0
+
+#   # Keep merging workstations until we have an odd number of stations
+#   while len(workstation_items) + len(stations) % 2 == 0:
+#       # Take the workstation with the longest remaining duration
+#       ws1 = workstation_items[i]
+#       i += 1
+
+#       # Try to pair it with the next workstation (smallest duration)
+#       ws2 = workstation_items[-1]
+#       workstation_items = workstation_items[:-1]  # Remove the last one
+
+#       # Merge the two into a single station (balanced workload)
+#       merged_station = {
+#           'workstations': [ws1[0], ws2[0]],
+#           'total_duration': ws1[1]['total_duration'] + ws2[1]['total_duration']
+#       }
+#       stations.append(merged_station)
+
+#   # Step 4: If there are remaining workstations, add them as single-workstation stations
+#   for ws in workstation_items[i:]:
+#       single_station = {
+#           'workstations': [ws[0]],
+#           'total_duration': ws[1]['total_duration']
+#       }
+#       stations.append(single_station)
+
+#   return stations, workstations
+
