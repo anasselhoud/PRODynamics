@@ -273,19 +273,31 @@ class PRODynamicsApp:
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             
             # Save button
-            with st.columns([0.47, 0.06, 0.47])[1]:
-                if st.button("Save", key="line_data_save"):
-                    st.session_state.line_data = line_data_editor.copy()
-                    st.rerun()
+            if st.button("Save", key="line_data_save"):
+                st.session_state.line_data = line_data_editor.copy()
+                st.rerun()
 
             # Graph display
-            with st.columns([0.42, 0.16, 0.42])[1]:
-                display_btn = st.button("Display manufactoring line")
+            display_btn = st.button("Display manufactoring line")
 
             with st.columns([0.1, 0.8, 0.1])[1]:
                 if display_btn:
                     graph = graphviz.Digraph()
                     graph.attr(rankdir='LR')
+                    # graph.attr(bgcolor='transparent')
+
+                    # Legend for central storage
+                    if st.session_state.configuration["central_storage_enable"]:
+                        graph.node("Central Storage", shape='box', style='filled', fontcolor='dark', fillcolor='#77B5FE', height='0.3', width='0.5', margin='0.01')
+
+                    # Generate nodes, and colour machines linked to the central storage
+                    for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
+                        if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
+                            graph.node(machine, style='filled', fillcolor='#77B5FE')
+                        else:
+                            graph.node(machine)
+
+                    # Generate the edges origin -> destination
                     for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                         try:
                             destinations = eval(destination)
@@ -294,6 +306,7 @@ class PRODynamicsApp:
                         except:
                             graph.edge(origin, destination)
 
+                    # Plot
                     st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
@@ -372,6 +385,20 @@ class PRODynamicsApp:
         with st.columns([0.2, 0.6, 0.2])[1]:
             graph = graphviz.Digraph()
             graph.attr(rankdir='LR')
+            # graph.attr(bgcolor='transparent')
+
+            # Legend for central storage
+            if st.session_state.configuration["central_storage_enable"]:
+                graph.node("Central Storage", shape='box', style='filled', fontcolor='dark', fillcolor='#77B5FE', height='0.3', width='0.5', margin='0.01')
+
+            # Generate nodes, and colour machines linked to the central storage
+            for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
+                if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
+                    graph.node(machine, style='filled', fillcolor='#77B5FE')
+                else:
+                    graph.node(machine)
+
+            # Generate the edges origin -> destination
             for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                 try:
                     destinations = eval(destination)
@@ -379,6 +406,8 @@ class PRODynamicsApp:
                         graph.edge(origin, dest)
                 except:
                     graph.edge(origin, destination)
+
+            # Plot
             st.graphviz_chart(graph, use_container_width=True)
 
         st.markdown("""---""")
