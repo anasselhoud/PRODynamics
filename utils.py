@@ -588,7 +588,8 @@ class ManufLine:
         "9 : Transporter ID", 
         "10 : Operator ID",
         "11 : Manual Time",
-        "12 : Identical Station] 
+        "12 : Identical Station,
+        "13 : Fill central storage] 
         """
         # Not understood
         if self.operators_assignement or self.tasks_assignement:
@@ -644,16 +645,19 @@ class ManufLine:
             buffer_capacity = int(machine_config[3])
             initial_buffer = int(machine_config[4])
 
+            # Allow filling the central storage 
+            fill_central_storage = machine_config[13]
+
             # TODO : set the operating time of each machine here given the different references in input 
 
             # Create machine with above parameters whether there were tasks already assigned
             try:
                 machine_has_robot = False if machine_config[9]==0 or len(self.robots_list) ==0 else True
                 assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
-                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot)
+                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot, fill_central_storage=fill_central_storage)
             except:
                 machine_has_robot = False if machine_config[9]==0 or len(self.robots_list) ==0 else True
-                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity , initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot)
+                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity , initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot, fill_central_storage=fill_central_storage)
 
             # Store the created machine
             if machine.first:
@@ -758,7 +762,7 @@ class ManufLine:
 
 
 class Machine:
-    def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False, has_robot=False):
+    def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False, has_robot=False, fill_central_storage=False):
         self.mt = 0
         self.ID = machine_id
         self.Name = machine_name
@@ -829,6 +833,8 @@ class Machine:
         self.real_repair_time = []
         self.hazard_delays = 1 if hazard_delays else 0
         self.op_fatigue = config["fatigue_model"]["enabled"]
+
+        self.fill_central_storage = fill_central_storage
 
     def time_to_failure(self):
         """Return time until next failure for a machine."""
@@ -1428,7 +1434,7 @@ class Robot:
                                 yield from self.transport(from_entity, to_entity)
 
                             # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
-                            elif (self.manuf_line.central_storage is not None) and (len(to_entity.buffer_in.items) == to_entity.buffer_in.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and (self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
+                            elif (self.manuf_line.central_storage is not None) and from_entity.fill_central_storage and (len(to_entity.buffer_in.items) == to_entity.buffer_in.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and (self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
                                 yield from self.transport(from_entity, self.manuf_line.central_storage)
 
                         except Exception as e:
@@ -1443,7 +1449,7 @@ class Robot:
                                     yield from self.transport(from_entity, to_entity)
 
                                 # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
-                                elif (self.manuf_line.central_storage is not None) and (len(to_entity.items) == to_entity.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
+                                elif (self.manuf_line.central_storage is not None) and from_entity.fill_central_storage and (len(to_entity.items) == to_entity.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
                                     yield from self.transport(from_entity, self.manuf_line.central_storage)
 
                             # Useless ?     
