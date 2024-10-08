@@ -366,6 +366,19 @@ class PRODynamicsApp:
             st.write("Shift Reset:", st.session_state.configuration["reset_shift"])
             st.write("Enable Random Seed:", st.session_state.configuration["enable_random_seed"])
         
+        # Display manufacturing line graph
+        with st.columns([0.2, 0.6, 0.2])[1]:
+            graph = graphviz.Digraph()
+            graph.attr(rankdir='LR')
+            for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
+                try:
+                    destinations = eval(destination)
+                    for dest in destinations:
+                        graph.edge(origin, dest)
+                except:
+                    graph.edge(origin, destination)
+            st.graphviz_chart(graph, use_container_width=True)
+
         st.markdown("""---""")
 
         c1, c2 = st.columns(2)
