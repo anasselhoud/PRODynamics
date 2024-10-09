@@ -734,11 +734,12 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
     # Static values based on the image
     buffer_capacity = [1000] * len(all_stations)
     initial_buffer = [0] * len(all_stations)
-    mttf = ['3600*24*5'] * len(all_stations)
+    mttf = ['3600*24*1'] * len(all_stations)
     mttr = [3600] * len(all_stations)
     transport_time = [np.nan for i in range(len(all_stations))]
     transport_order = list(range(1, len(all_stations) + 1))
     transporter_id = [1] * len(all_stations)
+    fill_central_storage = [False] * len(all_stations)
     
     # Identical station logic for machines
     identical_station = []
@@ -781,7 +782,8 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
         'Transporter ID': transporter_id,
         'Operator ID': operator_id,
         'Manual Time': manual_time,
-        'Identical Station': identical_station
+        'Identical Station': identical_station,
+        'Fill central storage':fill_central_storage
     })
 
     # Combine machine and EOL cycle times
@@ -796,11 +798,19 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
     # Add Input row
     input_row = pd.DataFrame({
         'Machine': ['Input'],
-        'Ref A': ['1-2']
+        'Ref A': ['1500']
+    })
+    initial_stock = pd.DataFrame({
+        'Machine': ['Initial stock'],
+        'Ref A': ['0']
+    })
+    refill_size = pd.DataFrame({
+        'Machine': ['Refill size'],
+        'Ref A': ['1500']
     })
     
     # Concatenate the Input row with the rest of the table
-    references_config = pd.concat([input_row, df_ref], ignore_index=True)
+    references_config = pd.concat([input_row, initial_stock,refill_size, df_ref], ignore_index=True)
     
     return assembly_line, references_config
     

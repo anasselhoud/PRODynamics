@@ -20,13 +20,6 @@ st.set_page_config(page_title="PRODynamics", page_icon="⚙️", layout="wide")
 #st.image('surviz_black_long.png')
 
 
- 
-# if selected == "Simulation & Results":
-#     with st.spinner(text='In progress'):
-#         time.sleep(3)
-#         st.success('Done')
-# if selected == "Contact":
-#     st.subheader(f"**You Have selected {selected}**")
 
 
 class PRODynamicsApp:
@@ -40,10 +33,10 @@ class PRODynamicsApp:
             st.session_state.configuration = {
                 "sim_time": "3600*24*7",
                 "takt_time": "10000",
-                "n_robots": 1,
+                "enable_robots": True,
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
-                "dev_mode":True,
+                "dev_mode":False,
                 "stock_capacity": "1",
                 "safety_stock": "1",
                 "n_repairmen": 3,
@@ -94,7 +87,6 @@ class PRODynamicsApp:
                 st.header("Simulation Data")
                 st.session_state.configuration["sim_time"] = st.text_input("Simulation Time (s)", value=st.session_state.configuration.get("sim_time", "3600*24*7"))
                 st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value=st.session_state.configuration.get("takt_time", "10000"))
-                st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=st.session_state.configuration.get("n_robots", 1))
                 st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"], index=0 if st.session_state.configuration.get("strategy") == "Balanced Strategy" else 1)
                 st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration.get("reset_shift", False))
                 st.session_state.configuration["dev_mode"] = st.checkbox("Enable developer mode (slow down !)", value=st.session_state.configuration.get("dev_mode", True))
@@ -269,22 +261,29 @@ class PRODynamicsApp:
         with tab1:
             st.subheader("Production Line Data")
 
+            st.session_state.configuration["enable_robots"] = st.toggle('Enable robots', value=st.session_state.configuration["enable_robots"], key='toggle_robots')
+
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             
             # Save button
-            if st.button("Save", key="line_data_save"):
+            if st.button("Save Data", key="line_data_save"):
                 st.session_state.line_data = line_data_editor.copy()
                 st.rerun()
 
             # Graph display
-            display_btn = st.button("Display manufactoring line")
+            display_btn = st.button("Display the line")
 
             with st.columns([0.1, 0.8, 0.1])[1]:
                 if display_btn:
                     graph = graphviz.Digraph()
                     graph.attr(rankdir='LR')
-                    # graph.attr(bgcolor='transparent')
+
+                    #TODO: find a way to check if the dark mode is activated (change main color based on that)
+                    main_color = "white"
+
+                    #graph.attr(bgcolor='black')
+                    graph.attr(bgcolor='transparent')
 
                     # Legend for central storage
                     if st.session_state.configuration["central_storage_enable"]:
@@ -293,27 +292,28 @@ class PRODynamicsApp:
                     # Generate nodes, and colour machines linked to the central storage
                     for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
                         if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
-                            graph.node(machine, style='filled', fillcolor='#77B5FE')
+                            graph.node(machine, style='filled', fillcolor='#77B5FE',color=main_color, fontcolor=main_color)
                         else:
-                            graph.node(machine)
+                            graph.node(machine, color=main_color, fontcolor=main_color)
 
                     # Generate the edges origin -> destination
                     for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                         try:
                             destinations = eval(destination)
                             for dest in destinations:
-                                graph.edge(origin, dest)
+                                graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                         except:
-                            graph.edge(origin, destination)
+                            graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
                     # Plot
+                    graph.node("END", color=main_color, fontcolor=main_color)
                     st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
             st.subheader("Product Reference Data")
             uploaded_file_line_data_ref = st.file_uploader("Upload Product Reference Data", type=[ "csv", "xlsx", "xls"], key="upload_refs")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
+                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic", key="ref_data_edit")
                 
             # Save button
             if st.button("Save", key="ref_data_save"):
@@ -372,7 +372,7 @@ class PRODynamicsApp:
             st.write("Number of Repairmen:", st.session_state.configuration["n_repairmen"])
             
         with column2:
-            st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
+            st.write("Number of Robots:", len(list(set(st.session_state.line_data["Transporter ID"].to_list()))))
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
             st.write("Central Storage:", st.session_state.configuration["central_storage_enable"])
         
@@ -385,7 +385,12 @@ class PRODynamicsApp:
         with st.columns([0.2, 0.6, 0.2])[1]:
             graph = graphviz.Digraph()
             graph.attr(rankdir='LR')
-            # graph.attr(bgcolor='transparent')
+
+            #TODO: find a way to check if the dark mode is activated (change main color based on that)
+            main_color = "white"
+
+            #graph.attr(bgcolor='black')
+            graph.attr(bgcolor='transparent')
 
             # Legend for central storage
             if st.session_state.configuration["central_storage_enable"]:
@@ -394,26 +399,29 @@ class PRODynamicsApp:
             # Generate nodes, and colour machines linked to the central storage
             for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
                 if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
-                    graph.node(machine, style='filled', fillcolor='#77B5FE')
+                    graph.node(machine, style='filled', fillcolor='#77B5FE',color=main_color, fontcolor=main_color)
                 else:
-                    graph.node(machine)
+                    graph.node(machine, color=main_color, fontcolor=main_color)
 
             # Generate the edges origin -> destination
             for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                 try:
                     destinations = eval(destination)
                     for dest in destinations:
-                        graph.edge(origin, dest)
+                        graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                 except:
-                    graph.edge(origin, destination)
+                    graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
             # Plot
+            graph.node("END", color=main_color, fontcolor=main_color)
             st.graphviz_chart(graph, use_container_width=True)
 
         st.markdown("""---""")
 
         c1, c2 = st.columns(2)
         if st.button("Run Simulation"):
+            self.all_prepared = True
+
             env = simpy.Environment()
             tasks = []
 
@@ -425,6 +433,16 @@ class PRODynamicsApp:
             self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[])
             self.manuf_line.create_machines(line_data)
 
+            # Check robots data consistency  
+            if st.session_state.configuration['enable_robots']:
+                col_to_check = ["Transport Time", "Transport Order", "Transporter ID"]
+                for col in col_to_check:
+                    if any([False if isinstance(value, str) else np.isnan(value) for value in st.session_state.line_data[col].to_list()]):
+                        st.error(f'You enabled robots but column "{col}" in "Process Data > Production Line Data" has an empty value. Please, either fill the value or disable robots before running again.', icon="🚨")
+                        self.all_prepared = False
+                        break
+
+            # Set up the central storage
             if st.session_state.configuration["central_storage_enable"]:
                 # Turn pd.DataFrame into dict to 
                 central_storage_config = {}
@@ -433,11 +451,10 @@ class PRODynamicsApp:
                     for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
                         central_storage_config[side].append({'allowed_ref': eval(allowed), 'capacity': capacity})
 
-                # Add the central storage to the manufactoring line
                 self.manuf_line.central_storage = CentralStorage(env, self.manuf_line, central_storage_config, st.session_state.configuration["central_storage_ttr"])
-        
-            self.all_prepared = True
-            self.run_simulation(self.manuf_line)
+
+            if self.all_prepared:
+                self.run_simulation(self.manuf_line)
             # simulation_thread = threading.Thread(target=self.run_simulation, args=(self.manuf_line,))
             # simulation_thread.start()
 
@@ -459,7 +476,7 @@ class PRODynamicsApp:
             st.write("Number of Repairmen:", st.session_state.configuration["n_repairmen"])
             
         with column2:
-            st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
+            st.write("Number of Robots:", len(list(set(st.session_state.line_data["Transporter ID"].to_list()))))
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
         
         with column4:
@@ -866,9 +883,9 @@ class PRODynamicsApp:
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
             waiting_times_robots = [100*r.waiting_time / manuf_line.sim_time for r in manuf_line.robots_list]
             operating_times_robots = [100 - waiting for waiting in waiting_times_robots]
-            
+
             chart_data = {
-                "Robot": [str(i+1) for i in range(len(waiting_times_robots))],
+                "Robot": [robot.ID for robot in manuf_line.robots_list],
                 "Operating": operating_times_robots,
                 "Waiting": waiting_times_robots,
             }
@@ -1052,7 +1069,7 @@ class PRODynamicsApp:
                 print("Machines = ", ressource_list[1])
                 print("Operators = ", operators_list[1])
 
-
+            self.my_bar_static_optim.empty()
             st.header("Results")
             col = st.columns(4, gap='medium')
             with col[0]:
@@ -1197,14 +1214,36 @@ class PRODynamicsApp:
                 'EOL3': (4, 10)}
 
                 
-                self.save_global_settings(self.manuf_line)
-                self.manuf_line.sim_time = 3600*24
+                # self.save_global_settings(self.manuf_line)
+                st.session_state.configuration = {
+                "sim_time": "3600*24*1",
+                "takt_time": str(target_CT),
+                "enable_robots": False,
+                "strategy": "Balanced Strategy",
+                "reset_shift": False,
+                "dev_mode":False,
+                "stock_capacity": "10000000",
+                "safety_stock": "1",
+                "n_repairmen": 3,
+                "enable_random_seed": True,
+                "enable_breakdowns": False,
+                "breakdown_dist_distribution": "Weibull Distribution",
+                "central_storage_enable": False,
+                "central_storage_ttr": {'front': 100, "back": 100},
+                }
+
                 st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
                 self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
                 self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+                self.manuf_line.save_global_settings(st.session_state.configuration, self.manuf_line.references_config, self.manuf_line.machine_config_data, buffer_sizes=[])
+
                 self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
                 self.all_prepared = True
                 st.session_state.configuration["central_storage_enable"] = False
+                st.session_state.configuration['enable_robots'] = False
+
+                self.manuf_line.dev_mode = False
+                
                 self.run_simulation(self.manuf_line)
 
                 

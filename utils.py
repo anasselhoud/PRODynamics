@@ -13,7 +13,7 @@ import sys
 
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='example.log', level=logging.DEBUG)
+#logging.basicConfig(filename='example.log', level=logging.DEBUG)
 
 
 
@@ -21,10 +21,6 @@ class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
         """
-        -- operators_assignement = [[1,2], [3], [4]] => 3 operators: first one operates on machine 1 and machine 2,
-            second one operates on machine 3 and third one operates on machine 4.
-
-        -- tasks_assignement = [1, 1, 2, 3, 3, 4, 4, 4 ....]
 
          """
         try:
@@ -51,6 +47,7 @@ class ManufLine:
         self.safety_stock = 0
         self.refill_time = None
         self.reset_shift_dec = False
+        self.enable_robots = True
 
         ### Multi reference
         self.references_config = None
@@ -67,7 +64,6 @@ class ManufLine:
         self.operators_assignement = operators_assignement
         self.robot = None # Nonsense. To change.
         self.robots_list = []
-        self.n_robots = 1
         self.robot_strategy = 0
         self.reset_shift_bool = False
         self.local = True
@@ -354,7 +350,7 @@ class ManufLine:
         self.n_repairmen = int(configuration["n_repairmen"])
         self.repairmen = simpy.PreemptiveResource(self.env, capacity=int(configuration["n_repairmen"]))
 
-        self.n_robots = float(configuration["n_robots"])
+        self.enable_robots = configuration['enable_robots']
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.robot_strategy = int(available_strategies.index(configuration["strategy"]))
 
@@ -603,17 +599,26 @@ class ManufLine:
                     machine_indices[n_machine - 1].append(index)
 
         # Create robots ONLY IF all cells "Robot Transport Time IN" and "Robot Assignment" are not NaN (empty)
-        all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
-        all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
+        # all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
+        # all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
+        ordered_unique_robots = []
+        for raw_name in [machine_config[9] for machine_config in list_machines_config]:
+            if raw_name not in ordered_unique_robots:
+                ordered_unique_robots.append(raw_name)
 
         self.robots_list = []
-        if all_robots_time_defined and all_robots_assigned:
-            for i in range(int(max([list_machines_config[j][9] for j in  range(len(list_machines_config))]))):
+        if self.enable_robots:
+            for raw_name in ordered_unique_robots:
+                # Prevent robots from having a number as its name (causes trouble for plotting graph)
+                try:
+                    robot_name = f"Robot n°{int(raw_name)}"
+                except:
+                    robot_name = raw_name
+                self.robot = Robot(robot_name, self, self.env)
+
                 # Order machines assigned to the robot and their related transport time
-                self.robot = Robot(self, self.env)
-                # print("Order inside = ", [list_machines_config[j][11]  for j in range(len(list_machines_config)) if list_machines_config[j][11] == int(i+1)])
-                self.robot.order = [list_machines_config[j][8] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
-                self.robot.in_transport_times = [list_machines_config[j][7] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
+                self.robot.order = [machine_config[8] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
+                self.robot.in_transport_times = [machine_config[7] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
                 self.robots_list.append(self.robot)
         
         # Store order and robot trnasport times
@@ -646,7 +651,10 @@ class ManufLine:
             initial_buffer = int(machine_config[4])
 
             # Allow filling the central storage 
-            fill_central_storage = machine_config[13]
+            try:
+                fill_central_storage = machine_config[13]
+            except:
+                fill_central_storage = False
 
             # TODO : set the operating time of each machine here given the different references in input 
 
@@ -699,11 +707,11 @@ class ManufLine:
             if machine.first:
                 machine.previous_machine = self.supermarket_in
                 machine.previous_machines.append(self.supermarket_in)
+        
 
             if machine.last:
                 machine.next_machine = self.shop_stock_out
                 machine.next_machines.append(self.shop_stock_out)
-
             try:
                 # If there is a robot, store the time required to move
                 if len(self.robots_list) > 0:
@@ -794,7 +802,6 @@ class Machine:
         self.waiting_time = [0, 0] #Stavation # Blockage
         self.waiting_time_rl = 0 #real time waiting time
         self.operating = False
-        self.identical_machines = []
         self.move_robot_time = 0
         self.same_machine = None
         self.ref_produced = []
@@ -1017,8 +1024,13 @@ class Machine:
                     self.operating = False
             
             # Do not process if there is already a process ongoing
+            # entry_op = self.env.now
             if other_process_operating:
-                continue
+                while self.same_machine.operating:
+                    yield self.env.timeout(1)
+            
+            #self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_op]
+
             
             #TODO: Skip robot when part not processed in the machine
 
@@ -1108,8 +1120,9 @@ class Robot:
     """
     Transport Robot between machines
     """
-    def __init__(self, manuf_line, env, maxlimit=1):
+    def __init__(self, id, manuf_line, env, maxlimit=1):
         # self.assigned_machines = assigned_machines
+        self.ID = id
         self.busy = False
         self.manuf_line = manuf_line
         self.env = env
