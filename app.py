@@ -303,7 +303,6 @@ class PRODynamicsApp:
                             for dest in destinations:
                                 graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                         except:
-                            print(origin + " " + destination)
                             graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
                     # Plot
@@ -411,7 +410,6 @@ class PRODynamicsApp:
                     for dest in destinations:
                         graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                 except:
-                    print(origin + " " + destination)
                     graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
             # Plot
