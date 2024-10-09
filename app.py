@@ -313,7 +313,7 @@ class PRODynamicsApp:
             st.subheader("Product Reference Data")
             uploaded_file_line_data_ref = st.file_uploader("Upload Product Reference Data", type=[ "csv", "xlsx", "xls"], key="upload_refs")
             if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
+                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic", key="ref_data_edit")
                 
             # Save button
             if st.button("Save", key="ref_data_save"):
@@ -1197,7 +1197,7 @@ class PRODynamicsApp:
                 'EOL3': (4, 10)}
 
                 
-                self.save_global_settings(self.manuf_line)
+                # self.save_global_settings(self.manuf_line)
                 self.manuf_line.sim_time = 3600*24
                 st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
                 self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
@@ -1205,6 +1205,8 @@ class PRODynamicsApp:
                 self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
                 self.all_prepared = True
                 st.session_state.configuration["central_storage_enable"] = False
+
+                self.manuf_line.dev_mode = False
                 self.run_simulation(self.manuf_line)
 
                 

@@ -13,7 +13,7 @@ import sys
 
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='example.log', level=logging.DEBUG)
+#logging.basicConfig(filename='example.log', level=logging.DEBUG)
 
 
 
@@ -21,10 +21,6 @@ class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
         """
-        -- operators_assignement = [[1,2], [3], [4]] => 3 operators: first one operates on machine 1 and machine 2,
-            second one operates on machine 3 and third one operates on machine 4.
-
-        -- tasks_assignement = [1, 1, 2, 3, 3, 4, 4, 4 ....]
 
          """
         try:
@@ -646,7 +642,10 @@ class ManufLine:
             initial_buffer = int(machine_config[4])
 
             # Allow filling the central storage 
-            fill_central_storage = machine_config[13]
+            try:
+                fill_central_storage = machine_config[13]
+            except:
+                fill_central_storage = False
 
             # TODO : set the operating time of each machine here given the different references in input 
 
@@ -699,10 +698,14 @@ class ManufLine:
             if machine.first:
                 machine.previous_machine = self.supermarket_in
                 machine.previous_machines.append(self.supermarket_in)
+                if len(self.robots_list) == 0 or not machine.has_robot:
+                    machine.buffer_in = self.supermarket_in
 
             if machine.last:
                 machine.next_machine = self.shop_stock_out
                 machine.next_machines.append(self.shop_stock_out)
+                if len(self.robots_list) == 0 or not machine.has_robot:
+                    machine.buffer_in = self.shop_stock_out
 
             try:
                 # If there is a robot, store the time required to move
