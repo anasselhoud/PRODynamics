@@ -20,13 +20,6 @@ st.set_page_config(page_title="PRODynamics", page_icon="⚙️", layout="wide")
 #st.image('surviz_black_long.png')
 
 
- 
-# if selected == "Simulation & Results":
-#     with st.spinner(text='In progress'):
-#         time.sleep(3)
-#         st.success('Done')
-# if selected == "Contact":
-#     st.subheader(f"**You Have selected {selected}**")
 
 
 class PRODynamicsApp:
@@ -43,7 +36,7 @@ class PRODynamicsApp:
                 "enable_robots": True,
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
-                "dev_mode":True,
+                "dev_mode":False,
                 "stock_capacity": "1",
                 "safety_stock": "1",
                 "n_repairmen": 3,
@@ -274,18 +267,23 @@ class PRODynamicsApp:
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             
             # Save button
-            if st.button("Save", key="line_data_save"):
+            if st.button("Save Data", key="line_data_save"):
                 st.session_state.line_data = line_data_editor.copy()
                 st.rerun()
 
             # Graph display
-            display_btn = st.button("Display manufactoring line")
+            display_btn = st.button("Display the line")
 
             with st.columns([0.1, 0.8, 0.1])[1]:
                 if display_btn:
                     graph = graphviz.Digraph()
                     graph.attr(rankdir='LR')
-                    # graph.attr(bgcolor='transparent')
+
+                    #TODO: find a way to check if the dark mode is activated (change main color based on that)
+                    main_color = "white"
+
+                    #graph.attr(bgcolor='black')
+                    graph.attr(bgcolor='transparent')
 
                     # Legend for central storage
                     if st.session_state.configuration["central_storage_enable"]:
@@ -294,20 +292,22 @@ class PRODynamicsApp:
                     # Generate nodes, and colour machines linked to the central storage
                     for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
                         if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
-                            graph.node(machine, style='filled', fillcolor='#77B5FE')
+                            graph.node(machine, style='filled', fillcolor='#77B5FE',color=main_color, fontcolor=main_color)
                         else:
-                            graph.node(machine)
+                            graph.node(machine, color=main_color, fontcolor=main_color)
 
                     # Generate the edges origin -> destination
                     for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                         try:
                             destinations = eval(destination)
                             for dest in destinations:
-                                graph.edge(origin, dest)
+                                graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                         except:
-                            graph.edge(origin, destination)
+                            print(origin + " " + destination)
+                            graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
                     # Plot
+                    graph.node("END", color=main_color, fontcolor=main_color)
                     st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
@@ -386,7 +386,12 @@ class PRODynamicsApp:
         with st.columns([0.2, 0.6, 0.2])[1]:
             graph = graphviz.Digraph()
             graph.attr(rankdir='LR')
-            # graph.attr(bgcolor='transparent')
+
+            #TODO: find a way to check if the dark mode is activated (change main color based on that)
+            main_color = "white"
+
+            #graph.attr(bgcolor='black')
+            graph.attr(bgcolor='transparent')
 
             # Legend for central storage
             if st.session_state.configuration["central_storage_enable"]:
@@ -395,20 +400,22 @@ class PRODynamicsApp:
             # Generate nodes, and colour machines linked to the central storage
             for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
                 if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
-                    graph.node(machine, style='filled', fillcolor='#77B5FE')
+                    graph.node(machine, style='filled', fillcolor='#77B5FE',color=main_color, fontcolor=main_color)
                 else:
-                    graph.node(machine)
+                    graph.node(machine, color=main_color, fontcolor=main_color)
 
             # Generate the edges origin -> destination
             for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                 try:
                     destinations = eval(destination)
                     for dest in destinations:
-                        graph.edge(origin, dest)
+                        graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                 except:
-                    graph.edge(origin, destination)
+                    print(origin + " " + destination)
+                    graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
             # Plot
+            graph.node("END", color=main_color, fontcolor=main_color)
             st.graphviz_chart(graph, use_container_width=True)
 
         st.markdown("""---""")
@@ -1064,7 +1071,7 @@ class PRODynamicsApp:
                 print("Machines = ", ressource_list[1])
                 print("Operators = ", operators_list[1])
 
-
+            self.my_bar_static_optim.empty()
             st.header("Results")
             col = st.columns(4, gap='medium')
             with col[0]:
@@ -1210,15 +1217,35 @@ class PRODynamicsApp:
 
                 
                 # self.save_global_settings(self.manuf_line)
-                self.manuf_line.sim_time = 3600*24
+                st.session_state.configuration = {
+                "sim_time": "3600*24*1",
+                "takt_time": str(target_CT),
+                "enable_robots": False,
+                "strategy": "Balanced Strategy",
+                "reset_shift": False,
+                "dev_mode":False,
+                "stock_capacity": "10000000",
+                "safety_stock": "1",
+                "n_repairmen": 3,
+                "enable_random_seed": True,
+                "enable_breakdowns": False,
+                "breakdown_dist_distribution": "Weibull Distribution",
+                "central_storage_enable": False,
+                "central_storage_ttr": {'front': 100, "back": 100},
+                }
+
                 st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
                 self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
                 self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+                self.manuf_line.save_global_settings(st.session_state.configuration, self.manuf_line.references_config, self.manuf_line.machine_config_data, buffer_sizes=[])
+
                 self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
                 self.all_prepared = True
                 st.session_state.configuration["central_storage_enable"] = False
+                st.session_state.configuration['enable_robots'] = False
 
                 self.manuf_line.dev_mode = False
+                
                 self.run_simulation(self.manuf_line)
 
                 

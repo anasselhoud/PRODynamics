@@ -707,15 +707,11 @@ class ManufLine:
             if machine.first:
                 machine.previous_machine = self.supermarket_in
                 machine.previous_machines.append(self.supermarket_in)
-                if len(self.robots_list) == 0 or not machine.has_robot:
-                    machine.buffer_in = self.supermarket_in
+        
 
             if machine.last:
                 machine.next_machine = self.shop_stock_out
                 machine.next_machines.append(self.shop_stock_out)
-                if len(self.robots_list) == 0 or not machine.has_robot:
-                    machine.buffer_in = self.shop_stock_out
-
             try:
                 # If there is a robot, store the time required to move
                 if len(self.robots_list) > 0:
@@ -806,7 +802,6 @@ class Machine:
         self.waiting_time = [0, 0] #Stavation # Blockage
         self.waiting_time_rl = 0 #real time waiting time
         self.operating = False
-        self.identical_machines = []
         self.move_robot_time = 0
         self.same_machine = None
         self.ref_produced = []
@@ -1029,8 +1024,13 @@ class Machine:
                     self.operating = False
             
             # Do not process if there is already a process ongoing
+            # entry_op = self.env.now
             if other_process_operating:
-                continue
+                while self.same_machine.operating:
+                    yield self.env.timeout(1)
+            
+            #self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_op]
+
             
             #TODO: Skip robot when part not processed in the machine
 

@@ -734,7 +734,7 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
     # Static values based on the image
     buffer_capacity = [1000] * len(all_stations)
     initial_buffer = [0] * len(all_stations)
-    mttf = ['3600*24*5'] * len(all_stations)
+    mttf = ['3600*24*1'] * len(all_stations)
     mttr = [3600] * len(all_stations)
     transport_time = [np.nan for i in range(len(all_stations))]
     transport_order = list(range(1, len(all_stations) + 1))
@@ -798,7 +798,7 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
     # Add Input row
     input_row = pd.DataFrame({
         'Machine': ['Input'],
-        'Ref A': ['1-2']
+        'Ref A': ['1500']
     })
     initial_stock = pd.DataFrame({
         'Machine': ['Initial stock'],
@@ -806,7 +806,7 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
     })
     refill_size = pd.DataFrame({
         'Machine': ['Refill size'],
-        'Ref A': ['1']
+        'Ref A': ['1500']
     })
     
     # Concatenate the Input row with the rest of the table
