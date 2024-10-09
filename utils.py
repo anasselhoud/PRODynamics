@@ -606,18 +606,23 @@ class ManufLine:
         # all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
         # all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
         ordered_unique_robots = []
-        for robot_name in [machine_config[9] for machine_config in list_machines_config]:
-            if robot_name not in ordered_unique_robots:
-                ordered_unique_robots.append(robot_name)
+        for raw_name in [machine_config[9] for machine_config in list_machines_config]:
+            if raw_name not in ordered_unique_robots:
+                ordered_unique_robots.append(raw_name)
 
         self.robots_list = []
         if self.enable_robots:
-            for robot_name in ordered_unique_robots:
-                # Order machines assigned to the robot and their related transport time
+            for raw_name in ordered_unique_robots:
+                # Prevent robots from having a number as its name (causes trouble for plotting graph)
+                try:
+                    robot_name = f"Robot n°{int(raw_name)}"
+                except:
+                    robot_name = raw_name
                 self.robot = Robot(robot_name, self, self.env)
-                # print("Order inside = ", [list_machines_config[j][11]  for j in range(len(list_machines_config)) if list_machines_config[j][11] == int(i+1)])
-                self.robot.order = [machine_config[8] for machine_config in list_machines_config if (machine_config[9] == robot_name)]
-                self.robot.in_transport_times = [machine_config[7] for machine_config in list_machines_config if (machine_config[9] == robot_name)]
+
+                # Order machines assigned to the robot and their related transport time
+                self.robot.order = [machine_config[8] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
+                self.robot.in_transport_times = [machine_config[7] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
                 self.robots_list.append(self.robot)
         
         # Store order and robot trnasport times

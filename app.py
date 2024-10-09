@@ -432,7 +432,7 @@ class PRODynamicsApp:
             if st.session_state.configuration['enable_robots']:
                 col_to_check = ["Transport Time", "Transport Order", "Transporter ID"]
                 for col in col_to_check:
-                    if any([True if isinstance(value, str) else np.isnan(value) for value in st.session_state.line_data[col].to_list()]):
+                    if any([False if isinstance(value, str) else np.isnan(value) for value in st.session_state.line_data[col].to_list()]):
                         st.error(f'You enabled robots but column "{col}" in "Process Data > Production Line Data" has an empty value. Please, either fill the value or disable robots before running again.', icon="🚨")
                         self.all_prepared = False
                         break
@@ -445,7 +445,7 @@ class PRODynamicsApp:
                     central_storage_config[side] = []
                     for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
                         central_storage_config[side].append({'allowed_ref': eval(allowed), 'capacity': capacity})
-                        
+
                 self.manuf_line.central_storage = CentralStorage(env, self.manuf_line, central_storage_config, st.session_state.configuration["central_storage_ttr"])
 
             if self.all_prepared:
