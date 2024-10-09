@@ -40,7 +40,7 @@ class PRODynamicsApp:
             st.session_state.configuration = {
                 "sim_time": "3600*24*7",
                 "takt_time": "10000",
-                "n_robots": 1,
+                "enable_robots": True,
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
                 "dev_mode":True,
@@ -94,7 +94,6 @@ class PRODynamicsApp:
                 st.header("Simulation Data")
                 st.session_state.configuration["sim_time"] = st.text_input("Simulation Time (s)", value=st.session_state.configuration.get("sim_time", "3600*24*7"))
                 st.session_state.configuration["takt_time"] = st.text_input("Expected Takt Time", value=st.session_state.configuration.get("takt_time", "10000"))
-                st.session_state.configuration["n_robots"] = st.number_input("Number of Handling Resources (Robots)", value=st.session_state.configuration.get("n_robots", 1))
                 st.session_state.configuration["strategy"] = st.selectbox("Load/Unload Strategy", ["Balanced Strategy", "Greedy Strategy"], index=0 if st.session_state.configuration.get("strategy") == "Balanced Strategy" else 1)
                 st.session_state.configuration["reset_shift"] = st.checkbox("Enable Shift Reseting", value=st.session_state.configuration.get("reset_shift", False))
                 st.session_state.configuration["dev_mode"] = st.checkbox("Enable developer mode (slow down !)", value=st.session_state.configuration.get("dev_mode", True))
@@ -269,6 +268,8 @@ class PRODynamicsApp:
         with tab1:
             st.subheader("Production Line Data")
 
+            st.session_state.configuration["enable_robots"] = st.toggle('Enable robots', value=st.session_state.configuration["enable_robots"], key='toggle_robots')
+
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             
@@ -372,7 +373,7 @@ class PRODynamicsApp:
             st.write("Number of Repairmen:", st.session_state.configuration["n_repairmen"])
             
         with column2:
-            st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
+            st.write("Number of Robots:", len(list(set(st.session_state.line_data["Transporter ID"].to_list()))))
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
             st.write("Central Storage:", st.session_state.configuration["central_storage_enable"])
         
@@ -414,6 +415,8 @@ class PRODynamicsApp:
 
         c1, c2 = st.columns(2)
         if st.button("Run Simulation"):
+            self.all_prepared = True
+
             env = simpy.Environment()
             tasks = []
 
@@ -425,6 +428,16 @@ class PRODynamicsApp:
             self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[])
             self.manuf_line.create_machines(line_data)
 
+            # Check robots data consistency  
+            if st.session_state.configuration['enable_robots']:
+                col_to_check = ["Transport Time", "Transport Order", "Transporter ID"]
+                for col in col_to_check:
+                    if any([False if isinstance(value, str) else np.isnan(value) for value in st.session_state.line_data[col].to_list()]):
+                        st.error(f'You enabled robots but column "{col}" in "Process Data > Production Line Data" has an empty value. Please, either fill the value or disable robots before running again.', icon="🚨")
+                        self.all_prepared = False
+                        break
+
+            # Set up the central storage
             if st.session_state.configuration["central_storage_enable"]:
                 # Turn pd.DataFrame into dict to 
                 central_storage_config = {}
@@ -433,11 +446,10 @@ class PRODynamicsApp:
                     for allowed, capacity in zip(st.session_state.central_storage[side]['Allowed references'].values, st.session_state.central_storage[side]['Capacity'].values):
                         central_storage_config[side].append({'allowed_ref': eval(allowed), 'capacity': capacity})
 
-                # Add the central storage to the manufactoring line
                 self.manuf_line.central_storage = CentralStorage(env, self.manuf_line, central_storage_config, st.session_state.configuration["central_storage_ttr"])
-        
-            self.all_prepared = True
-            self.run_simulation(self.manuf_line)
+
+            if self.all_prepared:
+                self.run_simulation(self.manuf_line)
             # simulation_thread = threading.Thread(target=self.run_simulation, args=(self.manuf_line,))
             # simulation_thread.start()
 
@@ -459,7 +471,7 @@ class PRODynamicsApp:
             st.write("Number of Repairmen:", st.session_state.configuration["n_repairmen"])
             
         with column2:
-            st.write("Number of Handlers:", st.session_state.configuration["n_robots"])
+            st.write("Number of Robots:", len(list(set(st.session_state.line_data["Transporter ID"].to_list()))))
             st.write("Handling Strategy:", st.session_state.configuration["strategy"].replace(" Strategy", ""))
         
         with column4:
@@ -866,9 +878,9 @@ class PRODynamicsApp:
             # Calculate machine efficiency rate, machine available percentage, breakdown percentage, and waiting time percentage
             waiting_times_robots = [100*r.waiting_time / manuf_line.sim_time for r in manuf_line.robots_list]
             operating_times_robots = [100 - waiting for waiting in waiting_times_robots]
-            
+
             chart_data = {
-                "Robot": [str(i+1) for i in range(len(waiting_times_robots))],
+                "Robot": [robot.ID for robot in manuf_line.robots_list],
                 "Operating": operating_times_robots,
                 "Waiting": waiting_times_robots,
             }
