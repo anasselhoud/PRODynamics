@@ -51,6 +51,7 @@ class ManufLine:
         self.safety_stock = 0
         self.refill_time = None
         self.reset_shift_dec = False
+        self.enable_robots = True
 
         ### Multi reference
         self.references_config = None
@@ -67,7 +68,6 @@ class ManufLine:
         self.operators_assignement = operators_assignement
         self.robot = None # Nonsense. To change.
         self.robots_list = []
-        self.n_robots = 1
         self.robot_strategy = 0
         self.reset_shift_bool = False
         self.local = True
@@ -354,7 +354,7 @@ class ManufLine:
         self.n_repairmen = int(configuration["n_repairmen"])
         self.repairmen = simpy.PreemptiveResource(self.env, capacity=int(configuration["n_repairmen"]))
 
-        self.n_robots = float(configuration["n_robots"])
+        self.enable_robots = configuration['enable_robots']
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.robot_strategy = int(available_strategies.index(configuration["strategy"]))
 
@@ -603,17 +603,26 @@ class ManufLine:
                     machine_indices[n_machine - 1].append(index)
 
         # Create robots ONLY IF all cells "Robot Transport Time IN" and "Robot Assignment" are not NaN (empty)
-        all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
-        all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
+        # all_robots_time_defined = all([not np.isnan(list_machines_config[i][7]) for i in range(len(list_machines_config))])
+        # all_robots_assigned = all([not np.isnan(list_machines_config[i][9]) for i in range(len(list_machines_config))]) # Conditions required ? 
+        ordered_unique_robots = []
+        for raw_name in [machine_config[9] for machine_config in list_machines_config]:
+            if raw_name not in ordered_unique_robots:
+                ordered_unique_robots.append(raw_name)
 
         self.robots_list = []
-        if all_robots_time_defined and all_robots_assigned:
-            for i in range(int(max([list_machines_config[j][9] for j in  range(len(list_machines_config))]))):
+        if self.enable_robots:
+            for raw_name in ordered_unique_robots:
+                # Prevent robots from having a number as its name (causes trouble for plotting graph)
+                try:
+                    robot_name = f"Robot n°{int(raw_name)}"
+                except:
+                    robot_name = raw_name
+                self.robot = Robot(robot_name, self, self.env)
+
                 # Order machines assigned to the robot and their related transport time
-                self.robot = Robot(self, self.env)
-                # print("Order inside = ", [list_machines_config[j][11]  for j in range(len(list_machines_config)) if list_machines_config[j][11] == int(i+1)])
-                self.robot.order = [list_machines_config[j][8] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
-                self.robot.in_transport_times = [list_machines_config[j][7] for j in range(len(list_machines_config)) if (list_machines_config[j][9] == int(i+1))]
+                self.robot.order = [machine_config[8] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
+                self.robot.in_transport_times = [machine_config[7] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
                 self.robots_list.append(self.robot)
         
         # Store order and robot trnasport times
@@ -1108,8 +1117,9 @@ class Robot:
     """
     Transport Robot between machines
     """
-    def __init__(self, manuf_line, env, maxlimit=1):
+    def __init__(self, id, manuf_line, env, maxlimit=1):
         # self.assigned_machines = assigned_machines
+        self.ID = id
         self.busy = False
         self.manuf_line = manuf_line
         self.env = env
