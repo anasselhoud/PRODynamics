@@ -86,6 +86,7 @@ class ManufLine:
         self.expected_refill_time = None
 
         self.central_storage = None
+        self.cs_track = {}
 
     def get_index_of_item(self, list_of_lists, item):
         for index, sublist in enumerate(list_of_lists):
@@ -381,6 +382,11 @@ class ManufLine:
         if buffer_sizes:
             for i in range(len(self.machine_config_data)):
                 self.machine_config_data[i][3] = buffer_sizes[i]
+
+        # Initialize central storage tracking
+        now = self.env.now
+        for ref in self.references_config.keys():
+            self.cs_track[ref] = [[now, 0]]
 
     # Unused (Commented in "run action" button of the app)
     def initialize(self):
@@ -1155,7 +1161,7 @@ class Robot:
             return
 
         # Transport between two machines
-        if isinstance(from_entity, Machine) and isinstance(to_entity, Machine):
+        if isinstance(from_entity, Machine) and isinstance(to_entity, Machine) and not to_central_storage and not from_central_storage:
             if self.manuf_line.dev_mode:
                 print("Transporting from " + from_entity.ID + " to " + to_entity.ID +" at time = " + str(self.env.now) )
             
@@ -1274,6 +1280,15 @@ class Robot:
             self.manuf_line.central_storage.put(ref_data={'name': product, 'route': (from_entity, to_entity), 'status': 'OK'})
             self.waiting_time += self.env.now-entry_2
             self.busy = False 
+
+            # Tracking
+            now = self.env.now
+            for ref in self.manuf_line.cs_track:
+                self.manuf_line.cs_track[ref].append([now, self.manuf_line.cs_track[ref][-1][1]])
+                if ref == product:
+                    self.manuf_line.cs_track[ref][-1][1] += 1
+            
+            self.manuf_line.track_sim((from_entity.Name, "CentralStorage", self.env.now))
             
             yield self.env.timeout(0)
 
@@ -1313,6 +1328,15 @@ class Robot:
             self.manuf_line.track_sim(("CentralStorage", to_entity.Name, self.env.now))
             self.busy = False
 
+            # Tracking
+            now = self.env.now
+            for ref in self.manuf_line.cs_track:
+                self.manuf_line.cs_track[ref].append([now, self.manuf_line.cs_track[ref][-1][1]])
+                if ref == product['name']:
+                    self.manuf_line.cs_track[ref][-1][1] -= 1
+            
+            self.manuf_line.track_sim(("CentralStorage", to_entity.Name, self.env.now))
+            
             yield self.env.timeout(0)
             
         # Transport from a machine to shop stock 
@@ -1372,6 +1396,13 @@ class Robot:
             self.waiting_time += self.env.now-entry_2
             self.busy = False 
 
+            # Tracking
+            now = self.env.now
+            for ref in self.manuf_line.cs_track:
+                self.manuf_line.cs_track[ref].append([now, self.manuf_line.cs_track[ref][-1][1]])
+                if ref == product['name']:
+                    self.manuf_line.cs_track[ref][-1][1] -= 1
+            
             self.manuf_line.track_sim(("CentralStorage", "OutputStock", self.env.now))
             yield self.env.timeout(0)
 
