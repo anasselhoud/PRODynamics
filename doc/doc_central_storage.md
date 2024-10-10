@@ -8,9 +8,8 @@ In the real world, the storage is **divided into two** physically different stor
 For instance, the **first storage** can own two sections : the first one allowing 330 small-sized while the second one allows 25 products that can be either small or large. 
 
 
-## Python structure
+## Python attributes
 
-### Attributes
 ```python
 self.ID = 'Central Storage'
 self.env # simpy.Environment
@@ -20,6 +19,7 @@ self.times_to_reach # Time to go to each storage (supposed different)
 
 self.available_stored_by_ref = # Count the number of each reference in the storage
 self.available_spots_by_ref = # Count the number of available spots for each reference
+self.available_routes # Holds all (origin, destination) pairs of stored items
 
 self.stores # Holds the items
 ```
@@ -72,30 +72,44 @@ In order to have **additional useful details** about the added products, items s
 ```python
 {
     'name': 'Ref A', # Name of the reference
-    'origin': MachineObject, # Machine from which the product comes from
+    'route': (OriginEntity, DestinationEntity), # Origin and destination of the item before being sent to the central storage
     'status' : 'OK' # Not used yet.
 }
 ```
 
-### Methods
+## Python methods
 
-4 main methods have been implemented so far. They take advantage of the `simpy.FilterStore` structure in order to **check** if reference can be either put or gotten, then **put or get** one.
+### Input flow
+2  methods have been implemented to fill the central storage when required. 
+- One takes advantage of the `simpy.FilterStore` structure in order to **check if there is an available spot** in the storage for a specified reference according to the different blocks. **Only the reference name** is required.
+- The second **puts** the reference in the storage. In this case, **additional data must be provided** on top of the reference name, as detailed above.
 
  ```python
 def available_spot(self, ref_name=None) -> bool:
     """Check if there is an available spot."""
 
+def put(self, ref_data):
+    """Try to put a reference in the storage determined by the strategy of the central storage."""
+ ```
+
+### Output flow
+2  methods have been implemented to empty the central storage when required. 
+- One takes advantage of the additional data stored about the items in order to **check if there is a reference with the same route** as in parameter. 
+- The second **gets** the reference in the storage **based on its stored destination**. This is quite helpful to handle the transport when an item is sent back to the manufacturing line.
+
+```python
+ def available_ref_by_route(self, origin, destination) -> bool:
+    """Check if there is an available reference with the same route (origin, destination)."""
+
+def get_by_destination(self, destination):
+    """Try to get a reference in the storage based on its route destination."""
+```
+
+### Unused yet
+```python
 def available_ref(self, ref_name=None) -> bool:
     """Check if there is an available reference."""
 
-def put(self, ref_data):
-    """Try to put a reference in the storage determined by the strategy of the central storage."""
-
 def get(self, ref_name=None):
     """Try to get a reference in the storage determined by the strategy of the central storage."""
- ```
-
- - Except from `put()` where the whole item dictionnary is required, other methods **only require the reference name** (or None when there are no restrictions).
- - `available_ref()` takes advantage of the attribute `self.available_stored_by_ref` to quickly return `True` or `False`. The attribute is constantly increased and decreased each time either `put()` or `get()` is used. 
- - Same goes for `available_spot()` with `self.available_spots_by_ref`.
-
+```
