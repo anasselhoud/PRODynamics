@@ -159,6 +159,12 @@ class QLearning:
         if num_workstations % 2 != 0:
             # Rebalance tasks to adjust for new number of workstations
             num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations)*self.target / (num_workstations+1))
+
+            if num_workstations % 2 != 0:
+              # Rebalance tasks to adjust for new number of workstations
+              num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations+1)*self.target / (num_workstations))
+
+          
         return num_workstations, ct_WS, tasks_WS
 
     def objectiveR2(self):
@@ -172,7 +178,7 @@ class QLearning:
             n, CTs, _ = self.get_nworkstations()
             m, CTsWorkers = self.estimate_WC()
 
-            cost_empty_workstation = -10 if n % 2 == 0 else 10
+            cost_empty_workstation = -100 if n % 2 == 0 else 1000
             reward = -n * np.var(CTs) - m * np.var(CTsWorkers) - cost_empty_workstation
         else:
             reward = -100000  # Sequence infeasible
@@ -710,14 +716,15 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
 
 
     # Base data for machines
-    machines = [f'M{i}' for i in range(1, len(machines_CT) + 1)]
-    
+    machines = [f'S{i}' for i in range(1, len(machines_CT) + 1)]
+
     # Base data for EOL stations
     eol_stations = [f'EOL{i}' for i in range(1, len(EOL_stations_CT) + 1)]
+
     
     # Combine both lists to form the final list of all stations
     all_stations = machines + eol_stations
-    
+
     # Linear links for machines, each machine points to the next one
     links = [f'[\"{machines[i+1]}\"]' if i < len(machines) - 1 else f'[\"{eol_stations[0]}\"]' for i in range(len(machines))]
     
@@ -767,7 +774,13 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
         else:
             operator_id.append(0)  # default operator ID
             manual_time.append(0)  # default manual time
-    
+
+    operator_list = [assignment[0] for assignment in manu_op_assignments.values()]  # Extract operator IDs
+    manual_time_list = [assignment[1] for assignment in manu_op_assignments.values()]  # Extract manual times
+
+    print("len ops = ", len(operator_list))
+    print("len ops 2 = ", len(manual_time_list))
+
     # Create the DataFrame
     assembly_line = pd.DataFrame({
         'Machine': all_stations,
@@ -780,8 +793,8 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
         'Transport Time': transport_time,
         'Transport Order': transport_order,
         'Transporter ID': transporter_id,
-        'Operator ID': operator_id,
-        'Manual Time': manual_time,
+        'Operator ID': operator_list,
+        'Manual Time': manual_time_list,
         'Identical Station': identical_station,
         'Fill central storage':fill_central_storage
     })
@@ -898,3 +911,9 @@ def parts_to_workstation(mbom_data, parts_data, best_solution):
 
 #   return stations, workstations
 
+def generate_station_ids(num_machines):
+    stations = []
+    for i in range(1, num_machines + 1):
+        stations.append(f"M{i}-S1")  # Station S1 for Machine i
+        stations.append(f"M{i}-S2")  # Station S2 for Machine i
+    return stations
