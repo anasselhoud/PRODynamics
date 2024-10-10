@@ -1132,9 +1132,13 @@ class Robot:
         self.entities_order = None
         self.loadunload_time = 50
             
-    def transport(self, from_entity, to_entity):
+    def transport(self, from_entity, to_entity, to_central_storage=False, from_central_storage=False):
         """
         Handle transport between two entities, update storages. Cancel the transport when breakdowns appear.
+
+        Parameters:
+         - to_central_storage : True when a product must be sent to the central storage. 'to_entity' is still required for route traceability.
+         - from_central_storage : True when a product must be taken from the central storage and sent to 'to_entity'. 'from_entity' is still required for route traceability.
 
         TODO: Fix the problem of the robot not being able to transport from a machine to another after shift reset
               Do we need shift reset of buffers ?
@@ -1203,7 +1207,7 @@ class Robot:
             yield self.env.timeout(0)
 
         # Transport from supermarket to a machine
-        elif isinstance(from_entity, simpy.Store) and isinstance(to_entity, Machine):
+        elif isinstance(from_entity, simpy.Store) and isinstance(to_entity, Machine) and not to_central_storage and not from_central_storage:
             if self.manuf_line.dev_mode:
                 print("Transporting from " + str(from_entity) + " to " + to_entity.ID + " at time = " + str(self.env.now))
 
@@ -1252,9 +1256,9 @@ class Robot:
             yield self.env.timeout(0) 
 
         # Transport from a machine to the central storage
-        elif isinstance(from_entity, Machine) and isinstance(to_entity, CentralStorage):
+        elif isinstance(from_entity, Machine) and isinstance(to_entity, Machine) and to_central_storage and not from_central_storage:
             if self.manuf_line.dev_mode:
-                print("Transporting from " + from_entity.ID + " to " + to_entity.ID + " at time = " + str(self.env.now))
+                print("Transporting from " + from_entity.ID + " to central storage at time = " + str(self.env.now))
             entry = self.env.now
             self.busy = True
 
@@ -1263,19 +1267,56 @@ class Robot:
 
             # Move robot and unload / load
             self.waiting_time += self.env.now-entry
-            yield self.env.timeout(abs(max(to_entity.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
+            yield self.env.timeout(abs(max(self.manuf_line.central_storage.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
             entry_2 = self.env.now
     
-            # Wait for a spot in the input buffer of 'to_entity' and update storage
             # TODO : Status OK so far.
-            to_entity.put(ref_data={'name': product, 'origin': from_entity, 'status': 'OK'})
+            self.manuf_line.central_storage.put(ref_data={'name': product, 'route': (from_entity, to_entity), 'status': 'OK'})
             self.waiting_time += self.env.now-entry_2
-            # self.manuf_line.track_sim((from_entity.Name, "OutputStock", self.env.now))
             self.busy = False 
+            
             yield self.env.timeout(0)
 
+        # Transport from the central storage to a machine
+        elif isinstance(from_entity, Machine) and isinstance(to_entity, Machine) and not to_central_storage and from_central_storage:
+            if self.manuf_line.dev_mode:
+                print("Transporting from central storage to " + to_entity.ID + " at time = " + str(self.env.now))
+
+            self.busy = True
+            # Wait the time to go to the central storage
+            yield self.env.timeout(abs(max(self.manuf_line.central_storage.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
+
+            entry = self.env.now
+
+            # Get the available product 
+            product = self.manuf_line.central_storage.get_by_destination(to_entity)
+            
+            # Move robot and unload / load
+            self.waiting_time += self.env.now-entry
+            yield self.env.timeout(abs(to_entity.move_robot_time - max(self.manuf_line.central_storage.times_to_reach))+self.loadunload_time)
+    
+            # Wait for a spot in the input buffer of 'to_entity' 
+            entry_2 = self.env.now
+            while len(to_entity.buffer_in.items) >= to_entity.buffer_in.capacity:
+                yield self.env.timeout(10)
+
+                # Skip transport if the machine to deliver is broken 
+                if to_entity.broken:
+                    yield self.env.timeout(abs(to_entity.move_robot_time - max(self.manuf_line.central_storage.times_to_reach))+self.loadunload_time)
+                    yield self.manuf_line.central_storage.put(product)
+                    self.busy = False
+                    return 
+
+            # Update buffer and store now that the transport is complete
+            yield to_entity.buffer_in.put(product['name'])
+            self.waiting_time += self.env.now-entry_2
+            self.manuf_line.track_sim(("CentralStorage", to_entity.Name, self.env.now))
+            self.busy = False
+
+            yield self.env.timeout(0)
+            
         # Transport from a machine to shop stock 
-        elif isinstance(from_entity, Machine) and  isinstance(to_entity, simpy.Store):
+        elif isinstance(from_entity, Machine) and  isinstance(to_entity, simpy.Store) and not to_central_storage and not from_central_storage:
             if self.manuf_line.dev_mode:
                 print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
 
@@ -1305,6 +1346,33 @@ class Robot:
             self.waiting_time += self.env.now-entry_2
             self.manuf_line.track_sim((from_entity.Name, "OutputStock", self.env.now))
             self.busy = False 
+            yield self.env.timeout(0)
+
+        # Transport from the central storage to shop stock
+        elif isinstance(from_entity, Machine) and isinstance(to_entity, simpy.Store) and not to_central_storage and from_central_storage:
+            if self.manuf_line.dev_mode:
+                print("Transporting from " + from_entity.ID + " to " + str(to_entity) + " at time = " + str(self.env.now))
+
+            self.busy = True
+            # Wait the time to go to the central storage
+            yield self.env.timeout(abs(max(self.manuf_line.central_storage.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
+
+            entry = self.env.now
+            # Get the available product 
+            product = self.manuf_line.central_storage.get_by_destination(to_entity)
+
+            # Move robot and unload / load
+            self.waiting_time += self.env.now-entry
+            yield self.env.timeout(max(self.manuf_line.central_storage.times_to_reach)+self.loadunload_time)
+            entry_2 = self.env.now
+    
+            # Wait for a spot in the input buffer of 'to_entity' and update storage
+            # TODO : Status OK so far.
+            yield to_entity.put(product['name'])
+            self.waiting_time += self.env.now-entry_2
+            self.busy = False 
+
+            self.manuf_line.track_sim(("CentralStorage", "OutputStock", self.env.now))
             yield self.env.timeout(0)
 
     def which_machine_to_feed(self, current_machine):
@@ -1347,7 +1415,7 @@ class Robot:
             # Greedy-like strategy : focus on the machine that has the most space in input
             elif self.manuf_line.robot_strategy == 1:
                 # Select the machine that has the fewest items in its input buffer
-                buffers_level = [len(m.buffer_in.items) if isinstance(m, Machine) else m.level for m in first_machines]
+                buffers_level = [len(m.buffer_in.items) for m in first_machines]
                 next_machine = first_machines[buffers_level.index(min(buffers_level))]
 
                 # Feed to a future machine if the next one takes 0 time to process (convention to skip machine connections)
@@ -1379,7 +1447,7 @@ class Robot:
             
             # Greedy-like strategy : focus on the machine that has the most space in input
             elif self.manuf_line.robot_strategy == 1:
-                buffers_level = [len(m.buffer_in.items) if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
+                buffers_level = [len(m.buffer_in.items) for m in current_machine.next_machines]
                 next_machine = current_machine.next_machines[buffers_level.index(min(buffers_level))]
                 # if float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(current_machine)+3]) ==0:
                 #     return self.which_machine_to_feed(current_machine)
@@ -1388,7 +1456,7 @@ class Robot:
         
             # Unused ? 
             elif self.manuf_line.robot_strategy == 2:
-                empty_buffers_machines = [m.loaded if isinstance(m, Machine) else m.level for m in current_machine.next_machines]
+                empty_buffers_machines = [m.loaded for m in current_machine.next_machines]
                 next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
                 # if float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(current_machine)+3]) ==0:
                 #     return self.which_machine_to_feed(current_machine)
@@ -1445,30 +1513,26 @@ class Robot:
 
                             # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
                             elif (self.manuf_line.central_storage is not None) and from_entity.fill_central_storage and (len(to_entity.buffer_in.items) == to_entity.buffer_in.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and (self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
-                                yield from self.transport(from_entity, self.manuf_line.central_storage)
+                                yield from self.transport(from_entity, to_entity, to_central_storage=True)
 
+                            # Origin machine broken, available space in destination machine, available piece in the central storage (= same origin and destination)
+                            elif (self.manuf_line.central_storage is not None) and from_entity.broken and len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity and self.manuf_line.central_storage.available_ref_by_route(from_entity, to_entity):
+                                    yield from self.transport(from_entity, to_entity, from_central_storage=True)
+
+                        # When feeding the shop stock 
                         except Exception as e:
-                            # When feeding the shop stock 
-                            try:
-                                # Available space in destination and available input
-                                if len(to_entity.items) < to_entity.capacity and len(from_entity.buffer_out.items) > 0:
-                                    yield from self.transport(from_entity, to_entity)
 
-                                # Available space in destination but no input, wait if it's under production
-                                elif len(to_entity.items) < to_entity.capacity and len(from_entity.buffer_out.items) == 0 and from_entity.operating:
-                                    yield from self.transport(from_entity, to_entity)
+                            # Available space in destination and available input
+                            if len(to_entity.items) < to_entity.capacity and len(from_entity.buffer_out.items) > 0:
+                                yield from self.transport(from_entity, to_entity)
 
-                                # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
-                                elif (self.manuf_line.central_storage is not None) and from_entity.fill_central_storage and (len(to_entity.items) == to_entity.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
-                                    yield from self.transport(from_entity, self.manuf_line.central_storage)
+                            # Available space in destination but no input, wait if it's under production
+                            elif len(to_entity.items) < to_entity.capacity and len(from_entity.buffer_out.items) == 0 and from_entity.operating:
+                                yield from self.transport(from_entity, to_entity)
 
-                            # Useless ?     
-                            except Exception as e2:
-                                if len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity and len(from_entity.buffer_out.items) > 0:
-                                    yield from self.transport(from_entity, to_entity)
-
-                                elif len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity and len(from_entity.buffer_out.items) == 0 and from_entity.operating:
-                                    yield from self.transport(from_entity, to_entity)
+                            # Feed the central storage if there is one, if the next entity has its input buffer full, if the current entity has its output buffer full, and if there is an available spot for the current reference in the central storage.
+                            elif (self.manuf_line.central_storage is not None) and from_entity.fill_central_storage and (len(to_entity.items) == to_entity.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and(self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
+                                yield from self.transport(from_entity, to_entity, to_central_storage=True)
 
             except simpy.Interrupt:
                 if self.manuf_line.dev_mode:
@@ -1512,7 +1576,7 @@ class Robot:
 
         elif self.manuf_line.robot_strategy == 1:
             if isinstance(current_machine, Machine):
-                full_buffers_machines = [len(m.buffer_out.items) if isinstance(m, Machine) else m.level for m in current_machine.previous_machines]
+                full_buffers_machines = [len(m.buffer_out.items) if isinstance(m, Machine) else float('inf') for m in current_machine.previous_machines]
                 previous_machine = current_machine.previous_machines[full_buffers_machines.index(max(full_buffers_machines))]
             else:
                 return True
@@ -1538,7 +1602,7 @@ class Robot:
 
         elif self.manuf_line.robot_strategy == 1:
             if isinstance(current_machine, Machine):
-                full_buffers_machines = [len(m.buffer_out.items) if isinstance(m, Machine) else m.level for m in current_machine.previous_machines]
+                full_buffers_machines = [len(m.buffer_out.items) if isinstance(m, Machine) else float('inf') for m in current_machine.previous_machines]
                 previous_machine = current_machine.previous_machines[full_buffers_machines.index(max(full_buffers_machines))]
             else:
                 return True
@@ -1778,7 +1842,7 @@ class CentralStorage:
 
             - where each simpy.FilterStore holds dictionnaries with 3 keys:
                 - name
-                - origin
+                - route  
                 - status           
 
         """
@@ -1791,6 +1855,7 @@ class CentralStorage:
 
         self.available_stored_by_ref = {ref: 0 for ref in self.all_allowed_references}
         self.available_spots_by_ref = {ref: 0 for ref in self.all_allowed_references}
+        self.available_routes = []
 
         # Build the stores and initialise counters for available spots
         for side in self.stores.keys():
@@ -1820,7 +1885,7 @@ class CentralStorage:
                 lines.append(f"references allowed: {block['allowed_ref']}")
                 lines.append(f"capacity : {block['store'].capacity}")
                 lines.append(f"level : {len(block['store'].items)}")
-                lines.append(f"items : {[(item['name'], item['origin'].ID, item['status']) for item in block['store'].items]}")
+                lines.append(f"items : {[(item['name'], (item['route'][0], item['route'][1]), item['status']) for item in block['store'].items]}")
                 lines.append('')
 
         return "\n".join(lines)
@@ -1891,13 +1956,25 @@ class CentralStorage:
                     print(f'There is NO available spot for reference "{ref_name}" in the central storage.')
 
             return is_ref_available
+        
+    def available_ref_by_route(self, origin, destination) -> bool:
+        """Check if there is an available reference with the same route (origin, destination)."""
+        is_available = ((origin, destination) in self.available_routes)
+        
+        if self.manuf_line.dev_mode :
+            if is_available:
+                print(f'There is an available reference for the specified route "{(origin, destination)}" in the central storage.')
+            else:
+                print(f'There is NO available reference for the specified route "{(origin, destination)}" in the central storage.')
+
+        return is_available
 
     def put(self, ref_data):
         """Try to put a reference in the storage determined by the strategy of the central storage.
         
         'ref_data' is a dictionnary that holds :
             - reference 'name' ('Ref A')
-            - reference 'origin' (from which entity ?)
+            - reference 'route' (tuple with origin and destination entities)
             - reference 'status' (OK / KO / test..)
 
         """
@@ -1916,9 +1993,11 @@ class CentralStorage:
                         if len(store.items) < store.capacity:
                             # Put the reference
                             if self.manuf_line.dev_mode:
-                                print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['origin']}" in the central storage.""")
+                                print(f"""Put the reference "{ref_data['name']}" with status "{ref_data['status']}" from entity "{ref_data['route'][0]}" and to entity "{ref_data['route'][1]}" in the central storage.""")
                             store.put(ref_data)
 
+                            # Add the reference route to the stored routes
+                            self.available_routes.append(ref_data['route'])
                             # Decrease the number of available spot
                             for ref_name in block['allowed_ref']:
                                 self.available_spots_by_ref[ref_name] -= 1
@@ -1951,6 +2030,8 @@ class CentralStorage:
                         if self.manuf_line.dev_mode:
                             print(f"""Got the first reference "{ref_got['name']}" in the central storage.""")
 
+                        # Remove the reference route to the stored routes
+                        self.available_routes.remove(ref_got['route'])
                         # Increase the number of available spots
                         for allowed_ref_name in block['allowed_ref']:
                             self.available_spots_by_ref[allowed_ref_name] += 1
@@ -1968,6 +2049,8 @@ class CentralStorage:
                                 if self.manuf_line.dev_mode:
                                     print(f"""Got the specified reference "{ref_got['name']}" in the central storage.""")
 
+                                # Remove the reference route to the stored routes
+                                self.available_routes.remove(ref_got['route'])
                                 # Increase the number of available spots
                                 for allowed_ref_name in block['allowed_ref']:
                                     self.available_spots_by_ref[allowed_ref_name] += 1
@@ -1977,7 +2060,37 @@ class CentralStorage:
                                 return ref_got
                             
         # Haven't found any reference to get
-        raise Exception(f"Tried to get the reference '{ref_name}' in the central storage but couldn't.")
+        raise Exception(f"Couldn't get the reference '{ref_name}' in the central storage.")
+    
+    def get_by_destination(self, destination):
+        """Try to get a reference in the storage based on its route destination."""
+
+        # Check if the strategy has been implemented.
+        if self.strategy not in ['stack']:
+            raise Exception(f'Strategy "{self.strategy}" is not yet implemented for the central storage.')
+
+        if self.strategy == 'stack':
+            for side in self.stores.keys():
+                for block in self.stores[side]:
+                    for ref_data in block['store'].items:
+                        if ref_data['route'][1] == destination:
+                            # Get the reference
+                            ref_got = block['store'].get(lambda x: x['route'][1]==destination).value
+                            if self.manuf_line.dev_mode:
+                                print(f"""Got the reference "{ref_got['name']}" with specified destination "{destination}" in the central storage.""")
+
+                            # Remove the reference route to the stored routes
+                            self.available_routes.remove(ref_got['route'])
+                            # Increase the number of available spots
+                            for allowed_ref_name in block['allowed_ref']:
+                                self.available_spots_by_ref[allowed_ref_name] += 1
+                            # Decrease the counter of stored references
+                            self.available_stored_by_ref[ref_got['name']] -= 1
+
+                            return ref_got
+                            
+        # Haven't found any reference to get
+        raise Exception(f"Couldn't get a reference with specified destination '{destination}' in the central storage.")
         
 
 def format_time(seconds, seconds_str=False):
