@@ -192,18 +192,18 @@ class QLearning:
             n_workers (int): Number of workers needed.
             ct_Workers (list): Cycle times for each worker.
         """
-        n_workers = 1
+        n_workers = 0
         total_ct = 0
         parts_done = []
         ct_Workers = []
 
         for i in self.solution:
             total_ct += sum([float(part.duration) for part in self.Tasks[i].parts if part not in parts_done])
-            total_ct += sum([3 for part in self.Tasks[i].parts if part in parts_done])  # Extra time for repeated parts
+            total_ct += sum([4 for part in self.Tasks[i].parts if part in parts_done])  # Extra time for repeated parts
 
             parts_done.extend(self.Tasks[i].parts)
 
-            if total_ct >= self.target:
+            if total_ct >= self.target*(1 + self.tolerance):
                 n_workers += 1
                 ct_Workers.append(total_ct)
                 total_ct = 0
@@ -211,7 +211,7 @@ class QLearning:
         if n_workers == 1:  # If only one worker, append the final cycle time
             ct_Workers.append(total_ct)
 
-        return n_workers, ct_Workers
+        return len(ct_Workers), ct_Workers
 
     def sequence_to_scenario(self, indiv):
       Tasks_ID = [task.id for task in self.Tasks]
@@ -833,83 +833,87 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
 
 
 def parts_to_workstation(mbom_data, parts_data, best_solution):
-  workstations = {}
+    workstations = {}
+    processed_parts = {}  # Dictionary to track where each part was last processed
 
-  # Iterate through the best_solution list and group tasks by workstation
-  for task_idx, workstation in enumerate(best_solution):
-      # Get the 'assy' column value from mbom_data for the current task
-      assy_parts = mbom_data.loc[task_idx, "assy"]
+    # Step 1: Group tasks by workstation
+    for task_idx, workstation in enumerate(best_solution):
+        # Get the 'assy' column value from mbom_data for the current task
+        assy_parts = mbom_data.loc[task_idx, "assy"]
 
-      # Split the 'assy' column by ';' to get individual part references
-      part_refs = assy_parts.split(';')
+        # Split the 'assy' column by ';' to get individual part references
+        part_refs = assy_parts.split(';')
 
-      # Add parts to the respective workstation in the dictionary
-      if workstation not in workstations:
-          workstations[workstation] = set()  # Use a set to avoid duplicates
+        # Add parts to the respective workstation in the dictionary
+        if workstation not in workstations:
+            workstations[workstation] = set()  # Use a set to avoid duplicates
 
-      # Iterate over the part references and add them to the workstation's set
-      for part_ref in part_refs:
-          workstations[workstation].add(part_ref)
+        updated_part_refs = []  # To store updated part references for this task
 
-  # Display the parts being assembled at each workstation:
-  for workstation, parts in workstations.items():
-      print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
+        # Iterate over the part references and check if they've been processed before
+        for part_ref in part_refs:
+            if part_ref in processed_parts:
+                # If the part has been processed before, replace it with "SubAssy X"
+                last_workstation = processed_parts[part_ref]
+                updated_part_refs.append(f"SubAssy {last_workstation}")
+            else:
+                # If the part is new, keep it and mark it as processed in the current workstation
+                updated_part_refs.append(part_ref)
+                processed_parts[part_ref] = workstation
 
-  return workstations
+            # Add the part to the current workstation's set
+            workstations[workstation].add(part_ref)
 
 
-# def parts_to_workstation_n(mbom_data, parts_data, best_solution):
-#   # Step 1: Group tasks by workstations
-#   workstations = {}
 
-#   for task_idx, workstation in enumerate(best_solution):
-#       # Get the task's duration and part reference
-#       task_duration = mbom_data.loc[task_idx, 'cycleTime']
+    # Display the parts being assembled at each workstation:
+    for workstation, parts in workstations.items():
+        print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
 
-#       # Add task duration to the corresponding workstation
-#       if workstation not in workstations:
-#           workstations[workstation] = {
-#               'tasks': [],
-#               'total_duration': 0
-#           }
+    return workstations
 
-#       # Append task to the workstation's list and sum the duration
-#       workstations[workstation]['tasks'].append(task_idx)
-#       workstations[workstation]['total_duration'] += task_duration
 
-#   # Step 2: Sort workstations by total duration (to balance the workload)
-#   workstation_items = sorted(workstations.items(), key=lambda x: x[1]['total_duration'], reverse=True)
+def parts_to_workstation(mbom_data, parts_data, best_solution):
+    workstations = {}  # To store parts by workstation
+    part_to_workstation = {}  # To track the last workstation where each part was assembled
 
-#   # Step 3: Create stations by merging workstations
-#   stations = []
-#   i = 0
+    # Iterate through the best_solution list and group tasks by workstation
+    for task_idx, workstation in enumerate(best_solution):
+        # Get the 'assy' column value from mbom_data for the current task
+        assy_parts = mbom_data.loc[task_idx, "assy"]
 
-#   # Keep merging workstations until we have an odd number of stations
-#   while len(workstation_items) + len(stations) % 2 == 0:
-#       # Take the workstation with the longest remaining duration
-#       ws1 = workstation_items[i]
-#       i += 1
+        # Split the 'assy' column by ';' to get individual part references
+        part_refs = assy_parts.split(';')
 
-#       # Try to pair it with the next workstation (smallest duration)
-#       ws2 = workstation_items[-1]
-#       workstation_items = workstation_items[:-1]  # Remove the last one
+        # Initialize the set for the workstation if it doesn't exist
+        if workstation not in workstations:
+            workstations[workstation] = set()  # Use a set to avoid duplicates
 
-#       # Merge the two into a single station (balanced workload)
-#       merged_station = {
-#           'workstations': [ws1[0], ws2[0]],
-#           'total_duration': ws1[1]['total_duration'] + ws2[1]['total_duration']
-#       }
-#       stations.append(merged_station)
+        # Iterate over the part references and add them to the workstation's set
+        for part_ref in part_refs:
+            # If the part has already been assembled in a previous workstation, skip the part
+            if part_ref in part_to_workstation:
+                # Determine the last workstation where this part was assembled
+                previous_workstation = part_to_workstation[part_ref]
 
-#   # Step 4: If there are remaining workstations, add them as single-workstation stations
-#   for ws in workstation_items[i:]:
-#       single_station = {
-#           'workstations': [ws[0]],
-#           'total_duration': ws[1]['total_duration']
-#       }
-#       stations.append(single_station)
+                # Add the corresponding sub-assembly instead of the individual part
+                subassy_label = f"SubAssy {previous_workstation}"
 
-#   return stations, workstations
+                # Replace individual parts with "SubAssy" if not already added
+                if subassy_label not in workstations[workstation]:
+                    workstations[workstation].add(subassy_label)
+
+            else:
+                # Add the part to the current workstation
+                workstations[workstation].add(part_ref)
+                # Track the workstation where this part is being assembled
+                part_to_workstation[part_ref] = workstation
+
+    # Display the parts being assembled at each workstation
+    for workstation, parts in workstations.items():
+        print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
+
+    return workstations
 
 def generate_station_ids(num_machines):
     stations = []
