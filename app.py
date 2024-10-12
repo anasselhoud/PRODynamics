@@ -1016,7 +1016,7 @@ class PRODynamicsApp:
                 st.session_state.mbom_data = st.session_state.mbom_data[columns_to_keep]
 
                 updated_df = st.data_editor(st.session_state.mbom_data, num_rows="dynamic", key="tasks_edit")
-                if not st.session_state.mbom_data.equals(updated_df):
+                if st.button("Save Data", key="static_data_save"):
                     st.session_state.mbom_data = updated_df.copy()
                     st.rerun()
 

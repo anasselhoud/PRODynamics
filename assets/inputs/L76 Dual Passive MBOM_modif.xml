@@ -66,31 +66,31 @@
    <weldings>
 <welding id="Task0001" cycleTime="4.95" weight="3394.928685" thumb="" name="4" length="NaN" type="1" forbidden="" assy="3899059;4300759" precedency="" />
 <welding id="Task0002" cycleTime="5.93" weight="431.3343334" thumb="" name="5" length="NaN" type="1" forbidden="" assy="3899059;4386844" precedency="Task0001" />
-<welding id="Task0003" cycleTime="4.95" weight="3240.8630184" thumb="" name="6" length="NaN" type="1" forbidden="" assy="4386844;4300759" precedency="Task0001;Task0002" />
-<welding id="Task0004" cycleTime="15.18" weight="704.2348647" thumb="" name="1" length="NaN" type="1" forbidden="" assy="2359825X;4296756" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0005" cycleTime="18.09" weight="1018.2348647" thumb="" name="2" length="NaN" type="1" forbidden="" assy="4296756;2239276X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0006" cycleTime="18.09" weight="3912.228685" thumb="" name="3" length="NaN" type="1" forbidden="" assy="2239276X;4300759" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0007" cycleTime="20.20" weight="8129" thumb="" name="8" length="NaN" type="1" forbidden="" assy="3653852;3871488" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0008" cycleTime="3.90" weight="2243.9738959" thumb="" name="32" length="NaN" type="1" forbidden="" assy="4386995;4606571" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0009" cycleTime="3.3" weight="329.95900822" thumb="" name="33" length="NaN" type="1" forbidden="" assy="4386995;4386994" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0010" cycleTime="2.7" weight="2037.98511232" thumb="" name="34" length="NaN" type="1" forbidden="" assy="4386994;4606571" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0011" cycleTime="18.68" weight="2172.5307344" thumb="" name="35" length="NaN" type="1" forbidden="" assy="4606571;4296752" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0012" cycleTime="16.58" weight="4062.228685" thumb="" name="36" length="NaN" type="1" forbidden="" assy="4300759;4010611" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0013" cycleTime="15.18" weight="8467" thumb="" name="37" length="NaN" type="1" forbidden="" assy="4010611;3871488" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0014" cycleTime="14.69" weight="9493.320679" thumb="" name="38" length="NaN" type="1" forbidden="" assy="4300335;4300334" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0015" cycleTime="4.58" weight="1604.320679" thumb="" name="39" length="NaN" type="1" forbidden="" assy="2092573X;4300334" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0016" cycleTime="2.85" weight="340" thumb="" name="40" length="NaN" type="1" forbidden="" assy="2092564X;2092573X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0017" cycleTime="3.08" weight="1464.320679" thumb="" name="41" length="NaN" type="1" forbidden="" assy="2092564X;4300334" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0018" cycleTime="4.58" weight="1574.320679" thumb="" name="42" length="NaN" type="1" forbidden="" assy="2092567X;4300334" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0019" cycleTime="2.33" weight="320" thumb="" name="43" length="NaN" type="1" forbidden="" assy="2092568X;2092567X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0020" cycleTime="3.15" weight="1474.320679" thumb="" name="44" length="NaN" type="1" forbidden="" assy="2092568X;4300334" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0021" cycleTime="18.29" weight="1924.320679" thumb="" name="45" length="NaN" type="1" forbidden="" assy="4300334;2057150X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0022" cycleTime="32.46" weight="560" thumb="" name="46" length="NaN" type="1" forbidden="" assy="2057151X;2057152X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0023" cycleTime="18.22" weight="752.8546088" thumb="" name="47" length="NaN" type="1" forbidden="" assy="2057150X;2245899X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0024" cycleTime="12.34" weight="423.9620948" thumb="" name="48" length="NaN" type="1" forbidden="" assy="2245899X;2241306X" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0025" cycleTime="14.81" weight="2536" thumb="" name="49" length="NaN" type="1" forbidden="" assy="2057150X;4606571" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0026" cycleTime="25.83" weight="2007" thumb="" name="50" length="NaN" type="1" forbidden="" assy="2407633X;4606571" precedency="Task0001;Task0002;Task0003" />
-<welding id="Task0027" cycleTime="19.43" weight="2007" thumb="" name="51" length="NaN" type="1" forbidden="" assy="2407633X;4606571" precedency="Task0001;Task0002;Task0003" />
+<welding id="Task0003" cycleTime="4.95" weight="3240.8630184" thumb="" name="6" length="NaN" type="1" forbidden="" assy="4386844;4300759" precedency="Task0001;Task0002;Task0003" />
+<welding id="Task0004" cycleTime="15.18" weight="704.2348647" thumb="" name="1" length="NaN" type="1" forbidden="" assy="2359825X;4296756" precedency="" />
+<welding id="Task0005" cycleTime="18.09" weight="1018.2348647" thumb="" name="2" length="NaN" type="1" forbidden="" assy="4296756;2239276X" precedency="" />
+<welding id="Task0006" cycleTime="18.09" weight="3912.228685" thumb="" name="3" length="NaN" type="1" forbidden="" assy="2239276X;4300759" precedency="" />
+<welding id="Task0007" cycleTime="20.20" weight="8129" thumb="" name="8" length="NaN" type="1" forbidden="" assy="3653852;3871488" precedency="" />
+<welding id="Task0008" cycleTime="3.90" weight="2243.9738959" thumb="" name="32" length="NaN" type="1" forbidden="" assy="4386995;4606571" precedency="" />
+<welding id="Task0009" cycleTime="3.3" weight="329.95900822" thumb="" name="33" length="NaN" type="1" forbidden="" assy="4386995;4386994" precedency="" />
+<welding id="Task0010" cycleTime="2.7" weight="2037.98511232" thumb="" name="34" length="NaN" type="1" forbidden="" assy="4386994;4606571" precedency="" />
+<welding id="Task0011" cycleTime="18.68" weight="2172.5307344" thumb="" name="35" length="NaN" type="1" forbidden="" assy="4606571;4296752" precedency="" />
+<welding id="Task0012" cycleTime="16.58" weight="4062.228685" thumb="" name="36" length="NaN" type="1" forbidden="" assy="4300759;4010611" precedency="" />
+<welding id="Task0013" cycleTime="15.18" weight="8467" thumb="" name="37" length="NaN" type="1" forbidden="" assy="4010611;3871488" precedency="" />
+<welding id="Task0014" cycleTime="14.69" weight="9493.320679" thumb="" name="38" length="NaN" type="1" forbidden="" assy="4300335;4300334" precedency="" />
+<welding id="Task0015" cycleTime="4.58" weight="1604.320679" thumb="" name="39" length="NaN" type="1" forbidden="" assy="2092573X;4300334" precedency="" />
+<welding id="Task0016" cycleTime="2.85" weight="340" thumb="" name="40" length="NaN" type="1" forbidden="" assy="2092564X;2092573X" precedency="" />
+<welding id="Task0017" cycleTime="3.08" weight="1464.320679" thumb="" name="41" length="NaN" type="1" forbidden="" assy="2092564X;4300334" precedency="" />
+<welding id="Task0018" cycleTime="4.58" weight="1574.320679" thumb="" name="42" length="NaN" type="1" forbidden="" assy="2092567X;4300334" precedency="" />
+<welding id="Task0019" cycleTime="2.33" weight="320" thumb="" name="43" length="NaN" type="1" forbidden="" assy="2092568X;2092567X" precedency="" />
+<welding id="Task0020" cycleTime="3.15" weight="1474.320679" thumb="" name="44" length="NaN" type="1" forbidden="" assy="2092568X;4300334" precedency="" />
+<welding id="Task0021" cycleTime="18.29" weight="1924.320679" thumb="" name="45" length="NaN" type="1" forbidden="" assy="4300334;2057150X" precedency="" />
+<welding id="Task0022" cycleTime="32.46" weight="560" thumb="" name="46" length="NaN" type="1" forbidden="" assy="2057151X;2057152X" precedency="" />
+<welding id="Task0023" cycleTime="18.22" weight="752.8546088" thumb="" name="47" length="NaN" type="1" forbidden="" assy="2057150X;2245899X" precedency="" />
+<welding id="Task0024" cycleTime="12.34" weight="423.9620948" thumb="" name="48" length="NaN" type="1" forbidden="" assy="2245899X;2241306X" precedency="" />
+<welding id="Task0025" cycleTime="14.81" weight="2536" thumb="" name="49" length="NaN" type="1" forbidden="" assy="2057150X;4606571" precedency="" />
+<welding id="Task0026" cycleTime="25.83" weight="2007" thumb="" name="50" length="NaN" type="1" forbidden="" assy="2407633X;4606571" precedency="" />
+<welding id="Task0027" cycleTime="19.43" weight="2007" thumb="" name="51" length="NaN" type="1" forbidden="" assy="2407633X;4606571" precedency="" />
 </weldings>
 <non_weldings>
 </non_weldings>

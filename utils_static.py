@@ -831,89 +831,57 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
 # run_QL(100000, Tasks, 38, 0.1)
 
 
-
-def parts_to_workstation(mbom_data, parts_data, best_solution):
-    workstations = {}
-    processed_parts = {}  # Dictionary to track where each part was last processed
-
-    # Step 1: Group tasks by workstation
-    for task_idx, workstation in enumerate(best_solution):
-        # Get the 'assy' column value from mbom_data for the current task
-        assy_parts = mbom_data.loc[task_idx, "assy"]
-
-        # Split the 'assy' column by ';' to get individual part references
-        part_refs = assy_parts.split(';')
-
-        # Add parts to the respective workstation in the dictionary
-        if workstation not in workstations:
-            workstations[workstation] = set()  # Use a set to avoid duplicates
-
-        updated_part_refs = []  # To store updated part references for this task
-
-        # Iterate over the part references and check if they've been processed before
-        for part_ref in part_refs:
-            if part_ref in processed_parts:
-                # If the part has been processed before, replace it with "SubAssy X"
-                last_workstation = processed_parts[part_ref]
-                updated_part_refs.append(f"SubAssy {last_workstation}")
-            else:
-                # If the part is new, keep it and mark it as processed in the current workstation
-                updated_part_refs.append(part_ref)
-                processed_parts[part_ref] = workstation
-
-            # Add the part to the current workstation's set
-            workstations[workstation].add(part_ref)
-
-
-
-    # Display the parts being assembled at each workstation:
-    for workstation, parts in workstations.items():
-        print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
-
-    return workstations
-
-
 def parts_to_workstation(mbom_data, parts_data, best_solution):
     workstations = {}  # To store parts by workstation
     part_to_workstation = {}  # To track the last workstation where each part was assembled
 
-    # Iterate through the best_solution list and group tasks by workstation
-    for task_idx, workstation in enumerate(best_solution):
-        # Get the 'assy' column value from mbom_data for the current task
-        assy_parts = mbom_data.loc[task_idx, "assy"]
+    # Process workstations in order: start with workstation 1, then workstation 2, and so on
+    for workstation in sorted(set(best_solution)):
+        # Iterate through the best_solution list and process only tasks for the current workstation
+        part_refs = []
+        for task_idx, assigned_workstation in enumerate(best_solution):
+            if assigned_workstation == workstation:
+                # Get the 'assy' column value from mbom_data for the current task
+                assy_parts = mbom_data.loc[task_idx, "assy"]
 
-        # Split the 'assy' column by ';' to get individual part references
-        part_refs = assy_parts.split(';')
+                # Split the 'assy' column by ';' to get individual part references
+                part_refs = part_refs + assy_parts.split(';')
 
-        # Initialize the set for the workstation if it doesn't exist
+                # Initialize the set for the workstation if it doesn't exist
         if workstation not in workstations:
             workstations[workstation] = set()  # Use a set to avoid duplicates
 
         # Iterate over the part references and add them to the workstation's set
         for part_ref in part_refs:
-            # If the part has already been assembled in a previous workstation, skip the part
+            # Check if the part has already been assembled in a previous workstation
             if part_ref in part_to_workstation:
-                # Determine the last workstation where this part was assembled
                 previous_workstation = part_to_workstation[part_ref]
 
-                # Add the corresponding sub-assembly instead of the individual part
-                subassy_label = f"SubAssy {previous_workstation}"
-
-                # Replace individual parts with "SubAssy" if not already added
-                if subassy_label not in workstations[workstation]:
-                    workstations[workstation].add(subassy_label)
-
+                # If the previous workstation is different, add "SubAssy" from the previous workstation
+                if previous_workstation != workstation:
+                    subassy_label = f"SubAssy OP{previous_workstation}"
+                    if subassy_label not in workstations[workstation]:
+                        workstations[workstation].add(subassy_label)
             else:
-                # Add the part to the current workstation
+                # If the part hasn't been assembled yet, add it as a raw part
                 workstations[workstation].add(part_ref)
-                # Track the workstation where this part is being assembled
-                part_to_workstation[part_ref] = workstation
+
+            part_to_workstation[part_ref] =workstation
+            # Update the part's latest workstatio
+            #part_to_workstation[part_ref] = list(workstations.keys())[-1]
+
+        print("Keys = ", part_to_workstation)
+        for part in part_to_workstation:
+            part_to_workstation[part] =workstation
 
     # Display the parts being assembled at each workstation
     for workstation, parts in workstations.items():
         print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
 
     return workstations
+
+
+
 
 def generate_station_ids(num_machines):
     stations = []
