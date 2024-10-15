@@ -889,3 +889,257 @@ def generate_station_ids(num_machines):
         stations.append(f"M{i}-S1")  # Station S1 for Machine i
         stations.append(f"M{i}-S2")  # Station S2 for Machine i
     return stations
+
+import xml.etree.ElementTree as ET
+from collections import defaultdict, deque
+
+# Function to extract welding data from the XML
+def extract_welding_data(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Store welding data here
+    welding_data = []
+    precedency_dict = {}
+    task_cycle_times = {}
+    forbidden_dict = {}
+
+    # Loop through all welding elements
+    for welding in root.findall(".//welding"):
+        task_id = welding.get('id')
+        precedency = welding.get('precedency')
+        cycle_time = welding.get('cycleTime')
+        forbidden = welding.get('forbidden')
+
+        # Parse precedency and forbidden data if they exist
+        precedency_list = precedency.split(';') if precedency else []
+        forbidden_list = forbidden.split(';') if forbidden else []
+
+        # Build the dictionaries
+        precedency_dict[task_id] = precedency_list
+        task_cycle_times[task_id] = float(cycle_time)  # Convert cycleTime to integer
+        forbidden_dict[task_id] = forbidden_list
+
+    return precedency_dict, task_cycle_times, forbidden_dict
+
+# Function to perform topological sorting
+def topological_sort(tasks, precedency):
+    in_degree = defaultdict(int)
+    adj_list = defaultdict(list)
+
+    # Build the adjacency list and compute in-degrees
+    for task, precedes in precedency.items():
+        for t in precedes:
+            adj_list[t].append(task)
+            in_degree[task] += 1
+
+    # Find tasks with zero in-degree
+    zero_in_degree = deque([task for task in tasks if task not in in_degree])
+
+    sorted_tasks = []
+    while zero_in_degree:
+        current_task = zero_in_degree.popleft()
+        sorted_tasks.append(current_task)
+
+        for neighbor in adj_list[current_task]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                zero_in_degree.append(neighbor)
+    
+    if len(sorted_tasks) != len(tasks):
+        raise ValueError("There exists a cycle in the task precedency!")
+
+
+    return sorted_tasks
+
+# Function to allocate tasks to machines
+def allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_pairs, max_cycle_time):
+    machines = []
+    machine_loads = []
+
+    for task in sorted_tasks:
+        cycle_time = task_cycle_times[task]
+        assigned = False
+
+        # Try to assign the task to an existing machine
+        for i, machine in enumerate(machines):
+            if (all(forbid not in machine for forbid in forbidden_pairs.get(task, [])) and
+                machine_loads[i] + cycle_time <= max_cycle_time):
+                machine.append(task)
+                machine_loads[i] += cycle_time
+                assigned = True
+                break
+
+        # If task couldn't be assigned, create a new machine
+        if not assigned:
+            machines.append([task])
+            machine_loads.append(cycle_time)
+
+    return machines, machine_loads
+
+# Main function to execute topological sorting and allocation
+def schedule_tasks(xml_file, max_cycle_time):
+    # Extract precedency, cycle times, and forbidden pairs from XML
+    precedency_dict, task_cycle_times, forbidden_dict = extract_welding_data(xml_file)
+
+    # Get the list of tasks from the precedency dictionary
+    tasks = list(precedency_dict.keys())
+
+    # Perform topological sorting to respect precedency constraints
+    sorted_tasks = topological_sort(tasks, precedency_dict)
+
+    # Allocate tasks to machines, ensuring forbidden pairs are not scheduled together
+    machines, machine_loads = allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_dict, max_cycle_time)
+
+    return machines, machine_loads
+
+# Example usage: Provide the path to your XML file and maximum cycle time per machine
+xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+max_cycle_time = 55  # Define the maximum cycle time for each machine
+machines, machine_loads = schedule_tasks(xml_file, max_cycle_time)
+
+# Print the task allocation to machines
+for i, machine in enumerate(machines):
+    print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
+
+import xml.etree.ElementTree as ET
+from collections import defaultdict, deque
+
+# Function to extract welding data from the XML
+def extract_welding_data(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Store welding data here
+    precedency_dict = {}
+    task_cycle_times = {}
+    forbidden_dict = {}
+    task_parts = {}
+
+    # Loop through all welding elements
+    for welding in root.findall(".//welding"):
+        task_id = welding.get('id')
+        precedency = welding.get('precedency')
+        cycle_time = welding.get('cycleTime')
+        forbidden = welding.get('forbidden')
+        parts = welding.get('assy')  # Extract parts to be assembled
+
+        # Parse precedency, forbidden, and parts data if they exist
+        precedency_list = precedency.split(';') if precedency else []
+        forbidden_list = forbidden.split(';') if forbidden else []
+        part_list = parts.split(';') if parts else []  # Parts are separated by ;
+
+        # Build the dictionaries
+        precedency_dict[task_id] = precedency_list
+        task_cycle_times[task_id] = float(cycle_time)  # Convert cycleTime to integer
+        forbidden_dict[task_id] = forbidden_list
+        task_parts[task_id] = part_list  # Store multiple parts as a list
+
+    return precedency_dict, task_cycle_times, forbidden_dict, task_parts
+
+# Function to perform topological sorting
+def topological_sort(tasks, precedency):
+    in_degree = defaultdict(int)
+    adj_list = defaultdict(list)
+
+    # Build the adjacency list and compute in-degrees
+    for task, precedes in precedency.items():
+        for t in precedes:
+            adj_list[t].append(task)
+            in_degree[task] += 1
+
+    # Find tasks with zero in-degree
+    zero_in_degree = deque([task for task in tasks if task not in in_degree])
+    sorted_tasks = []
+
+    while zero_in_degree:
+        current_task = zero_in_degree.popleft()
+        sorted_tasks.append(current_task)
+
+        for neighbor in adj_list[current_task]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                zero_in_degree.append(neighbor)
+
+    # Check for cycles in the graph
+    if len(sorted_tasks) != len(tasks):
+        raise ValueError("There exists a cycle in the task precedency!")
+
+    return sorted_tasks
+
+# Function to check if a task can be added to a machine based on shared parts
+def can_add_task_to_machine(task, machine, task_parts):
+    machine_parts = set()  # Track parts currently on the machine
+    for t in machine:
+        machine_parts.update(task_parts[t])  # Add all parts from tasks on the machine
+
+    task_parts_set = set(task_parts[task])  # Convert task's parts to a set
+    return not machine_parts.isdisjoint(task_parts_set)  # Check for any shared parts
+
+# Function to allocate tasks to machines
+def allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_pairs, task_parts, max_cycle_time, tolerance):
+    machines = []
+    machine_loads = []
+
+    for task in sorted_tasks:
+        cycle_time = task_cycle_times[task]
+        assigned = False
+
+        # Try to assign the task to an existing machine
+        for i, machine in enumerate(machines):
+            if (all(forbid not in machine for forbid in forbidden_pairs.get(task, [])) and
+                machine_loads[i] + cycle_time <= (1+tolerance)*max_cycle_time and
+                can_add_task_to_machine(task, machine, task_parts)):  # Ensure part compatibility
+                machine.append(task)
+                machine_loads[i] += cycle_time
+                assigned = True
+                break
+
+        # If task couldn't be assigned, create a new machine
+        if not assigned:
+            machines.append([task])
+            machine_loads.append(cycle_time)
+
+    return machines, machine_loads
+
+
+# Main function to execute topological sorting and allocation
+def schedule_tasks(xml_file, max_cycle_time, tolerance):
+    # Extract precedency, cycle times, forbidden pairs, and part dependencies from XML
+    precedency_dict, task_cycle_times, forbidden_dict, task_parts = extract_welding_data(xml_file)
+    
+    # Get the list of tasks from the precedency dictionary
+    tasks = list(precedency_dict.keys())
+    print("tasks = ", tasks)
+    # Perform topological sorting to respect precedency constraints
+    sorted_tasks = topological_sort(tasks, precedency_dict)
+
+    # Allocate tasks to machines, ensuring forbidden pairs are not scheduled together
+    machines, machine_loads = allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_dict, task_parts, max_cycle_time, tolerance)
+
+    resource_list = (len(machine_loads), machine_loads, machines)
+    operators_results = (2, [112.0, 104.0])
+
+    best_solution = [0 for _ in range(len(tasks))]
+    for i, task in enumerate(tasks):
+        for j, machine in enumerate(machines):
+            if task in machine:
+                best_solution[i] = j+1
+                break
+            
+    
+
+    print("Best solution = ", best_solution)
+    print("macghine = ", resource_list)
+
+    return best_solution, resource_list, operators_results, [0 for _ in range(10000)]
+
+# # Example usage: Provide the path to your XML file and maximum cycle time per machine
+# xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+# max_cycle_time = 55  # Define the maximum cycle time for each machine
+# machines, machine_loads = schedule_tasks(xml_file, max_cycle_time)
+
+# # Print the task allocation to machines
+# for i, machine in enumerate(machines):
+#     print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")

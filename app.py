@@ -1059,12 +1059,7 @@ class PRODynamicsApp:
                 Tasks = read_prepare_mbom(st.session_state.mbom_data, st.session_state.parts_data)
             
         
-            if st.session_state.configuration_static["Search Speed"] == "Fast":
-                N_episodes = 10000
-            elif st.session_state.configuration_static["Search Speed"] == "Slow":
-                N_episodes = 1000000
-            else:
-                N_episodes = 100000
+            
 
             if st.session_state.configuration_static["Exploration Mode"] == "Standard":
                 tolerance = 0.1
@@ -1072,15 +1067,38 @@ class PRODynamicsApp:
                 tolerance = 0.5
             else:
                 tolerance = 0.1
-
+            
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
-            best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+            if st.session_state.configuration_static["Search Speed"] == "Fast":
+                N_episodes = 10000
+                xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+                max_cycle_time = target_CT/2 +5 
+                best_solution, ressource_list, operators_list, session_rewards = schedule_tasks(xml_file, max_cycle_time, tolerance)
+
+            elif st.session_state.configuration_static["Search Speed"] == "Slow":
+                N_episodes = 1000000
+                best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+
+            else:
+                N_episodes = 10000
+                best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+
+            
+            
+
+            # Print the task allocation to machines
+            # for i, machine in enumerate(machines):
+            #     print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
             if st.session_state.configuration["dev_mode"]:
                 print("Best Soluton = ", best_solution)
                 print("Machines = ", ressource_list[1])
                 print("Operators = ", operators_list[1])
-
+            
+            print("Best Soluton = ", best_solution)
+            print("Machines = ", ressource_list)
+            print("Operators = ", operators_list)
             self.my_bar_static_optim.empty()
             st.header("Results")
             col = st.columns(4, gap='medium')
@@ -1179,12 +1197,12 @@ class PRODynamicsApp:
     
             # Generate stations
             station_ids = generate_station_ids(len(CTs_pertwo)) + ["EOL1"]
-
+            print("station N = ", station_ids)
             # Create empty DataFrame for table
             table_data = pd.DataFrame({
                 "Station ID": station_ids,
                 #"Automatic": [0] * len(station_ids),  ressource_list[1]
-                "Automatic": ressource_list[1] + [0],
+                "Automatic": ressource_list[1][:len(station_ids)-1] + [0],
                 "Operator ID": [None] * len(station_ids),  # Empty for operators, to be selected
                 "Manual Time": [10] * len(station_ids)  # Default manual time as 0
             })
@@ -1195,7 +1213,7 @@ class PRODynamicsApp:
 
             st.write("Add End of Line Stations if Needed.")
             edited_table = st.data_editor(table_data, num_rows="dynamic")
-       
+
             
             manu_op_assignments = {}
 
@@ -1273,12 +1291,18 @@ class PRODynamicsApp:
                 for part_ref in parts:
                     # Get the thumb URL from parts_data for this part_ref
                     part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
-                    if not part_info.empty:
+
+                    if not part_info.empty: # An isolated part
                         thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
                         part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
 
                         # Add the thumb to the list (thumb_url and part_ref as caption)
                         part_thumbnails.append((thumb_url, part_name))
+                    else: # An OP subassy
+                        thumb_url = str(part_ref) 
+                        part_name = part_ref
+                        part_thumbnails.append((thumb_url, part_name))
+
 
                 if part_thumbnails:
                     images, captions = zip(*part_thumbnails) 
