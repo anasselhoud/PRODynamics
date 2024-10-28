@@ -1456,7 +1456,7 @@ class Robot:
 
                 # Feed to a future machine if the next one takes 0 time to process (convention to skip machine connections)
                 if self.manuf_line.supermarket_in.items != [] and float(self.manuf_line.references_config[self.manuf_line.supermarket_in.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                    next_machine.current_product = current_machine.current_product
+                    next_machine.current_product = self.manuf_line.supermarket_in.items[0]
                     return self.which_machine_to_feed(next_machine)
                 
                 return next_machine
@@ -1483,17 +1483,8 @@ class Robot:
             
             # Greedy-like strategy : focus on the machine that has the most space in input
             elif self.manuf_line.robot_strategy == 1:
-                buffers_level = [len(m.buffer_in.items) for m in current_machine.next_machines]
+                buffers_level = [len(m.buffer_in.items) if isinstance(m, Machine) else len(m.items) for m in current_machine.next_machines]
                 next_machine = current_machine.next_machines[buffers_level.index(min(buffers_level))]
-                # if float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(current_machine)+3]) ==0:
-                #     return self.which_machine_to_feed(current_machine)
-                # else:
-                return next_machine
-        
-            # Unused ? 
-            elif self.manuf_line.robot_strategy == 2:
-                empty_buffers_machines = [m.loaded for m in current_machine.next_machines]
-                next_machine = current_machine.next_machines[empty_buffers_machines.index(min(empty_buffers_machines))]
                 # if float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(current_machine)+3]) ==0:
                 #     return self.which_machine_to_feed(current_machine)
                 # else:
