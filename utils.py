@@ -83,6 +83,7 @@ class ManufLine:
         self.sim_times_track = []
         self.output_tracks = []
 
+        self.refill_time_by_ref = {}
         self.expected_refill_time = None
 
         self.central_storage = None
@@ -370,7 +371,19 @@ class ManufLine:
             for _ in range(int(self.references_config[ref][1])):
                 self.supermarket_in.put(ref)
 
+        # Set up the shop stock
         self.shop_stock_out = simpy.Store(self.env, capacity=float(self.config["shopstock"]["capacity"]))
+
+        # Store refill time for each reference
+        for ref in self.references_config.keys():
+            pattern = r'^(\d+)-(\d+)$'
+            match = re.match(pattern, str(self.references_config[ref][0]))
+            if match:
+                value1 = int(match.group(1))
+                value2 = int(match.group(2))
+                self.refill_time_by_ref[ref] = [value1, value2]
+            else:
+                self.refill_time_by_ref[ref] = float(self.references_config[ref][0])
 
         # Set simulation time and takt time
         self.sim_time = eval(str(configuration["sim_time"]))
@@ -531,24 +544,12 @@ class ManufLine:
 
         Note: This function uses the `self.env` attribute as the simulation environement.
         """
-        pattern = r'^(\d+)-(\d+)$'
-        match = re.match(pattern, str(self.references_config[ref][0]))
-        if match:
-            value1 = int(match.group(1))
-            value2 = int(match.group(2))
-            refill_time_ref = [value1, value2]
-        else:
-            refill_time_ref = float(self.references_config[ref][0])
-
+        refill_time_ref = self.refill_time_by_ref[ref]
         amount = int(self.references_config[ref][2])
 
         while True:
-            if isinstance(refill_time_ref, list):
-                refill_time = int(random.uniform(refill_time_ref[0], refill_time_ref[1]))
-                self.expected_refill_time[list(self.references_config.keys()).index(ref)] = self.env.now + refill_time
-            elif isinstance(refill_time_ref, float):
-                refill_time = refill_time_ref
-                self.expected_refill_time[list(self.references_config.keys()).index(ref)] = self.env.now + refill_time
+            refill_time = refill_time_ref if isinstance(refill_time_ref, float) else int(random.uniform(refill_time_ref[0], refill_time_ref[1]))
+
             try:
                 yield self.env.timeout(refill_time)
                 for _ in range(amount):
@@ -631,7 +632,7 @@ class ManufLine:
                 self.robot.in_transport_times = [machine_config[7] for machine_config in list_machines_config if (machine_config[9] == raw_name)]
                 self.robots_list.append(self.robot)
         
-        # Store order and robot trnasport times
+        # Store order and robot transport times
         self.full_transport_times = [list_machines_config[j][7] for j in range(len(list_machines_config))]
         self.full_order = [list_machines_config[j][8] for j in range(len(list_machines_config))]
 
@@ -669,7 +670,7 @@ class ManufLine:
             try:
                 machine_has_robot = False if machine_config[9]==0 or len(self.robots_list) ==0 else True
                 assigned_tasks =  list(np.array(self.tasks)[machine_indices[i]])
-                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer ,hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot, fill_central_storage=fill_central_storage)
+                machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, assigned_tasks=assigned_tasks, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity, initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot, fill_central_storage=fill_central_storage)
             except:
                 machine_has_robot = False if machine_config[9]==0 or len(self.robots_list) ==0 else True
                 machine = Machine(self, self.env, machine_config[0], machine_config[1], self.config, first=is_first, last=is_last, breakdowns=self.breakdowns['enabled'], mttf=mttf, mttr=mttr, buffer_capacity=buffer_capacity , initial_buffer=initial_buffer, hazard_delays=self.config['hazard_delays']['enabled'], has_robot=machine_has_robot, fill_central_storage=fill_central_storage)
@@ -777,7 +778,7 @@ class ManufLine:
 
 
 class Machine:
-    def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer =0, hazard_delays=False, has_robot=False, fill_central_storage=False):
+    def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer=0, hazard_delays=False, has_robot=False, fill_central_storage=False):
         self.mt = 0
         self.ID = machine_id
         self.Name = machine_name
@@ -816,12 +817,16 @@ class Machine:
         self.loaded_bol = False
         self.current_product = None
 
-        # Define input & output buffers. BE CAREFUL ! When the buffer is asked to begin with initial items -> it's filled with the 1st reference only (so far).
+        # Define input & output buffers. Warning ! When the buffer is asked to begin with initial items -> it's filled with the 1st reference to come.
         self.buffer_in = simpy.Store(env, capacity=float(buffer_capacity))
         self.buffer_out = simpy.Store(env, capacity=float(buffer_capacity))
+
+        refilled_times = [refill_time_value if isinstance(refill_time_value, float) else int(random.uniform(refill_time_value[0], refill_time_value[1])) for refill_time_value in self.manuf_line.refill_time_by_ref.values()]
+        ref_to_fill = list(self.manuf_line.refill_time_by_ref.keys())[refilled_times.index(min(refilled_times))]
+
         for _ in range(self.initial_buffer):
-            self.buffer_in.put(list(self.references_config.keys())[0])
-            self.buffer_out.put(list(self.references_config.keys())[0])
+            self.buffer_in.put(ref_to_fill)
+            self.buffer_out.put(ref_to_fill)
         
         # When NO robot, directly connect first machine to supermarket and last machine to shop stock 
         if self.manuf_line.robots_list == [] or not self.has_robot:
