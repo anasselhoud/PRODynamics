@@ -11,12 +11,6 @@ import os
 import sys
 
 
-import logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(filename='example.log', level=logging.DEBUG)
-
-
-
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
@@ -503,18 +497,15 @@ class ManufLine:
         """
         if self.breakdowns_switch:
             while True:
-                time_to_break = machine.time_to_failure()
-                # if time_to_break < machine.MTTF:
-                #     time_to_break = 2*machine.MTTF
-                yield self.env.timeout(time_to_break)
                 if not machine.broken:
                     time_to_break = machine.time_to_failure()
                     yield self.env.timeout(time_to_break)
-                    self.operationg = False
+                    self.operating = False
                     if self.dev_mode:
                         print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
                     machine.n_breakdowns += 1
                     machine.process.interrupt()
+                yield self.env.timeout(10)
     
     def monitor_waiting_time(self, machine):
         while True:
@@ -1411,86 +1402,72 @@ class Robot:
             self.manuf_line.track_sim(("CentralStorage", "OutputStock", self.env.now))
             yield self.env.timeout(0)
 
-    def which_machine_to_feed(self, current_machine):
+    def which_machine_to_feed(self, current_machine, ref_to_pass=None):
         """
         Select the best machine to feed based on a given strategy.
         
         TODO: Upgrade to python 3.10 to use match case 
 
+        Parameters:
+        - ref_to_pass : when using the function in a recursive way, needs to store what was the product reference at hand from the first origin machine.
+                        None is the most common usecase, meaning there was no machine skipping before.
+
         Return:
         Machine
         """
         
-        # Feed a machine from the input stock
+        # Feed from the supermarket
         if not isinstance(current_machine, Machine):
             # Update exepected refill time
             self.manuf_line.expected_refill_time = [abs(i-self.manuf_line.env.now) for i in self.manuf_line.expected_refill_time]
-
+            
             first_machines = [m for m in self.manuf_line.list_machines if m.first]
 
             # Balanced-like strategy : try to equally feed machines that are in parallel 
             if self.manuf_line.robot_strategy == 0:
                 # Select the machine that has been the less loaded so far
-                loads_on_machines = [m.loaded if isinstance(m, Machine) and not m.broken and not m.operating else float('inf') for m in first_machines]
+                loads_on_machines = [m.loaded if not m.broken else float('inf') for m in first_machines]
                 next_machine = first_machines[loads_on_machines.index(min(loads_on_machines))]  
-
-                # Skip the connection with the next machine connection when it takes 0 time to process a reference (arbitrary convention)
-                if self.manuf_line.supermarket_in.items != [] and float(self.manuf_line.references_config[self.manuf_line.supermarket_in.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                    next_machine.current_product = self.manuf_line.supermarket_in.items[0]
-                    return self.which_machine_to_feed(next_machine)
-                    
-                # Skip the connection with the next machine connection when it takes 0 time to process a reference (arbitrary convention)
-                next_refilled_ref = list(self.manuf_line.references_config.keys())[np.argmin(self.manuf_line.expected_refill_time)]
-                skip_connection_2 = float(self.manuf_line.references_config[next_refilled_ref][self.manuf_line.list_machines.index(next_machine)+3])==0
-                if self.manuf_line.supermarket_in.items == [] and skip_connection_2 :
-                    next_machine.current_product = next_refilled_ref
-                    return self.which_machine_to_feed(next_machine)
-                
-                return next_machine
 
             # Greedy-like strategy : focus on the machine that has the most space in input
             elif self.manuf_line.robot_strategy == 1:
                 # Select the machine that has the fewest items in its input buffer
-                buffers_level = [len(m.buffer_in.items) for m in first_machines]
+                buffers_level = [len(m.buffer_in.items) if not m.broken else float('inf') for m in first_machines]
                 next_machine = first_machines[buffers_level.index(min(buffers_level))]
 
-                # Feed to a future machine if the next one takes 0 time to process (convention to skip machine connections)
-                if self.manuf_line.supermarket_in.items != [] and float(self.manuf_line.references_config[self.manuf_line.supermarket_in.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                    next_machine.current_product = self.manuf_line.supermarket_in.items[0]
-                    return self.which_machine_to_feed(next_machine)
+            # Skip the next machine if it takes no time to process the next product in the supermarket buffer
+            if self.manuf_line.supermarket_in.items != [] and float(self.manuf_line.references_config[self.manuf_line.supermarket_in.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
+                return self.which_machine_to_feed(next_machine, ref_to_pass=self.manuf_line.supermarket_in.items[0])
                 
-                return next_machine
+            # # Skip the next machine if it takes no time to process the next product coming to the supermarket 
+            # next_refilled_ref = list(self.manuf_line.references_config.keys())[np.argmin(self.manuf_line.expected_refill_time)]
+            # if self.manuf_line.supermarket_in.items == [] and float(self.manuf_line.references_config[next_refilled_ref][self.manuf_line.list_machines.index(next_machine)+3])==0 :
+            #     return self.which_machine_to_feed(next_machine, ref_to_pass=next_refilled_ref)
+                
+            return next_machine
 
-        # Feed a machine from another machine
+        # Feed from a machine
         else:
             # Balanced-like strategy : try to equally feed machines that are in parallel 
             if self.manuf_line.robot_strategy == 0:
                 # Select the machine that has been the less loaded so far
                 loads_on_machines = [m.loaded if isinstance(m, Machine) and not m.broken and not m.operating else float('inf') for m in current_machine.next_machines]
                 next_machine = current_machine.next_machines[loads_on_machines.index(min(loads_on_machines))]
-                
-                # Skip the connection with the next machine connection when it takes 0 time to process a reference (arbitrary convention)
-                if isinstance(next_machine, Machine) :
-                    if current_machine.buffer_out.items != [] and float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                        next_machine.current_product = current_machine.buffer_out.items[0]
-                        return self.which_machine_to_feed(next_machine)
-                    
-                    if current_machine.current_product is not None and float(self.manuf_line.references_config[current_machine.current_product][self.manuf_line.list_machines.index(next_machine)+3]) ==0 :
-                        next_machine.current_product = current_machine.current_product
-                        return self.which_machine_to_feed(next_machine)
-                    
-                return next_machine
-            
+
             # Greedy-like strategy : focus on the machine that has the most space in input
             elif self.manuf_line.robot_strategy == 1:
                 buffers_level = [len(m.buffer_in.items) if isinstance(m, Machine) else len(m.items) for m in current_machine.next_machines]
-                next_machine = current_machine.next_machines[buffers_level.index(min(buffers_level))]
-                # if float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(current_machine)+3]) ==0:
-                #     return self.which_machine_to_feed(current_machine)
-                # else:
-                return next_machine
+                next_machine = current_machine.next_machines[buffers_level.index(min(buffers_level))]        
 
-            return True
+            # Skip the next machine if it takes no time to process the product at hand (either a product that already skipped a previous machine, or the next product in the buffer)
+            if isinstance(next_machine, Machine) :
+                if ref_to_pass is not None and float(self.manuf_line.references_config[ref_to_pass][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
+                    return self.which_machine_to_feed(next_machine, ref_to_pass=ref_to_pass)
+                
+                elif ref_to_pass is None and current_machine.buffer_out.items != [] and float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
+                    return self.which_machine_to_feed(next_machine, ref_to_pass=current_machine.buffer_out.items[0])
+                
+            return next_machine
 
     def robot_process_local(self, from_entity, to_entity, transport_time=10):
         """Wait to tansport from an entity to another."""

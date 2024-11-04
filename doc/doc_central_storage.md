@@ -1,11 +1,11 @@
 # CentralStorage
 
 ## Main purpose
-The `CentralStorage` object is defined to embody the so-called *central storage* present in **FHS** manufactoring lines to run **macro simulations**.
+The `CentralStorage` object is defined to embody the so-called *central storage* present in **FHS** manufacturing lines to run **macro simulations**.
 
-In the real world, the storage is **divided into two** physically different storages. Each one of them has one or many sections that can one or several sizes of products. 
+In the real world, the storage is **divided into two** physically different storages. Each one of them has one or many sections that allow one or several sizes of products. 
 
-For instance, the **first storage** can own two sections : the first one allowing 330 small-sized while the second one allows 25 products that can be either small or large. 
+For instance, the **first storage** can own two sections : the first one allowing 330 small-sized while the second allows 25 products that can be either small or large. 
 
 
 ## Python attributes
@@ -63,9 +63,9 @@ It keep tracks of the different **storages**, **blocks**, **allowed products** a
 
 - `front` and `back` refer to the two main storages of the physical central storage. They will be called **sides** thereafter.
 - Each **side** of the central storage holds a `list` of different **blocks**.
-- Any block has the following characteristic :
-  - A `list` of one or many **allowed products / references** : ('Ref X').
-  - A `simpy.FilterStore` object that holds the items and the block capacity. [FilterStore documentation](https://simpy.readthedocs.io/en/latest/topical_guides/resources.html#stores).
+- Any block has the following characteristics :
+  - A `list` of one or many **allowed products / references** : `'Ref X'` for instance.
+  - A `simpy.FilterStore` object that holds the items and the block capacity. See [FilterStore documentation](https://simpy.readthedocs.io/en/latest/topical_guides/resources.html#stores) for extra details.
 
 In order to have **additional useful details** about the added products, items stored in `simpy.FilterStore` are dictionnaries with the following keys :
 
@@ -113,3 +113,11 @@ def available_ref(self, ref_name=None) -> bool:
 def get(self, ref_name=None):
     """Try to get a reference in the storage determined by the strategy of the central storage."""
 ```
+
+### ⚠️ Keep in mind
+
+This documentation is meant to explain how the object `CentralStorage` has been developped and what are its main methods.
+
+**However**, the way the object is used is **out of the scope** of this specific documentation, **especially the conditions to decide to either send or retrieve products** from the central storage. 
+
+This has to be defined at the level of the `ManufLine` process, not the `CentralStorage` object.
