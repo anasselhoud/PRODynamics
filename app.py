@@ -36,6 +36,12 @@ class PRODynamicsApp:
             st.session_state.line_data = pd.read_excel("./LineData.xlsx", sheet_name="Line Data")
         if 'multi_ref_data' not in st.session_state:  
             st.session_state.multi_ref_data =  pd.read_excel("./LineData.xlsx", sheet_name="Multi-Ref")
+
+        if 'pdp_batch_details' not in st.session_state:  
+            st.session_state.pdp_batch_details =  pd.read_excel("./LineData.xlsx", sheet_name="PDP-Batch-Details")
+        if 'pdp_batch_list' not in st.session_state:  
+            st.session_state.pdp_batch_list =  pd.read_excel("./LineData.xlsx", sheet_name="PDP-Batch-List")
+
         if "configuration" not in st.session_state:
             st.session_state.configuration = {
                 "sim_time": "3600*24*7",
@@ -50,6 +56,8 @@ class PRODynamicsApp:
                 "enable_random_seed": True,
                 "enable_breakdowns": True,
                 "breakdown_dist_distribution": "Weibull Distribution",
+                "enable_pdp": False,
+                'pdp_change_time': 600,
                 "central_storage_enable": False,
                 "central_storage_ttr": {'front': 100, "back": 100},
             }
@@ -269,7 +277,7 @@ class PRODynamicsApp:
             st.subheader("Production Line Data")
 
             st.session_state.configuration["enable_robots"] = st.toggle('Enable robots', value=st.session_state.configuration["enable_robots"], key='toggle_robots')
-
+            
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             
@@ -312,29 +320,56 @@ class PRODynamicsApp:
 
         with tab2:
             st.subheader("Product Reference Data")
-            uploaded_file_line_data_ref = st.file_uploader("Upload Product Reference Data", type=[ "csv", "xlsx", "xls"], key="upload_refs")
-            if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
+
+            c1, c2 = st.columns([1, 2])
+            with c1:
+                st.session_state.configuration["enable_pdp"] = st.toggle('Use PDP', value=st.session_state.configuration["enable_pdp"], key='toggle_pdp')
+            with c2:
+                st.session_state.configuration['pdp_change_time'] = st.number_input("Tools change time", value=st.session_state.configuration['pdp_change_time'], format='%i', key='input_pdp_change_time')
                 
-            # Save button
-            if st.button("Save", key="ref_data_save"):
-                st.session_state.multi_ref_data = ref_data_editor.copy()
-                st.rerun()
+
+            c3, c4, c5 = st.columns([2, 1, 3])
+            with c3:
+                if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                    ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
+                    
+                # Save button
+                if st.button("Save", key="ref_data_save"):
+                    st.session_state.multi_ref_data = ref_data_editor.copy()
+                    st.rerun()
 
 
-            new_ref_name = st.text_input("Add a new reference", placeholder="Reference name")
-            if st.button("Add reference", key="add_new_ref"):
-                if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
-                    if new_ref_name:
-                        st.session_state.multi_ref_data[new_ref_name] = ""
-                        st.rerun()
-                    else:
-                        st.warning("Please enter a column name")
+                new_ref_name = st.text_input("Add a new reference", placeholder="Reference name")
+                if st.button("Add reference", key="add_new_ref"):
+                    if hasattr(st.session_state, 'multi_ref_data') and isinstance(st.session_state.multi_ref_data, pd.DataFrame):
+                        if new_ref_name:
+                            st.session_state.multi_ref_data[new_ref_name] = ""
+                            st.rerun()
+                        else:
+                            st.warning("Please enter a column name")
+
+            with c4:
+                if hasattr(st.session_state, 'pdp_batch_list') and  isinstance(st.session_state.pdp_batch_list, pd.DataFrame):
+                    batch_list_editor = st.data_editor(st.session_state.pdp_batch_list, num_rows="dynamic",key="batch_list_edit")
+                    
+                # Save button
+                if st.button("Save", key="batch_list_save"):
+                    st.session_state.pdp_batch_list = batch_list_editor.copy()
+                    st.rerun()  
+
+            with c5:
+                if hasattr(st.session_state, 'pdp_batch_details') and  isinstance(st.session_state.pdp_batch_details, pd.DataFrame):
+                    batch_details_editor = st.data_editor(st.session_state.pdp_batch_details, num_rows="dynamic",key="batch_details_edit")
+                    
+                # Save button
+                if st.button("Save", key="batch_details_save"):
+                    st.session_state.pdp_batch_details = batch_details_editor.copy()
+                    st.rerun()            
 
         # Central Storage
         with tab3:
             st.subheader("Central Storage")                
-            st.session_state.configuration["central_storage_enable"] = st.checkbox("Enable", value=st.session_state.configuration["central_storage_enable"])
+            st.session_state.configuration["central_storage_enable"] = st.toggle("Enable storage", value=st.session_state.configuration["central_storage_enable"], key="toggle_central_storage")
                 
             # Allow all references by default according 
             all_references = st.session_state.multi_ref_data.columns.to_list()[1:]
@@ -424,8 +459,38 @@ class PRODynamicsApp:
             references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
             line_data = st.session_state.line_data.values.tolist()
 
+            # If PDP enabled
+            pdp = None
+            if st.session_state.configuration['enable_pdp']:
+                batch_details = st.session_state.pdp_batch_details
+                batch_list = st.session_state.pdp_batch_list
+
+                # Check data consistency
+                available_batch_names = batch_details.iloc[:, 0].tolist()
+                used_batch_names = set(batch_list.iloc[:, 0].tolist())
+                if any([name not in available_batch_names for name in used_batch_names]):
+                    st.error(f"You enabled the PDP in 'Process Data > Product Reference Data' but some batch names don't match in the 2 tables. Please, fix it before running again.", icon="🚨")
+                    self.all_prepared = False
+                    return 
+
+                available_refs = list(references_config.keys())
+                used_refs = set(batch_details.iloc[:, 1].tolist())
+                if any([ref not in available_refs for ref in used_refs]):
+                    st.error(f"You enabled the PDP in 'Process Data > Product Reference Data' but some names of references are not consistent in the 2 tables. Please, fix it before running again.", icon="🚨")
+                    self.all_prepared = False
+                    return 
+
+                # Build the PDP
+                pdp = []
+
+                batch_details = st.session_state.pdp_batch_details
+                batch_details = batch_details.set_index(batch_details.columns[0]).T.to_dict('list')
+
+                for batch in batch_list.iloc[:, 0]:
+                    pdp.append(batch_details[batch])
+
             self.manuf_line = ManufLine(env, tasks, config_file='config.yaml')
-            self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[])
+            self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[], pdp=pdp)
             self.manuf_line.create_machines(line_data)
 
             # Check robots data consistency  
@@ -711,10 +776,14 @@ class PRODynamicsApp:
             # chart_data = pd.DataFrame(np.random.randn(20, 3), columns=['a', 'b', 'c'])
             # st.area_chart(chart_data)
             fig3 = go.Figure()
-            buffer_out = [t[1] for t in manuf_line.output_tracks]
             times = [t[0] for t in manuf_line.output_tracks]
-            fig3.add_trace(go.Scatter(x=times, y=buffer_out, mode='lines'))
+            
+            buffer_out = [t[1] for t in manuf_line.output_tracks]
+            fig3.add_trace(go.Scatter(x=times, y=buffer_out, mode='lines', name='Total'))
 
+            for i, ref in enumerate(manuf_line.references_config.keys()):
+                buffer_out_by_ref = [x[1] for x in manuf_line.output_tracks_per_ref[i]]
+                fig3.add_trace(go.Scatter(x=times, y=buffer_out_by_ref, mode='lines', name=ref))
 
             # Add a line trace for the cycle time
             #x=time_points, y=cycle_times
