@@ -9,6 +9,7 @@ import csv
 import re
 import os
 import sys
+import time
 
 
 class ManufLine:
@@ -236,9 +237,11 @@ class ManufLine:
 
     def update_progress(self, progress_bar):
         """Update the progress bar for the UI"""
+        t_start = time.time()
         while True:
             yield self.env.timeout(self.sim_time/100)
-            progress_bar.progress(self.env.now/self.sim_time, text="Simulation in progress...")
+            estimated_remaining_time = round((self.sim_time - self.env.now)*(time.time()-t_start)/self.env.now, 2)
+            progress_bar.progress(self.env.now/self.sim_time, text=f"Estimated Remaining time = {format_time(estimated_remaining_time, seconds_str=True)}")
 
     def run(self, progress_bar=None):
         """
@@ -256,11 +259,12 @@ class ManufLine:
             self.env.process(self.break_down(m))
         
         # Process the refill of each input reference of the supermarket
-        self.expected_refill_time = [0] * len(self.references_config.keys())
         if self.pdp is not None:
+            self.expected_refill_time = [float('inf')] * len(self.references_config.keys())
             self.env.process(self.refill_market_pdp())
 
         else:
+            self.expected_refill_time = [0] * len(self.references_config.keys())
             for ref in list(self.references_config.keys()):
                 if self.dev_mode:
                     print("Reference confirmed = ", ref)
