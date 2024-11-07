@@ -994,7 +994,7 @@ def schedule_tasks(xml_file, max_cycle_time):
     return machines, machine_loads
 
 # Example usage: Provide the path to your XML file and maximum cycle time per machine
-xml_file = '/assets/inputs/L76 Dual Passive MBOM.xml'
+xml_file = './assets/inputs/L76 Dual Passive MBOM.xml'
 max_cycle_time = 55  # Define the maximum cycle time for each machine
 machines, machine_loads = schedule_tasks(xml_file, max_cycle_time)
 
