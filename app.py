@@ -1130,11 +1130,11 @@ class PRODynamicsApp:
             workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
 
             #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
-
+            WC_workstations = []
             #Display each workstation and its corresponding parts
             for workstation, parts in sorted(workstations.items()):
                 st.markdown(f"###### OP 0{workstation}")
-
+                WC_workstations.append(4*len(parts))
                 # Retrieve the thumbnail for each part by matching the part reference to parts_data
                 part_thumbnails = []
                 for part_ref in parts:
@@ -1142,9 +1142,17 @@ class PRODynamicsApp:
                     part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
 
                     if not part_info.empty: # An isolated part
-                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
-                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
-
+                        program_folder = "assets/inputs/INC1114673PNGFiles/"
+                        if os.path.exists(program_folder+ part_ref+".png"):
+                            thumb_url = program_folder + part_ref+".png" # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                        elif os.path.exists(program_folder+ part_ref +".CATPart.png"):
+                            thumb_url = program_folder + part_ref  # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                        else:
+                            thumb_url = "assets/icons/unknown-part.png"   # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                            
                         # Add the thumb to the list (thumb_url and part_ref as caption)
                         part_thumbnails.append((thumb_url, part_name))
                     else: # An OP subassy
@@ -1152,18 +1160,19 @@ class PRODynamicsApp:
                         part_name = part_ref
                         part_thumbnails.append((thumb_url, part_name))
 
-
+                print(part_thumbnails)
                 if part_thumbnails:
-                    images, captions = zip(*part_thumbnails) 
                     try:
+                        images, captions = zip(*part_thumbnails) 
                         st.image(list(images), list(captions), width=100)  
                     except:
-                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        unknown_images= ["./assets/icons/unknown-part.png" for _ in range(len(images))]
                         st.image(list(unknown_images), list(captions), width=100) 
 
 
             st.markdown("### Detailed Results")
             fig = go.Figure()
+            
 
             CT_machines = [ressource_list[1][i]+ressource_list[1][i-1] for i in range(len(ressource_list[1])) if i%2!=0]
             fig.add_trace(go.Bar(x=["M"+str(i+1) for i in range(len(CT_machines))], y=list(CT_machines), name='Global CT', marker_color='green'))
@@ -1179,21 +1188,7 @@ class PRODynamicsApp:
             st.plotly_chart(fig, use_container_width=True)
 
 
-            fig = go.Figure()
-
-                #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
-                #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
-            fig.add_trace(go.Scatter(x=list(range(len(session_rewards))), y=session_rewards, mode='lines', name='Global CT', marker_color='green'))
-
-            fig.update_layout(
-                title='Evolution of Sequence Scores',
-                xaxis_title='Iterations',
-                yaxis_title='Desirability Score',
-                margin=dict(l=0, r=0, t=30, b=20)
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-            time.sleep(1)
+            
     
             # Generate stations
             station_ids = generate_station_ids(len(CTs_pertwo)) + ["EOL1"]
@@ -1204,7 +1199,7 @@ class PRODynamicsApp:
                 #"Automatic": [0] * len(station_ids),  ressource_list[1]
                 "Automatic": ressource_list[1][:len(station_ids)-1] + [0],
                 "Operator ID": [None] * len(station_ids),  # Empty for operators, to be selected
-                "Manual Time": [10] * len(station_ids)  # Default manual time as 0
+                "Manual Time": WC_workstations + [0]  # Default manual time as 0
             })
 
             # Assign operators based on input
@@ -1235,7 +1230,7 @@ class PRODynamicsApp:
                 "manu_op_assignments": manu_op_assignments
             }
             st.session_state.static_best_solution = best_solution
-            st.button("Run", on_click=self.click_detail_static_optim)
+            st.button("Save for Detailed Simulation.", on_click=self.click_detail_static_optim)
 
         if st.session_state.detail_btn_run:
 
@@ -1302,7 +1297,6 @@ class PRODynamicsApp:
                         thumb_url = str(part_ref) 
                         part_name = part_ref
                         part_thumbnails.append((thumb_url, part_name))
-
 
                 if part_thumbnails:
                     images, captions = zip(*part_thumbnails) 

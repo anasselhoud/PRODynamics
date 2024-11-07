@@ -1143,3 +1143,6 @@ def schedule_tasks(xml_file, max_cycle_time, tolerance):
 # # Print the task allocation to machines
 # for i, machine in enumerate(machines):
 #     print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
+ref = "2204259X"
+print(os.path.exists("assets/inputs/INC1114673PNGFiles/"+ref+".CATPart.png"))
