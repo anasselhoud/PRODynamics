@@ -57,6 +57,7 @@ class ManufLine:
         self.shop_stock_out = simpy.Store(self.env, capacity=float(self.config["shopstock"]["capacity"]))
 
         self.pdp = None
+        self.pdp_repeat = False
         self.pdp_change_time = 0
 
         self.num_cycles = 0
@@ -371,6 +372,7 @@ class ManufLine:
         self.machine_config_data = line_data
 
         self.pdp = pdp
+        self.pdp_repeat = configuration['repeat_pdp']
         self.pdp_change_time = configuration['pdp_change_time']
 
         # Set up the supermarket with initial stock
@@ -579,7 +581,8 @@ class ManufLine:
         previous_ref = self.pdp[0][0]
         previous_qty = self.pdp[0][1]
 
-        for ref, quantity in itertools.cycle(self.pdp):
+        to_produce = itertools.cycle(self.pdp) if self.pdp_repeat else self.pdp
+        for ref, quantity in to_produce:
             if ref != previous_ref:
                 # Wait until the previous batch has been completely produced (in shop stock)
                 if self.dev_mode:
@@ -1067,6 +1070,9 @@ class Machine:
                     yield self.env.timeout(done_in)
                     done_in = 0
                     entry_wait = self.env.now
+                    # TODO: While loop should be deleted but vital to avoid adding extra products after repair
+                    while len(self.buffer_out.items) >= self.buffer_out.capacity:
+                        yield self.env.timeout(1)
                     yield self.buffer_out.put(self.current_product)
                     self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
                     self.loaded_bol = False

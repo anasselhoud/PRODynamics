@@ -39,8 +39,6 @@ class PRODynamicsApp:
 
         if 'pdp_batch_details' not in st.session_state:  
             st.session_state.pdp_batch_details =  pd.read_excel("./LineData.xlsx", sheet_name="PDP-Batch-Details")
-        if 'pdp_batch_list' not in st.session_state:  
-            st.session_state.pdp_batch_list =  pd.read_excel("./LineData.xlsx", sheet_name="PDP-Batch-List")
 
         if "configuration" not in st.session_state:
             st.session_state.configuration = {
@@ -57,6 +55,7 @@ class PRODynamicsApp:
                 "enable_breakdowns": True,
                 "breakdown_dist_distribution": "Weibull Distribution",
                 "enable_pdp": False,
+                "repeat_pdp": False,
                 'pdp_change_time': 600,
                 "central_storage_enable": False,
                 "central_storage_ttr": {'front': 100, "back": 100},
@@ -321,15 +320,8 @@ class PRODynamicsApp:
         with tab2:
             st.subheader("Product Reference Data")
 
-            c1, c2 = st.columns([1, 2])
+            c1, c2 = st.columns(2)
             with c1:
-                st.session_state.configuration["enable_pdp"] = st.toggle('Use PDP', value=st.session_state.configuration["enable_pdp"], key='toggle_pdp')
-            with c2:
-                st.session_state.configuration['pdp_change_time'] = st.number_input("Tools change time", value=st.session_state.configuration['pdp_change_time'], format='%i', key='input_pdp_change_time')
-                
-
-            c3, c4, c5 = st.columns([2, 1, 3])
-            with c3:
                 if hasattr(st.session_state, 'multi_ref_data') and  isinstance(st.session_state.multi_ref_data, pd.DataFrame):
                     ref_data_editor = st.data_editor(st.session_state.multi_ref_data, num_rows="dynamic",key="ref_data_edit")
                     
@@ -348,23 +340,22 @@ class PRODynamicsApp:
                         else:
                             st.warning("Please enter a column name")
 
-            with c4:
-                if hasattr(st.session_state, 'pdp_batch_list') and  isinstance(st.session_state.pdp_batch_list, pd.DataFrame):
-                    batch_list_editor = st.data_editor(st.session_state.pdp_batch_list, num_rows="dynamic",key="batch_list_edit")
-                    
-                # Save button
-                if st.button("Save", key="batch_list_save"):
-                    st.session_state.pdp_batch_list = batch_list_editor.copy()
-                    st.rerun()  
+            with c2:
+                c01, c02 = st.columns(2)
+                with c01:
+                    st.session_state.configuration["enable_pdp"] = st.toggle('Use PDP', value=st.session_state.configuration["enable_pdp"], key='toggle_pdp')
+                with c02:
+                    st.session_state.configuration["repeat_pdp"] = st.toggle('Repeat PDP', value=st.session_state.configuration["repeat_pdp"], key='toggle_pdp_repeat')
 
-            with c5:
                 if hasattr(st.session_state, 'pdp_batch_details') and  isinstance(st.session_state.pdp_batch_details, pd.DataFrame):
                     batch_details_editor = st.data_editor(st.session_state.pdp_batch_details, num_rows="dynamic",key="batch_details_edit")
                     
                 # Save button
                 if st.button("Save", key="batch_details_save"):
                     st.session_state.pdp_batch_details = batch_details_editor.copy()
-                    st.rerun()            
+                    st.rerun()
+
+                st.session_state.configuration['pdp_change_time'] = st.number_input("Tools change time", value=st.session_state.configuration['pdp_change_time'], format='%i', key='input_pdp_change_time')
 
         # Central Storage
         with tab3:
@@ -448,7 +439,6 @@ class PRODynamicsApp:
 
         st.markdown("""---""")
 
-        c1, c2 = st.columns(2)
         if st.button("Run Simulation"):
             self.all_prepared = True
 
@@ -462,32 +452,15 @@ class PRODynamicsApp:
             # If PDP enabled
             pdp = None
             if st.session_state.configuration['enable_pdp']:
-                batch_details = st.session_state.pdp_batch_details
-                batch_list = st.session_state.pdp_batch_list
+                pdp = list(st.session_state.pdp_batch_details.to_records(index=False))
 
                 # Check data consistency
-                available_batch_names = batch_details.iloc[:, 0].tolist()
-                used_batch_names = set(batch_list.iloc[:, 0].tolist())
-                if any([name not in available_batch_names for name in used_batch_names]):
-                    st.error(f"You enabled the PDP in 'Process Data > Product Reference Data' but some batch names don't match in the 2 tables. Please, fix it before running again.", icon="🚨")
-                    self.all_prepared = False
-                    return 
-
                 available_refs = list(references_config.keys())
-                used_refs = set(batch_details.iloc[:, 1].tolist())
+                used_refs = set([b[0] for b in pdp])
                 if any([ref not in available_refs for ref in used_refs]):
                     st.error(f"You enabled the PDP in 'Process Data > Product Reference Data' but some names of references are not consistent in the 2 tables. Please, fix it before running again.", icon="🚨")
                     self.all_prepared = False
                     return 
-
-                # Build the PDP
-                pdp = []
-
-                batch_details = st.session_state.pdp_batch_details
-                batch_details = batch_details.set_index(batch_details.columns[0]).T.to_dict('list')
-
-                for batch in batch_list.iloc[:, 0]:
-                    pdp.append(batch_details[batch])
 
             self.manuf_line = ManufLine(env, tasks, config_file='config.yaml')
             self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[], pdp=pdp)
