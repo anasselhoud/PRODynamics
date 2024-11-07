@@ -159,6 +159,12 @@ class QLearning:
         if num_workstations % 2 != 0:
             # Rebalance tasks to adjust for new number of workstations
             num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations)*self.target / (num_workstations+1))
+
+            if num_workstations % 2 != 0:
+              # Rebalance tasks to adjust for new number of workstations
+              num_workstations, ct_WS, tasks_WS = allocate_tasks((num_workstations+1)*self.target / (num_workstations))
+
+          
         return num_workstations, ct_WS, tasks_WS
 
     def objectiveR2(self):
@@ -172,7 +178,7 @@ class QLearning:
             n, CTs, _ = self.get_nworkstations()
             m, CTsWorkers = self.estimate_WC()
 
-            cost_empty_workstation = -10 if n % 2 == 0 else 10
+            cost_empty_workstation = -100 if n % 2 == 0 else 1000
             reward = -n * np.var(CTs) - m * np.var(CTsWorkers) - cost_empty_workstation
         else:
             reward = -100000  # Sequence infeasible
@@ -186,18 +192,18 @@ class QLearning:
             n_workers (int): Number of workers needed.
             ct_Workers (list): Cycle times for each worker.
         """
-        n_workers = 1
+        n_workers = 0
         total_ct = 0
         parts_done = []
         ct_Workers = []
 
         for i in self.solution:
             total_ct += sum([float(part.duration) for part in self.Tasks[i].parts if part not in parts_done])
-            total_ct += sum([3 for part in self.Tasks[i].parts if part in parts_done])  # Extra time for repeated parts
+            total_ct += sum([4 for part in self.Tasks[i].parts if part in parts_done])  # Extra time for repeated parts
 
             parts_done.extend(self.Tasks[i].parts)
 
-            if total_ct >= self.target:
+            if total_ct >= self.target*(1 + self.tolerance):
                 n_workers += 1
                 ct_Workers.append(total_ct)
                 total_ct = 0
@@ -205,7 +211,7 @@ class QLearning:
         if n_workers == 1:  # If only one worker, append the final cycle time
             ct_Workers.append(total_ct)
 
-        return n_workers, ct_Workers
+        return len(ct_Workers), ct_Workers
 
     def sequence_to_scenario(self, indiv):
       Tasks_ID = [task.id for task in self.Tasks]
@@ -710,14 +716,15 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
 
 
     # Base data for machines
-    machines = [f'M{i}' for i in range(1, len(machines_CT) + 1)]
-    
+    machines = [f'S{i}' for i in range(1, len(machines_CT) + 1)]
+
     # Base data for EOL stations
     eol_stations = [f'EOL{i}' for i in range(1, len(EOL_stations_CT) + 1)]
+
     
     # Combine both lists to form the final list of all stations
     all_stations = machines + eol_stations
-    
+
     # Linear links for machines, each machine points to the next one
     links = [f'[\"{machines[i+1]}\"]' if i < len(machines) - 1 else f'[\"{eol_stations[0]}\"]' for i in range(len(machines))]
     
@@ -767,7 +774,13 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
         else:
             operator_id.append(0)  # default operator ID
             manual_time.append(0)  # default manual time
-    
+
+    operator_list = [assignment[0] for assignment in manu_op_assignments.values()]  # Extract operator IDs
+    manual_time_list = [assignment[1] for assignment in manu_op_assignments.values()]  # Extract manual times
+
+    print("len ops = ", len(operator_list))
+    print("len ops 2 = ", len(manual_time_list))
+
     # Create the DataFrame
     assembly_line = pd.DataFrame({
         'Machine': all_stations,
@@ -780,8 +793,8 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
         'Transport Time': transport_time,
         'Transport Order': transport_order,
         'Transporter ID': transporter_id,
-        'Operator ID': operator_id,
-        'Manual Time': manual_time,
+        'Operator ID': operator_list,
+        'Manual Time': manual_time_list,
         'Identical Station': identical_station,
         'Fill central storage':fill_central_storage
     })
@@ -818,83 +831,318 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
 # run_QL(100000, Tasks, 38, 0.1)
 
 
-
 def parts_to_workstation(mbom_data, parts_data, best_solution):
-  workstations = {}
+    workstations = {}  # To store parts by workstation
+    part_to_workstation = {}  # To track the last workstation where each part was assembled
 
-  # Iterate through the best_solution list and group tasks by workstation
-  for task_idx, workstation in enumerate(best_solution):
-      # Get the 'assy' column value from mbom_data for the current task
-      assy_parts = mbom_data.loc[task_idx, "assy"]
+    # Process workstations in order: start with workstation 1, then workstation 2, and so on
+    for workstation in sorted(set(best_solution)):
+        # Iterate through the best_solution list and process only tasks for the current workstation
+        part_refs = []
+        for task_idx, assigned_workstation in enumerate(best_solution):
+            if assigned_workstation == workstation:
+                # Get the 'assy' column value from mbom_data for the current task
+                assy_parts = mbom_data.loc[task_idx, "assy"]
 
-      # Split the 'assy' column by ';' to get individual part references
-      part_refs = assy_parts.split(';')
+                # Split the 'assy' column by ';' to get individual part references
+                part_refs = part_refs + assy_parts.split(';')
 
-      # Add parts to the respective workstation in the dictionary
-      if workstation not in workstations:
-          workstations[workstation] = set()  # Use a set to avoid duplicates
+                # Initialize the set for the workstation if it doesn't exist
+        if workstation not in workstations:
+            workstations[workstation] = set()  # Use a set to avoid duplicates
 
-      # Iterate over the part references and add them to the workstation's set
-      for part_ref in part_refs:
-          workstations[workstation].add(part_ref)
+        # Iterate over the part references and add them to the workstation's set
+        for part_ref in part_refs:
+            # Check if the part has already been assembled in a previous workstation
+            if part_ref in part_to_workstation:
+                previous_workstation = part_to_workstation[part_ref]
 
-  # Display the parts being assembled at each workstation:
-  for workstation, parts in workstations.items():
-      print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
+                # If the previous workstation is different, add "SubAssy" from the previous workstation
+                if previous_workstation != workstation:
+                    subassy_label = f"SubAssy OP{previous_workstation}"
+                    if subassy_label not in workstations[workstation]:
+                        workstations[workstation].add(subassy_label)
+            else:
+                # If the part hasn't been assembled yet, add it as a raw part
+                workstations[workstation].add(part_ref)
 
-  return workstations
+            part_to_workstation[part_ref] =workstation
+            # Update the part's latest workstatio
+            #part_to_workstation[part_ref] = list(workstations.keys())[-1]
+
+        print("Keys = ", part_to_workstation)
+        for part in part_to_workstation:
+            part_to_workstation[part] =workstation
+
+    # Display the parts being assembled at each workstation
+    for workstation, parts in workstations.items():
+        print(f"Workstation {workstation}: Assembling parts: {', '.join(parts)}")
+
+    return workstations
 
 
-# def parts_to_workstation_n(mbom_data, parts_data, best_solution):
-#   # Step 1: Group tasks by workstations
-#   workstations = {}
 
-#   for task_idx, workstation in enumerate(best_solution):
-#       # Get the task's duration and part reference
-#       task_duration = mbom_data.loc[task_idx, 'cycleTime']
 
-#       # Add task duration to the corresponding workstation
-#       if workstation not in workstations:
-#           workstations[workstation] = {
-#               'tasks': [],
-#               'total_duration': 0
-#           }
+def generate_station_ids(num_machines):
+    stations = []
+    for i in range(1, num_machines + 1):
+        stations.append(f"M{i}-S1")  # Station S1 for Machine i
+        stations.append(f"M{i}-S2")  # Station S2 for Machine i
+    return stations
 
-#       # Append task to the workstation's list and sum the duration
-#       workstations[workstation]['tasks'].append(task_idx)
-#       workstations[workstation]['total_duration'] += task_duration
+import xml.etree.ElementTree as ET
+from collections import defaultdict, deque
 
-#   # Step 2: Sort workstations by total duration (to balance the workload)
-#   workstation_items = sorted(workstations.items(), key=lambda x: x[1]['total_duration'], reverse=True)
+# Function to extract welding data from the XML
+def extract_welding_data(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
 
-#   # Step 3: Create stations by merging workstations
-#   stations = []
-#   i = 0
+    # Store welding data here
+    welding_data = []
+    precedency_dict = {}
+    task_cycle_times = {}
+    forbidden_dict = {}
 
-#   # Keep merging workstations until we have an odd number of stations
-#   while len(workstation_items) + len(stations) % 2 == 0:
-#       # Take the workstation with the longest remaining duration
-#       ws1 = workstation_items[i]
-#       i += 1
+    # Loop through all welding elements
+    for welding in root.findall(".//welding"):
+        task_id = welding.get('id')
+        precedency = welding.get('precedency')
+        cycle_time = welding.get('cycleTime')
+        forbidden = welding.get('forbidden')
 
-#       # Try to pair it with the next workstation (smallest duration)
-#       ws2 = workstation_items[-1]
-#       workstation_items = workstation_items[:-1]  # Remove the last one
+        # Parse precedency and forbidden data if they exist
+        precedency_list = precedency.split(';') if precedency else []
+        forbidden_list = forbidden.split(';') if forbidden else []
 
-#       # Merge the two into a single station (balanced workload)
-#       merged_station = {
-#           'workstations': [ws1[0], ws2[0]],
-#           'total_duration': ws1[1]['total_duration'] + ws2[1]['total_duration']
-#       }
-#       stations.append(merged_station)
+        # Build the dictionaries
+        precedency_dict[task_id] = precedency_list
+        task_cycle_times[task_id] = float(cycle_time)  # Convert cycleTime to integer
+        forbidden_dict[task_id] = forbidden_list
 
-#   # Step 4: If there are remaining workstations, add them as single-workstation stations
-#   for ws in workstation_items[i:]:
-#       single_station = {
-#           'workstations': [ws[0]],
-#           'total_duration': ws[1]['total_duration']
-#       }
-#       stations.append(single_station)
+    return precedency_dict, task_cycle_times, forbidden_dict
 
-#   return stations, workstations
+# Function to perform topological sorting
+def topological_sort(tasks, precedency):
+    in_degree = defaultdict(int)
+    adj_list = defaultdict(list)
 
+    # Build the adjacency list and compute in-degrees
+    for task, precedes in precedency.items():
+        for t in precedes:
+            adj_list[t].append(task)
+            in_degree[task] += 1
+
+    # Find tasks with zero in-degree
+    zero_in_degree = deque([task for task in tasks if task not in in_degree])
+
+    sorted_tasks = []
+    while zero_in_degree:
+        current_task = zero_in_degree.popleft()
+        sorted_tasks.append(current_task)
+
+        for neighbor in adj_list[current_task]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                zero_in_degree.append(neighbor)
+    
+    if len(sorted_tasks) != len(tasks):
+        raise ValueError("There exists a cycle in the task precedency!")
+
+
+    return sorted_tasks
+
+# Function to allocate tasks to machines
+def allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_pairs, max_cycle_time):
+    machines = []
+    machine_loads = []
+
+    for task in sorted_tasks:
+        cycle_time = task_cycle_times[task]
+        assigned = False
+
+        # Try to assign the task to an existing machine
+        for i, machine in enumerate(machines):
+            if (all(forbid not in machine for forbid in forbidden_pairs.get(task, [])) and
+                machine_loads[i] + cycle_time <= max_cycle_time):
+                machine.append(task)
+                machine_loads[i] += cycle_time
+                assigned = True
+                break
+
+        # If task couldn't be assigned, create a new machine
+        if not assigned:
+            machines.append([task])
+            machine_loads.append(cycle_time)
+
+    return machines, machine_loads
+
+# Main function to execute topological sorting and allocation
+def schedule_tasks(xml_file, max_cycle_time):
+    # Extract precedency, cycle times, and forbidden pairs from XML
+    precedency_dict, task_cycle_times, forbidden_dict = extract_welding_data(xml_file)
+
+    # Get the list of tasks from the precedency dictionary
+    tasks = list(precedency_dict.keys())
+
+    # Perform topological sorting to respect precedency constraints
+    sorted_tasks = topological_sort(tasks, precedency_dict)
+
+    # Allocate tasks to machines, ensuring forbidden pairs are not scheduled together
+    machines, machine_loads = allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_dict, max_cycle_time)
+
+    return machines, machine_loads
+
+# Example usage: Provide the path to your XML file and maximum cycle time per machine
+xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+max_cycle_time = 55  # Define the maximum cycle time for each machine
+machines, machine_loads = schedule_tasks(xml_file, max_cycle_time)
+
+# Print the task allocation to machines
+for i, machine in enumerate(machines):
+    print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
+
+import xml.etree.ElementTree as ET
+from collections import defaultdict, deque
+
+# Function to extract welding data from the XML
+def extract_welding_data(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Store welding data here
+    precedency_dict = {}
+    task_cycle_times = {}
+    forbidden_dict = {}
+    task_parts = {}
+
+    # Loop through all welding elements
+    for welding in root.findall(".//welding"):
+        task_id = welding.get('id')
+        precedency = welding.get('precedency')
+        cycle_time = welding.get('cycleTime')
+        forbidden = welding.get('forbidden')
+        parts = welding.get('assy')  # Extract parts to be assembled
+
+        # Parse precedency, forbidden, and parts data if they exist
+        precedency_list = precedency.split(';') if precedency else []
+        forbidden_list = forbidden.split(';') if forbidden else []
+        part_list = parts.split(';') if parts else []  # Parts are separated by ;
+
+        # Build the dictionaries
+        precedency_dict[task_id] = precedency_list
+        task_cycle_times[task_id] = float(cycle_time)  # Convert cycleTime to integer
+        forbidden_dict[task_id] = forbidden_list
+        task_parts[task_id] = part_list  # Store multiple parts as a list
+
+    return precedency_dict, task_cycle_times, forbidden_dict, task_parts
+
+# Function to perform topological sorting
+def topological_sort(tasks, precedency):
+    in_degree = defaultdict(int)
+    adj_list = defaultdict(list)
+
+    # Build the adjacency list and compute in-degrees
+    for task, precedes in precedency.items():
+        for t in precedes:
+            adj_list[t].append(task)
+            in_degree[task] += 1
+
+    # Find tasks with zero in-degree
+    zero_in_degree = deque([task for task in tasks if task not in in_degree])
+    sorted_tasks = []
+
+    while zero_in_degree:
+        current_task = zero_in_degree.popleft()
+        sorted_tasks.append(current_task)
+
+        for neighbor in adj_list[current_task]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                zero_in_degree.append(neighbor)
+
+    # Check for cycles in the graph
+    if len(sorted_tasks) != len(tasks):
+        raise ValueError("There exists a cycle in the task precedency!")
+
+    return sorted_tasks
+
+# Function to check if a task can be added to a machine based on shared parts
+def can_add_task_to_machine(task, machine, task_parts):
+    machine_parts = set()  # Track parts currently on the machine
+    for t in machine:
+        machine_parts.update(task_parts[t])  # Add all parts from tasks on the machine
+
+    task_parts_set = set(task_parts[task])  # Convert task's parts to a set
+    return not machine_parts.isdisjoint(task_parts_set)  # Check for any shared parts
+
+# Function to allocate tasks to machines
+def allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_pairs, task_parts, max_cycle_time, tolerance):
+    machines = []
+    machine_loads = []
+
+    for task in sorted_tasks:
+        cycle_time = task_cycle_times[task]
+        assigned = False
+
+        # Try to assign the task to an existing machine
+        for i, machine in enumerate(machines):
+            if (all(forbid not in machine for forbid in forbidden_pairs.get(task, [])) and
+                machine_loads[i] + cycle_time <= (1+tolerance)*max_cycle_time and
+                can_add_task_to_machine(task, machine, task_parts)):  # Ensure part compatibility
+                machine.append(task)
+                machine_loads[i] += cycle_time
+                assigned = True
+                break
+
+        # If task couldn't be assigned, create a new machine
+        if not assigned:
+            machines.append([task])
+            machine_loads.append(cycle_time)
+
+    return machines, machine_loads
+
+
+# Main function to execute topological sorting and allocation
+def schedule_tasks(xml_file, max_cycle_time, tolerance):
+    # Extract precedency, cycle times, forbidden pairs, and part dependencies from XML
+    precedency_dict, task_cycle_times, forbidden_dict, task_parts = extract_welding_data(xml_file)
+    
+    # Get the list of tasks from the precedency dictionary
+    tasks = list(precedency_dict.keys())
+    print("tasks = ", tasks)
+    # Perform topological sorting to respect precedency constraints
+    sorted_tasks = topological_sort(tasks, precedency_dict)
+
+    # Allocate tasks to machines, ensuring forbidden pairs are not scheduled together
+    machines, machine_loads = allocate_tasks_to_machines(tasks, sorted_tasks, task_cycle_times, forbidden_dict, task_parts, max_cycle_time, tolerance)
+
+    resource_list = (len(machine_loads), machine_loads, machines)
+    operators_results = (2, [112.0, 104.0])
+
+    best_solution = [0 for _ in range(len(tasks))]
+    for i, task in enumerate(tasks):
+        for j, machine in enumerate(machines):
+            if task in machine:
+                best_solution[i] = j+1
+                break
+            
+    
+
+    print("Best solution = ", best_solution)
+    print("macghine = ", resource_list)
+
+    return best_solution, resource_list, operators_results, [0 for _ in range(10000)]
+
+# # Example usage: Provide the path to your XML file and maximum cycle time per machine
+# xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+# max_cycle_time = 55  # Define the maximum cycle time for each machine
+# machines, machine_loads = schedule_tasks(xml_file, max_cycle_time)
+
+# # Print the task allocation to machines
+# for i, machine in enumerate(machines):
+#     print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
+ref = "2204259X"
+print(os.path.exists("assets/inputs/INC1114673PNGFiles/"+ref+".CATPart.png"))

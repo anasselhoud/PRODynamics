@@ -61,7 +61,16 @@ class PRODynamicsApp:
                 "Target CT": "100",
                 "Tolerance": "0.1",
             }
-        
+            
+        if "static_optim_config" not in st.session_state:
+            st.session_state.static_optim_config = {
+                "takt_time": "100",
+                "n_machines": 4,
+                "n_stations_permachine": 2,
+                "n_operators": 3,
+                "ressource_list": [],
+                "manu_op_assignments": {}
+            }
         # Central Storage
         if "central_storage" not in st.session_state:        
             st.session_state.central_storage = {
@@ -76,6 +85,16 @@ class PRODynamicsApp:
 
         self.all_prepared = False
         self.selected = None
+
+        if "static_best_solution" not in st.session_state: 
+            st.session_state.static_best_solution = []
+
+        if "detail_btn_run" not in st.session_state: 
+            st.session_state.detail_btn_run = False
+
+    def click_detail_static_optim(self):
+        st.session_state.detail_btn_run = True
+
 
     def global_configuration(self):
 
@@ -831,20 +850,8 @@ class PRODynamicsApp:
             ),
             margin=dict(l=0, r=0, t=30, b=30)
             )
-
-
-            # Display the Plotly figure
-   
             st.plotly_chart(fig, use_container_width=True)
-            # # Plotting
-            # bars1 = ax_m.bar(machines_names, machine_available_percentage, label='Operating', color="green")
-            # bars2 = ax_m.bar(machines_names, breakdown_percentage, bottom=machine_available_percentage, label='Breakdown', color="red")
-            # bars3 = ax_m.bar(machines_names, waiting_time_percentage, bottom=np.array(machine_available_percentage) + np.array(breakdown_percentage), label='Waiting', color="Orange")
-            # ax_m.plot(machines_names, machine_efficiency_rate, '--x', color='white', label="Efficiency")
-            # ax_m.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), fancybox=True, shadow=True, ncol=4)
 
-            # # Display the plot
-            # st.pyplot(fig_m)
 
         # Plot of Machine Breakdowns
         with c4:
@@ -912,39 +919,36 @@ class PRODynamicsApp:
             )
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
-
-
-        col_operator_work, col_central_storage = st.columns(2)
         
         # Operator Plot
-        with col_operator_work:
-            fig = go.Figure()
+        fig = go.Figure()
 
-            # Add bar traces for each utilization type
-            op_WCs = []
-            for op in manuf_line.manual_operators:
-                op_WCs.append(op.wc)
-            fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
+        # Add bar traces for each utilization type
+        op_WCs = []
+        for op in manuf_line.manual_operators:
+            op_WCs.append(op.wc)
+        fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
 
-            # Update layout
-            fig.update_layout(
-                title="Operator Work Content",
-                xaxis_title="Operator",
-                yaxis_title="Cumulated Work Content (s)",
-                barmode="stack",  # Stack bars on top of each other
-                legend=dict(
-                    orientation="h",  # Horizontal legend
-                    xanchor="center",  # Anchor legend to the right
-                    x=0.5  # Adjust horizontal position of the legend
-                ),
-                margin=dict(l=0, r=0, t=30, b=30)
-            )
-            # Display the Plotly figure
-            st.plotly_chart(fig, use_container_width=True)
+        # Update layout
+        fig.update_layout(
+            title="Operator Work Content",
+            xaxis_title="Operator",
+            yaxis_title="Cumulated Work Content (s)",
+            barmode="stack",  # Stack bars on top of each other
+            legend=dict(
+                orientation="h",  # Horizontal legend
+                xanchor="center",  # Anchor legend to the right
+                x=0.5  # Adjust horizontal position of the legend
+            ),
+            margin=dict(l=0, r=0, t=30, b=30)
+        )
+        # Display the Plotly figure
+        st.plotly_chart(fig, use_container_width=True)
         
         # Central storage plot
         if st.session_state.configuration["central_storage_enable"]:
-            with col_central_storage:
+            col_cs_detail, col_cs_evolution = st.columns([0.3, 0.7])
+            with col_cs_detail:
 
                 all_references = manuf_line.central_storage.all_allowed_references
 
@@ -982,29 +986,50 @@ class PRODynamicsApp:
                     xaxis_title="Blocks",
                     yaxis_title="Number of items",
                     barmode="stack",  # Stack bars on top of each other
-                    legend=dict(
-                        orientation="h",  # Horizontal legend
-                        xanchor="center",  # Anchor legend to the right
-                        x=0.5  # Adjust horizontal position of the legend
-                    ),
                     margin=dict(l=0, r=0, t=30, b=30)
                 )
 
                 # Display the Plotly figure
                 st.plotly_chart(fig, use_container_width=True)
        
+            with col_cs_evolution:
+                fig3 = go.Figure()
+                for ref in manuf_line.cs_track:
+                    cs_in = [t[1] for t in manuf_line.cs_track[ref]]
+                    times = [t[0] for t in manuf_line.cs_track[ref]]
+                    fig3.add_trace(go.Scatter(x=times, y=cs_in, mode='lines', name=ref, opacity=0.3))
+                
+                cs_total = [sum([manuf_line.cs_track[ref][i][1] for ref in manuf_line.cs_track]) for i in range(len(times))]
+                fig3.add_trace(go.Scatter(x=times, y=cs_total, mode='lines', name='Total')) 
+
+                # Update layout
+                fig3.update_layout(
+                    title='Evolution of Central Storage',
+                    xaxis_title='Time',
+                    yaxis_title='Number of items',
+                    margin=dict(l=0, r=0, t=30, b=20)
+                )
+
+                # Display the Plotly figure
+                st.plotly_chart(fig3, use_container_width=True)
+
     def assembly_section(self):
+
+        self.placeholder = st.empty()
+
+        # if(st.session_state['staticoptim_pressed'] == 1):
+        #     with self.placeholder.container():
         uploaded_file_mbom = st.file_uploader("Upload Workplan", type=["xml"])
         tab1, tab2 = st.tabs(["Assembly Tasks", "Parts List"])
         with tab1:
-            columns_to_keep = ['id', 'cycleTime', 'weight', 'type', 'assy', 'precedency', 'forbidden'] 
+            columns_to_keep = ['id', 'cycleTime',  'type', 'assy', 'precedency', 'forbidden','weight'] 
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Assembly Tasks")
             if hasattr(st.session_state, 'mbom_data') and  isinstance(st.session_state.mbom_data, pd.DataFrame):
                 st.session_state.mbom_data = st.session_state.mbom_data[columns_to_keep]
 
                 updated_df = st.data_editor(st.session_state.mbom_data, num_rows="dynamic", key="tasks_edit")
-                if not st.session_state.mbom_data.equals(updated_df):
+                if st.button("Save Data", key="static_data_save"):
                     st.session_state.mbom_data = updated_df.copy()
                     st.rerun()
 
@@ -1047,12 +1072,7 @@ class PRODynamicsApp:
                 Tasks = read_prepare_mbom(st.session_state.mbom_data, st.session_state.parts_data)
             
         
-            if st.session_state.configuration_static["Search Speed"] == "Fast":
-                N_episodes = 10000
-            elif st.session_state.configuration_static["Search Speed"] == "Slow":
-                N_episodes = 1000000
-            else:
-                N_episodes = 100000
+            
 
             if st.session_state.configuration_static["Exploration Mode"] == "Standard":
                 tolerance = 0.1
@@ -1060,15 +1080,38 @@ class PRODynamicsApp:
                 tolerance = 0.5
             else:
                 tolerance = 0.1
-
+            
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
-            best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+            if st.session_state.configuration_static["Search Speed"] == "Fast":
+                N_episodes = 10000
+                xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+                max_cycle_time = target_CT/2 +5 
+                best_solution, ressource_list, operators_list, session_rewards = schedule_tasks(xml_file, max_cycle_time, tolerance)
+
+            elif st.session_state.configuration_static["Search Speed"] == "Slow":
+                N_episodes = 1000000
+                best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+
+            else:
+                N_episodes = 10000
+                best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+
+            
+            
+
+            # Print the task allocation to machines
+            # for i, machine in enumerate(machines):
+            #     print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
             if st.session_state.configuration["dev_mode"]:
                 print("Best Soluton = ", best_solution)
                 print("Machines = ", ressource_list[1])
                 print("Operators = ", operators_list[1])
-
+            
+            print("Best Soluton = ", best_solution)
+            print("Machines = ", ressource_list)
+            print("Operators = ", operators_list)
             self.my_bar_static_optim.empty()
             st.header("Results")
             col = st.columns(4, gap='medium')
@@ -1096,65 +1139,53 @@ class PRODynamicsApp:
             #with c11:
             
             st.markdown("### Best Sequence Overview")
+            ### TODO: Should avoid repeating the components, if already done, then call it SubAssy OP01
             workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
 
             #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
-
+            WC_workstations = []
             #Display each workstation and its corresponding parts
             for workstation, parts in sorted(workstations.items()):
                 st.markdown(f"###### OP 0{workstation}")
-
+                WC_workstations.append(4*len(parts))
                 # Retrieve the thumbnail for each part by matching the part reference to parts_data
                 part_thumbnails = []
                 for part_ref in parts:
                     # Get the thumb URL from parts_data for this part_ref
                     part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
-                    if not part_info.empty:
-                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
-                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
-  
+
+                    if not part_info.empty: # An isolated part
+                        program_folder = "assets/inputs/INC1114673PNGFiles/"
+                        if os.path.exists(program_folder+ part_ref+".png"):
+                            thumb_url = program_folder + part_ref+".png" # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                        elif os.path.exists(program_folder+ part_ref +".CATPart.png"):
+                            thumb_url = program_folder + part_ref  # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                        else:
+                            thumb_url = "assets/icons/unknown-part.png"   # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                            
                         # Add the thumb to the list (thumb_url and part_ref as caption)
                         part_thumbnails.append((thumb_url, part_name))
+                    else: # An OP subassy
+                        thumb_url = str(part_ref) 
+                        part_name = part_ref
+                        part_thumbnails.append((thumb_url, part_name))
 
+                print(part_thumbnails)
                 if part_thumbnails:
-                    images, captions = zip(*part_thumbnails) 
                     try:
+                        images, captions = zip(*part_thumbnails) 
                         st.image(list(images), list(captions), width=100)  
                     except:
-                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        unknown_images= ["./assets/icons/unknown-part.png" for _ in range(len(images))]
                         st.image(list(unknown_images), list(captions), width=100) 
-
-
-            # for station_idx, station in enumerate(stations):
-            #     st.subheader(f"Station {station_idx + 1}")
-                
-            #     for workstation in station['workstations']:
-            #         st.markdown(f"###### OP 0{workstation}")
-            #         # Retrieve the thumbnail for each part by matching the part reference to parts_data
-            #         part_thumbnails = []
-            #         task_indices = workstations[workstation]['tasks']
-
-            #         for task_idx in task_indices:
-            #             assy_parts = st.session_state.mbom_data.loc[task_idx, "assy"].split(';')
-
-            #             for part_ref in assy_parts:
-            #                 part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
-            #                 if not part_info.empty:
-            #                     thumb_url = part_info['thumb'].values[0]
-            #                     part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
-            #                     part_thumbnails.append((thumb_url, part_name))
-
-            #         if part_thumbnails:
-            #             images, captions = zip(*part_thumbnails) 
-            #             try:
-            #                 st.image(list(images), list(captions), width=100)  
-            #             except:
-            #                 unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
-            #                 st.image(list(unknown_images), list(captions), width=100) 
 
 
             st.markdown("### Detailed Results")
             fig = go.Figure()
+            
 
             CT_machines = [ressource_list[1][i]+ressource_list[1][i-1] for i in range(len(ressource_list[1])) if i%2!=0]
             fig.add_trace(go.Bar(x=["M"+str(i+1) for i in range(len(CT_machines))], y=list(CT_machines), name='Global CT', marker_color='green'))
@@ -1170,81 +1201,126 @@ class PRODynamicsApp:
             st.plotly_chart(fig, use_container_width=True)
 
 
-            fig = go.Figure()
+            
+    
+            # Generate stations
+            station_ids = generate_station_ids(len(CTs_pertwo)) + ["EOL1"]
+            print("station N = ", station_ids)
+            # Create empty DataFrame for table
+            table_data = pd.DataFrame({
+                "Station ID": station_ids,
+                #"Automatic": [0] * len(station_ids),  ressource_list[1]
+                "Automatic": ressource_list[1][:len(station_ids)-1] + [0],
+                "Operator ID": [None] * len(station_ids),  # Empty for operators, to be selected
+                "Manual Time": WC_workstations + [0]  # Default manual time as 0
+            })
 
-                #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
-                #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
-            fig.add_trace(go.Scatter(x=list(range(len(session_rewards))), y=session_rewards, mode='lines', name='Global CT', marker_color='green'))
+            # Assign operators based on input
+            operators = [f"OP{i}" for i in range(1, len(operators_list) + 1)]
+            table_data["Operator ID"] = [operators[i % len(operators_list)] for i in range(len(station_ids))]
 
-            fig.update_layout(
-                title='Evolution of Sequence Scores',
-                xaxis_title='Iterations',
-                yaxis_title='Desirability Score',
-                margin=dict(l=0, r=0, t=30, b=20)
-            )
+            st.write("Add End of Line Stations if Needed.")
+            edited_table = st.data_editor(table_data, num_rows="dynamic")
 
-            st.plotly_chart(fig, use_container_width=True)
+            
+            manu_op_assignments = {}
 
-            ### Section of assembly scenario details 
-
-            time.sleep(1)
-            with st.expander("Need more details?", expanded=False):
-
-
+            # Iterate over the edited table to populate manu_op_assignments
+            for index, row in edited_table.iterrows():
+                station_id = row["Station ID"]
+                operator_id = int(row["Operator ID"].replace('OP', ''))  # Extract the operator number from "OPx"
+                manual_time = row["Manual Time"]
                 
-                columns = st.columns(2)
-                
-                
-                env = simpy.Environment()
-                tasks = []
-                config_file = 'config.yaml'
-                self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-                
-                manu_op_assignments = {
-                'M1': (1, 10),
-                'M2': (1, 10),
-                'M3': (2, 10),
-                'M4': (2, 10),
-                'M5':(2, 10),
-                'M6':(2, 10),
-                'M7':(3, 10),
-                'M8':(3, 10),
-                'EOL1': (4, 10),
-                'EOL2': (4, 10), 
-                'EOL3': (4, 10)}
+                # Assign the station ID to the (operator_id, manual_time) tuple
+                manu_op_assignments[station_id] = (operator_id, manual_time)
 
-                
-                # self.save_global_settings(self.manuf_line)
-                st.session_state.configuration = {
-                "sim_time": "3600*24*1",
+            st.session_state.static_optim_config = {
                 "takt_time": str(target_CT),
-                "enable_robots": False,
-                "strategy": "Balanced Strategy",
-                "reset_shift": False,
-                "dev_mode":False,
-                "stock_capacity": "10000000",
-                "safety_stock": "1",
-                "n_repairmen": 3,
-                "enable_random_seed": True,
-                "enable_breakdowns": False,
-                "breakdown_dist_distribution": "Weibull Distribution",
-                "central_storage_enable": False,
-                "central_storage_ttr": {'front': 100, "back": 100},
-                }
+                "n_machines": n_machines,
+                "n_stations_permachine": 2,
+                "list_operators": operators_list,
+                "ressource_list": ressource_list[1],
+                "manu_op_assignments": manu_op_assignments
+            }
+            st.session_state.static_best_solution = best_solution
+            st.button("Save for Detailed Simulation.", on_click=self.click_detail_static_optim)
 
-                st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
-                self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-                self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
-                self.manuf_line.save_global_settings(st.session_state.configuration, self.manuf_line.references_config, self.manuf_line.machine_config_data, buffer_sizes=[])
+        if st.session_state.detail_btn_run:
 
-                self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
-                self.all_prepared = True
-                st.session_state.configuration["central_storage_enable"] = False
-                st.session_state.configuration['enable_robots'] = False
+            manu_op_assignments = st.session_state.static_optim_config['manu_op_assignments']    
 
-                self.manuf_line.dev_mode = False
-                
-                self.run_simulation(self.manuf_line)
+            # self.save_global_settings(self.manuf_line)
+            st.session_state.configuration = {
+            "sim_time": "3600*24*1",
+            "takt_time": st.session_state.static_optim_config['takt_time'],
+            "enable_robots": False,
+            "strategy": "Balanced Strategy",
+            "reset_shift": False,
+            "dev_mode":False,
+            "stock_capacity": "10000000",
+            "safety_stock": "1",
+            "n_repairmen": 3,
+            "enable_random_seed": True,
+            "enable_breakdowns": False,
+            "breakdown_dist_distribution": "Weibull Distribution",
+            "central_storage_enable": False,
+            "central_storage_ttr": {'front': 100, "back": 100},
+            }
+            
+
+            st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(st.session_state.static_optim_config['ressource_list'], [25], manu_op_assignments)
+
+            env = simpy.Environment()
+            tasks = []
+            config_file = 'config.yaml'
+            self.manuf_line = ManufLine(env, tasks, config_file=config_file)
+            self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+            self.manuf_line.save_global_settings(st.session_state.configuration, self.manuf_line.references_config, self.manuf_line.machine_config_data, buffer_sizes=[])
+
+            self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+            self.all_prepared = True
+            st.session_state.configuration["central_storage_enable"] = False
+            st.session_state.configuration['enable_robots'] = False
+
+            self.manuf_line.dev_mode = False
+            self.run_simulation(self.manuf_line)
+            st.markdown("### Recap - Sequence Overview")
+            workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, st.session_state.static_best_solution)
+
+            #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
+
+            #Display each workstation and its corresponding parts
+            for workstation, parts in sorted(workstations.items()):
+                st.markdown(f"###### OP 0{workstation}")
+
+                # Retrieve the thumbnail for each part by matching the part reference to parts_data
+                part_thumbnails = []
+                for part_ref in parts:
+                    # Get the thumb URL from parts_data for this part_ref
+                    part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
+
+                    if not part_info.empty: # An isolated part
+                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
+                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+
+                        # Add the thumb to the list (thumb_url and part_ref as caption)
+                        part_thumbnails.append((thumb_url, part_name))
+                    else: # An OP subassy
+                        thumb_url = str(part_ref) 
+                        part_name = part_ref
+                        part_thumbnails.append((thumb_url, part_name))
+
+                if part_thumbnails:
+                    images, captions = zip(*part_thumbnails) 
+                    try:
+                        st.image(list(images), list(captions), width=100)  
+                    except:
+                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        st.image(list(unknown_images), list(captions), width=100) 
+
+            st.session_state.detail_btn_run = False
+            #st.session_state['staticoptim_pressed'] = 1
 
                 
         return True
