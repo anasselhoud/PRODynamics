@@ -17,10 +17,6 @@ class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
 
         """
-        -- operators_assignement = [[1,2], [3], [4]] => 3 operators: first one operates on machine 1 and machine 2,
-            second one operates on machine 3 and third one operates on machine 4.
-
-        -- tasks_assignement = [1, 1, 2, 3, 3, 4, 4, 4 ....]
 
          """
         try:
@@ -708,7 +704,10 @@ class ManufLine:
             initial_buffer = int(machine_config[4])
 
             # Allow filling the central storage 
-            fill_central_storage = machine_config[13]
+            try:
+                fill_central_storage = machine_config[13]
+            except:
+                fill_central_storage = False
 
             # TODO : set the operating time of each machine here given the different references in input 
 
@@ -761,11 +760,11 @@ class ManufLine:
             if machine.first:
                 machine.previous_machine = self.supermarket_in
                 machine.previous_machines.append(self.supermarket_in)
+        
 
             if machine.last:
                 machine.next_machine = self.shop_stock_out
                 machine.next_machines.append(self.shop_stock_out)
-
             try:
                 # If there is a robot, store the time required to move
                 if len(self.robots_list) > 0:
@@ -856,7 +855,6 @@ class Machine:
         self.waiting_time = [0, 0] #Stavation # Blockage
         self.waiting_time_rl = 0 #real time waiting time
         self.operating = False
-        self.identical_machines = []
         self.move_robot_time = 0
         self.same_machine = None
         self.ref_produced = []
@@ -1056,8 +1054,13 @@ class Machine:
                     self.broken = False
             
             # Do not process if there is already a process ongoing
+            # entry_op = self.env.now
             if other_process_operating:
-                continue
+                while self.same_machine.operating:
+                    yield self.env.timeout(1)
+            
+            #self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_op]
+
             
             #TODO: Skip robot when part not processed in the machine
 

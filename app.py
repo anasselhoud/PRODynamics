@@ -20,13 +20,6 @@ st.set_page_config(page_title="PRODynamics", page_icon="⚙️", layout="wide")
 #st.image('surviz_black_long.png')
 
 
- 
-# if selected == "Simulation & Results":
-#     with st.spinner(text='In progress'):
-#         time.sleep(3)
-#         st.success('Done')
-# if selected == "Contact":
-#     st.subheader(f"**You Have selected {selected}**")
 
 
 class PRODynamicsApp:
@@ -47,7 +40,7 @@ class PRODynamicsApp:
                 "enable_robots": True,
                 "strategy": "Balanced Strategy",
                 "reset_shift": False,
-                "dev_mode":True,
+                "dev_mode":False,
                 "stock_capacity": "1",
                 "safety_stock": "1",
                 "n_repairmen": 3,
@@ -75,7 +68,16 @@ class PRODynamicsApp:
                 "Target CT": "100",
                 "Tolerance": "0.1",
             }
-        
+            
+        if "static_optim_config" not in st.session_state:
+            st.session_state.static_optim_config = {
+                "takt_time": "100",
+                "n_machines": 4,
+                "n_stations_permachine": 2,
+                "n_operators": 3,
+                "ressource_list": [],
+                "manu_op_assignments": {}
+            }
         # Central Storage
         if "central_storage" not in st.session_state:        
             st.session_state.central_storage = {
@@ -90,6 +92,16 @@ class PRODynamicsApp:
 
         self.all_prepared = False
         self.selected = None
+
+        if "static_best_solution" not in st.session_state: 
+            st.session_state.static_best_solution = []
+
+        if "detail_btn_run" not in st.session_state: 
+            st.session_state.detail_btn_run = False
+
+    def click_detail_static_optim(self):
+        st.session_state.detail_btn_run = True
+
 
     def global_configuration(self):
 
@@ -281,18 +293,23 @@ class PRODynamicsApp:
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             
             # Save button
-            if st.button("Save", key="line_data_save"):
+            if st.button("Save Data", key="line_data_save"):
                 st.session_state.line_data = line_data_editor.copy()
                 st.rerun()
 
             # Graph display
-            display_btn = st.button("Display manufactoring line")
+            display_btn = st.button("Display the line")
 
             with st.columns([0.1, 0.8, 0.1])[1]:
                 if display_btn:
                     graph = graphviz.Digraph()
                     graph.attr(rankdir='LR')
-                    # graph.attr(bgcolor='transparent')
+
+                    #TODO: find a way to check if the dark mode is activated (change main color based on that)
+                    main_color = "white"
+
+                    #graph.attr(bgcolor='black')
+                    graph.attr(bgcolor='transparent')
 
                     # Legend for central storage
                     if st.session_state.configuration["central_storage_enable"]:
@@ -301,20 +318,21 @@ class PRODynamicsApp:
                     # Generate nodes, and colour machines linked to the central storage
                     for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
                         if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
-                            graph.node(machine, style='filled', fillcolor='#77B5FE')
+                            graph.node(machine, style='filled', fillcolor='#77B5FE',color=main_color, fontcolor=main_color)
                         else:
-                            graph.node(machine)
+                            graph.node(machine, color=main_color, fontcolor=main_color)
 
                     # Generate the edges origin -> destination
                     for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                         try:
                             destinations = eval(destination)
                             for dest in destinations:
-                                graph.edge(origin, dest)
+                                graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                         except:
-                            graph.edge(origin, destination)
+                            graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
                     # Plot
+                    graph.node("END", color=main_color, fontcolor=main_color)
                     st.graphviz_chart(graph, use_container_width=True)
 
         with tab2:
@@ -412,7 +430,12 @@ class PRODynamicsApp:
         with st.columns([0.2, 0.6, 0.2])[1]:
             graph = graphviz.Digraph()
             graph.attr(rankdir='LR')
-            # graph.attr(bgcolor='transparent')
+
+            #TODO: find a way to check if the dark mode is activated (change main color based on that)
+            main_color = "white"
+
+            #graph.attr(bgcolor='black')
+            graph.attr(bgcolor='transparent')
 
             # Legend for central storage
             if st.session_state.configuration["central_storage_enable"]:
@@ -421,20 +444,21 @@ class PRODynamicsApp:
             # Generate nodes, and colour machines linked to the central storage
             for machine, can_fill_cs in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Fill central storage"].values):
                 if st.session_state.configuration["central_storage_enable"] and can_fill_cs:
-                    graph.node(machine, style='filled', fillcolor='#77B5FE')
+                    graph.node(machine, style='filled', fillcolor='#77B5FE',color=main_color, fontcolor=main_color)
                 else:
-                    graph.node(machine)
+                    graph.node(machine, color=main_color, fontcolor=main_color)
 
             # Generate the edges origin -> destination
             for origin, destination in zip(st.session_state.line_data["Machine"].values, st.session_state.line_data["Link"].values):
                 try:
                     destinations = eval(destination)
                     for dest in destinations:
-                        graph.edge(origin, dest)
+                        graph.edge(origin, dest, color=main_color, fontcolor=main_color)
                 except:
-                    graph.edge(origin, destination)
+                    graph.edge(origin, destination, color=main_color, fontcolor=main_color)
 
             # Plot
+            graph.node("END", color=main_color, fontcolor=main_color)
             st.graphviz_chart(graph, use_container_width=True)
 
         st.markdown("""---""")
@@ -868,20 +892,8 @@ class PRODynamicsApp:
             ),
             margin=dict(l=0, r=0, t=30, b=30)
             )
-
-
-            # Display the Plotly figure
-   
             st.plotly_chart(fig, use_container_width=True)
-            # # Plotting
-            # bars1 = ax_m.bar(machines_names, machine_available_percentage, label='Operating', color="green")
-            # bars2 = ax_m.bar(machines_names, breakdown_percentage, bottom=machine_available_percentage, label='Breakdown', color="red")
-            # bars3 = ax_m.bar(machines_names, waiting_time_percentage, bottom=np.array(machine_available_percentage) + np.array(breakdown_percentage), label='Waiting', color="Orange")
-            # ax_m.plot(machines_names, machine_efficiency_rate, '--x', color='white', label="Efficiency")
-            # ax_m.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), fancybox=True, shadow=True, ncol=4)
 
-            # # Display the plot
-            # st.pyplot(fig_m)
 
         # Plot of Machine Breakdowns
         with c4:
@@ -1044,17 +1056,22 @@ class PRODynamicsApp:
                 st.plotly_chart(fig3, use_container_width=True)
 
     def assembly_section(self):
+
+        self.placeholder = st.empty()
+
+        # if(st.session_state['staticoptim_pressed'] == 1):
+        #     with self.placeholder.container():
         uploaded_file_mbom = st.file_uploader("Upload Workplan", type=["xml"])
         tab1, tab2 = st.tabs(["Assembly Tasks", "Parts List"])
         with tab1:
-            columns_to_keep = ['id', 'cycleTime', 'weight', 'type', 'assy', 'precedency', 'forbidden'] 
+            columns_to_keep = ['id', 'cycleTime',  'type', 'assy', 'precedency', 'forbidden','weight'] 
             #uploaded_file_line_data = st.file_uploader("Upload Production Line Data", type=["xlsx", "xls"])
             st.subheader("Assembly Tasks")
             if hasattr(st.session_state, 'mbom_data') and  isinstance(st.session_state.mbom_data, pd.DataFrame):
                 st.session_state.mbom_data = st.session_state.mbom_data[columns_to_keep]
 
                 updated_df = st.data_editor(st.session_state.mbom_data, num_rows="dynamic", key="tasks_edit")
-                if not st.session_state.mbom_data.equals(updated_df):
+                if st.button("Save Data", key="static_data_save"):
                     st.session_state.mbom_data = updated_df.copy()
                     st.rerun()
 
@@ -1097,12 +1114,7 @@ class PRODynamicsApp:
                 Tasks = read_prepare_mbom(st.session_state.mbom_data, st.session_state.parts_data)
             
         
-            if st.session_state.configuration_static["Search Speed"] == "Fast":
-                N_episodes = 10000
-            elif st.session_state.configuration_static["Search Speed"] == "Slow":
-                N_episodes = 1000000
-            else:
-                N_episodes = 100000
+            
 
             if st.session_state.configuration_static["Exploration Mode"] == "Standard":
                 tolerance = 0.1
@@ -1110,16 +1122,39 @@ class PRODynamicsApp:
                 tolerance = 0.5
             else:
                 tolerance = 0.1
-
+            
             target_CT = float(st.session_state.configuration_static["Target CT"])
 
-            best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+            if st.session_state.configuration_static["Search Speed"] == "Fast":
+                N_episodes = 10000
+                xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+                max_cycle_time = target_CT/2 +5 
+                best_solution, ressource_list, operators_list, session_rewards = schedule_tasks(xml_file, max_cycle_time, tolerance)
+
+            elif st.session_state.configuration_static["Search Speed"] == "Slow":
+                N_episodes = 1000000
+                best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+
+            else:
+                N_episodes = 10000
+                best_solution, ressource_list, operators_list, session_rewards = run_QL(N_episodes, Tasks, target_CT, tolerance, self)
+
+            
+            
+
+            # Print the task allocation to machines
+            # for i, machine in enumerate(machines):
+            #     print(f"Machine {i+1}: Tasks: {machine}, Total Cycle Time: {machine_loads[i]}")
+
             if st.session_state.configuration["dev_mode"]:
                 print("Best Soluton = ", best_solution)
                 print("Machines = ", ressource_list[1])
                 print("Operators = ", operators_list[1])
-
-
+            
+            print("Best Soluton = ", best_solution)
+            print("Machines = ", ressource_list)
+            print("Operators = ", operators_list)
+            self.my_bar_static_optim.empty()
             st.header("Results")
             col = st.columns(4, gap='medium')
             with col[0]:
@@ -1146,65 +1181,53 @@ class PRODynamicsApp:
             #with c11:
             
             st.markdown("### Best Sequence Overview")
+            ### TODO: Should avoid repeating the components, if already done, then call it SubAssy OP01
             workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
 
             #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
-
+            WC_workstations = []
             #Display each workstation and its corresponding parts
             for workstation, parts in sorted(workstations.items()):
                 st.markdown(f"###### OP 0{workstation}")
-
+                WC_workstations.append(4*len(parts))
                 # Retrieve the thumbnail for each part by matching the part reference to parts_data
                 part_thumbnails = []
                 for part_ref in parts:
                     # Get the thumb URL from parts_data for this part_ref
                     part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
-                    if not part_info.empty:
-                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
-                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
-  
+
+                    if not part_info.empty: # An isolated part
+                        program_folder = "assets/inputs/INC1114673PNGFiles/"
+                        if os.path.exists(program_folder+ part_ref+".png"):
+                            thumb_url = program_folder + part_ref+".png" # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                        elif os.path.exists(program_folder+ part_ref +".CATPart.png"):
+                            thumb_url = program_folder + part_ref  # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                        else:
+                            thumb_url = "assets/icons/unknown-part.png"   # Get the first (and only) matching thumb
+                            part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+                            
                         # Add the thumb to the list (thumb_url and part_ref as caption)
                         part_thumbnails.append((thumb_url, part_name))
+                    else: # An OP subassy
+                        thumb_url = str(part_ref) 
+                        part_name = part_ref
+                        part_thumbnails.append((thumb_url, part_name))
 
+                print(part_thumbnails)
                 if part_thumbnails:
-                    images, captions = zip(*part_thumbnails) 
                     try:
+                        images, captions = zip(*part_thumbnails) 
                         st.image(list(images), list(captions), width=100)  
                     except:
-                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        unknown_images= ["./assets/icons/unknown-part.png" for _ in range(len(images))]
                         st.image(list(unknown_images), list(captions), width=100) 
-
-
-            # for station_idx, station in enumerate(stations):
-            #     st.subheader(f"Station {station_idx + 1}")
-                
-            #     for workstation in station['workstations']:
-            #         st.markdown(f"###### OP 0{workstation}")
-            #         # Retrieve the thumbnail for each part by matching the part reference to parts_data
-            #         part_thumbnails = []
-            #         task_indices = workstations[workstation]['tasks']
-
-            #         for task_idx in task_indices:
-            #             assy_parts = st.session_state.mbom_data.loc[task_idx, "assy"].split(';')
-
-            #             for part_ref in assy_parts:
-            #                 part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
-            #                 if not part_info.empty:
-            #                     thumb_url = part_info['thumb'].values[0]
-            #                     part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
-            #                     part_thumbnails.append((thumb_url, part_name))
-
-            #         if part_thumbnails:
-            #             images, captions = zip(*part_thumbnails) 
-            #             try:
-            #                 st.image(list(images), list(captions), width=100)  
-            #             except:
-            #                 unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
-            #                 st.image(list(unknown_images), list(captions), width=100) 
 
 
             st.markdown("### Detailed Results")
             fig = go.Figure()
+            
 
             CT_machines = [ressource_list[1][i]+ressource_list[1][i-1] for i in range(len(ressource_list[1])) if i%2!=0]
             fig.add_trace(go.Bar(x=["M"+str(i+1) for i in range(len(CT_machines))], y=list(CT_machines), name='Global CT', marker_color='green'))
@@ -1220,59 +1243,126 @@ class PRODynamicsApp:
             st.plotly_chart(fig, use_container_width=True)
 
 
-            fig = go.Figure()
+            
+    
+            # Generate stations
+            station_ids = generate_station_ids(len(CTs_pertwo)) + ["EOL1"]
+            print("station N = ", station_ids)
+            # Create empty DataFrame for table
+            table_data = pd.DataFrame({
+                "Station ID": station_ids,
+                #"Automatic": [0] * len(station_ids),  ressource_list[1]
+                "Automatic": ressource_list[1][:len(station_ids)-1] + [0],
+                "Operator ID": [None] * len(station_ids),  # Empty for operators, to be selected
+                "Manual Time": WC_workstations + [0]  # Default manual time as 0
+            })
 
-                #fig.add_trace(go.Scatter(x=list(range(len(machines_CT[-1]))), y=machines_CT[-1], mode='lines', name=machine.ID))
-                #fig.add_trace(go.Scatter(x=[t[0] for t in manuf_line.machines_output[i]], y=[t[1] for t in manuf_line.machines_output[i]], mode='lines', name=machine.ID))
-            fig.add_trace(go.Scatter(x=list(range(len(session_rewards))), y=session_rewards, mode='lines', name='Global CT', marker_color='green'))
+            # Assign operators based on input
+            operators = [f"OP{i}" for i in range(1, len(operators_list) + 1)]
+            table_data["Operator ID"] = [operators[i % len(operators_list)] for i in range(len(station_ids))]
 
-            fig.update_layout(
-                title='Evolution of Sequence Scores',
-                xaxis_title='Iterations',
-                yaxis_title='Desirability Score',
-                margin=dict(l=0, r=0, t=30, b=20)
-            )
+            st.write("Add End of Line Stations if Needed.")
+            edited_table = st.data_editor(table_data, num_rows="dynamic")
 
-            st.plotly_chart(fig, use_container_width=True)
+            
+            manu_op_assignments = {}
 
-            ### Section of assembly scenario details 
-
-            time.sleep(1)
-            with st.expander("Need more details?", expanded=False):
-
-
+            # Iterate over the edited table to populate manu_op_assignments
+            for index, row in edited_table.iterrows():
+                station_id = row["Station ID"]
+                operator_id = int(row["Operator ID"].replace('OP', ''))  # Extract the operator number from "OPx"
+                manual_time = row["Manual Time"]
                 
-                columns = st.columns(2)
-                
-                
-                env = simpy.Environment()
-                tasks = []
-                config_file = 'config.yaml'
-                self.manuf_line = ManufLine(env, tasks, config_file=config_file)
-                
-                manu_op_assignments = {
-                'M1': (1, 10),
-                'M2': (1, 10),
-                'M3': (2, 10),
-                'M4': (2, 10),
-                'M5':(2, 10),
-                'M6':(2, 10),
-                'M7':(3, 10),
-                'M8':(3, 10),
-                'EOL1': (4, 10),
-                'EOL2': (4, 10), 
-                'EOL3': (4, 10)}
+                # Assign the station ID to the (operator_id, manual_time) tuple
+                manu_op_assignments[station_id] = (operator_id, manual_time)
 
-                
-                self.save_global_settings(self.manuf_line)
-                self.manuf_line.sim_time = 3600*24
-                st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(ressource_list[1], [45, 25, 25], manu_op_assignments)
-                self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
-                self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
-                self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
-                self.all_prepared = True
-                st.session_state.configuration["central_storage_enable"] = False
-                self.run_simulation(self.manuf_line)
+            st.session_state.static_optim_config = {
+                "takt_time": str(target_CT),
+                "n_machines": n_machines,
+                "n_stations_permachine": 2,
+                "list_operators": operators_list,
+                "ressource_list": ressource_list[1],
+                "manu_op_assignments": manu_op_assignments
+            }
+            st.session_state.static_best_solution = best_solution
+            st.button("Save for Detailed Simulation.", on_click=self.click_detail_static_optim)
+
+        if st.session_state.detail_btn_run:
+
+            manu_op_assignments = st.session_state.static_optim_config['manu_op_assignments']    
+
+            # self.save_global_settings(self.manuf_line)
+            st.session_state.configuration = {
+            "sim_time": "3600*24*1",
+            "takt_time": st.session_state.static_optim_config['takt_time'],
+            "enable_robots": False,
+            "strategy": "Balanced Strategy",
+            "reset_shift": False,
+            "dev_mode":False,
+            "stock_capacity": "10000000",
+            "safety_stock": "1",
+            "n_repairmen": 3,
+            "enable_random_seed": True,
+            "enable_breakdowns": False,
+            "breakdown_dist_distribution": "Weibull Distribution",
+            "central_storage_enable": False,
+            "central_storage_ttr": {'front': 100, "back": 100},
+            }
+            
+
+            st.session_state.line_data, st.session_state.multi_ref_data = prepare_detailed_line_sim(st.session_state.static_optim_config['ressource_list'], [25], manu_op_assignments)
+
+            env = simpy.Environment()
+            tasks = []
+            config_file = 'config.yaml'
+            self.manuf_line = ManufLine(env, tasks, config_file=config_file)
+            self.manuf_line.references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
+            self.manuf_line.machine_config_data = st.session_state.line_data.values.tolist()
+            self.manuf_line.save_global_settings(st.session_state.configuration, self.manuf_line.references_config, self.manuf_line.machine_config_data, buffer_sizes=[])
+
+            self.manuf_line.create_machines(st.session_state.line_data.values.tolist())
+            self.all_prepared = True
+            st.session_state.configuration["central_storage_enable"] = False
+            st.session_state.configuration['enable_robots'] = False
+
+            self.manuf_line.dev_mode = False
+            self.run_simulation(self.manuf_line)
+            st.markdown("### Recap - Sequence Overview")
+            workstations = parts_to_workstation(st.session_state.mbom_data, st.session_state.parts_data, st.session_state.static_best_solution)
+
+            #stations, workstations = parts_to_workstation_n(st.session_state.mbom_data, st.session_state.parts_data, best_solution)
+
+            #Display each workstation and its corresponding parts
+            for workstation, parts in sorted(workstations.items()):
+                st.markdown(f"###### OP 0{workstation}")
+
+                # Retrieve the thumbnail for each part by matching the part reference to parts_data
+                part_thumbnails = []
+                for part_ref in parts:
+                    # Get the thumb URL from parts_data for this part_ref
+                    part_info = st.session_state.parts_data[st.session_state.parts_data['ref'] == part_ref]
+
+                    if not part_info.empty: # An isolated part
+                        thumb_url = str(part_info['thumb'].values[0])  # Get the first (and only) matching thumb
+                        part_name = str(part_info['PartFamily'].values[0]) +" "+ part_ref
+
+                        # Add the thumb to the list (thumb_url and part_ref as caption)
+                        part_thumbnails.append((thumb_url, part_name))
+                    else: # An OP subassy
+                        thumb_url = str(part_ref) 
+                        part_name = part_ref
+                        part_thumbnails.append((thumb_url, part_name))
+
+                if part_thumbnails:
+                    images, captions = zip(*part_thumbnails) 
+                    try:
+                        st.image(list(images), list(captions), width=100)  
+                    except:
+                        unknown_images= [".//assets//icons//unknown-part.png" for _ in range(len(images))]
+                        st.image(list(unknown_images), list(captions), width=100) 
+
+            st.session_state.detail_btn_run = False
+            #st.session_state['staticoptim_pressed'] = 1
 
                 
         return True
