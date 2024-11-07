@@ -513,18 +513,34 @@ class ManufLine:
         """
         if self.breakdowns_switch:
             while True:
-                if not machine.broken:
-                    time_to_break = machine.time_to_failure()
-                    yield self.env.timeout(time_to_break)
-                    if self.dev_mode:
-                        print(f"/!\ Time {round(self.env.now)} :", f"{machine.ID} broke down after {str(round(time_to_break))}")
-                    machine.n_breakdowns += 1
-                    machine.process.interrupt()
-                yield self.env.timeout(1)
+                # Break the machine
+                time_to_break = machine.time_to_failure()
+                yield self.env.timeout(time_to_break)
+                machine.broken = True
+                machine.process.interrupt()
+                machine.n_breakdowns += 1
+
+                if self.dev_mode:
+                    print(f"/!\ Time {round(self.env.now)} :", f"{machine.ID} broke down after {round(time_to_break)}")
     
+                # Repair by calling a repairman
+                repair_in = self.env.now
+                machine.repair_event = self.env.event()
+                with self.repairmen.request(priority=1) as req:
+                    yield req
+                    yield self.env.timeout(machine.MTTR)
+                
+                machine.broken = False
+                machine.repair_event.succeed()
+                repair_time = self.env.now - repair_in
+                machine.real_repair_time.append(float(repair_time))
+
+                if self.dev_mode:
+                    print(f"/!\ Time {round(self.env.now)} :", f"{machine.ID} repaired after {round(repair_time)}")       
+
     def monitor_waiting_time(self, machine):
         while True:
-            if not machine.operating:
+            if not (machine.operating or machine.broken):
                 if self.dev_mode:
                     print(machine.ID + " Not Operating")
                 yield self.env.timeout(1)
@@ -618,7 +634,7 @@ class ManufLine:
                         yield self.env.timeout(done_in)
                         done_in = 0
                     except simpy.Interrupt:
-                        done_in -= self.env.now - start
+                        done_in -= self.env.now - start       
 
     def create_machines(self, list_machines_config):
         """
@@ -858,7 +874,6 @@ class Machine:
         self.move_robot_time = 0
         self.same_machine = None
         self.ref_produced = []
-        self.loaded_bol = False
         self.current_product = None
 
         # Define input & output buffers. Warning ! When the buffer is asked to begin with initial items -> it's filled with the 1st reference to come.
@@ -891,13 +906,13 @@ class Machine:
         self.operator = None  # Assign the operator to the machine
     
         self.loaded = 0
-        self.done_bool = False
         self.last = last
         self.first = first
         self.prio = 1
         self.broken = False
         self.breakdowns = breakdowns
         self.real_repair_time = []
+        self.repair_event = None
         self.hazard_delays = 1 if hazard_delays else 0
         self.op_fatigue = config["fatigue_model"]["enabled"]
 
@@ -984,133 +999,74 @@ class Machine:
             self.buffer_tracks.append((entry0, len(self.buffer_out.items)))
             
             self.operating = False
-            self.loaded_bol = False
-            self.done_bool = False
             if self.operator:
                 self.operator.busy = False 
-            
-            # First, needs to have a product loaded
-            while not self.loaded_bol :
-                try: 
-                    if self.operator:
-                        entry_time = self.env.now
-                        while self.operator.busy:
-                            yield self.env.timeout(1)
-                        
-                        if not self.operator.busy:
-                            self.operator.busy = True
-                            yield self.env.timeout(self.manual_time)
-                            self.operator.wc+=self.manual_time
-                            # Time waiting for manual operator
-                            self.wc.append(self.env.now-entry_time)
-                            self.operator.busy = False 
-
-                    # TODO: While loop should be deleted but vital to avoid losing products after repair
-                    while self.buffer_in.items == []:
+                       
+            # Operator
+            if self.operator:
+                entry_time = self.env.now
+                while self.operator.busy:
+                    try:
                         yield self.env.timeout(1)
-                    self.current_product = yield self.buffer_in.get()
-                    if self.manuf_line.dev_mode:
-                        print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} loaded {self.current_product}")
-
-                    # if not self.operator.busy:
-                    #     print("Operator is free. Start Operation.")
-                    
-                    self.waiting_time = [self.waiting_time[0] + self.env.now - entry0 , self.waiting_time[1]]  
-                    self.loaded_bol = True
-
-                    # done_in = deterministic_time 
-                    # start = self.env.now
-                    # if self.operator:
-                    #     entry_time = self.env.now
-                    #     while self.operator.busy:
-                    #         yield self.env.timeout(10)
-                        
-                    #     if not self.operator.busy:
-                    #         self.operator.busy = True
-                    #         yield self.env.timeout(1200)
-                    #         # Time waiting for manual operator
-                    #         self.wc.append(self.env.now-entry_time)
-                    #         self.operator.busy = False
-
-                # Handle breakdown 
+                    except simpy.Interrupt:
+                        yield self.repair_event
+                
+                self.operator.busy = True
+                yield self.env.timeout(self.manual_time)
+                self.operator.wc+=self.manual_time
+                self.wc.append(self.env.now-entry_time)
+                self.operator.busy = False 
+            
+            # Load from buffer
+            while len(self.buffer_in.items)==0:
+                try:
+                    yield self.env.timeout(1)                    
                 except simpy.Interrupt:
-                    self.broken = True
-
-                    # Call a repairman
-                    repair_in = self.env.now
-                    with self.manuf_line.repairmen.request(priority=1) as req:
-                        yield req
-                        yield self.env.timeout(self.MTTR) # Time to repair
-                        repair_end = self.env.now
-                        self.real_repair_time.append(float(repair_end - repair_in))
-                    if self.manuf_line.dev_mode:
-                        print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} repaired while loading")
-
-                    # Retrieve when the breakdown happened
-                    self.loaded_bol = (self.current_product is not None)
-
-                    if self.operator:
-                        self.operator.busy = False 
-                    self.broken = False
+                    yield self.repair_event
+            self.current_product = yield self.buffer_in.get()
+            self.waiting_time[0] += (self.env.now-entry0)
+            if self.manuf_line.dev_mode:
+                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} loaded {self.current_product}")
             
             # Do not process if there is already a process ongoing
             # entry_op = self.env.now
             if other_process_operating:
                 while self.same_machine.operating:
                     yield self.env.timeout(1)
-            
-            #self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_op]
+            # self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_op]
 
-            
-            #TODO: Skip robot when part not processed in the machine
-
-            # Then, make the machine operate
+            # Operate
             done_in = float(self.manuf_line.references_config[self.current_product][self.manuf_line.list_machines.index(self)+3])
-            start = self.env.now
-            while not self.done_bool:
+            self.operating = True
+            while done_in > 0:
                 try:
-                    self.operating = True
+                    start = self.env.now
                     yield self.env.timeout(done_in)
                     done_in = 0
-                    entry_wait = self.env.now
-                    # TODO: While loop should be deleted but vital to avoid adding extra products after repair
-                    while len(self.buffer_out.items) >= self.buffer_out.capacity:
-                        yield self.env.timeout(1)
-                    yield self.buffer_out.put(self.current_product)
-                    self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_wait]
-                    self.loaded_bol = False
-                    self.done_bool = True
-
-                # Handle breakdown
-                except simpy.Interrupt:                        
-                    self.broken = True
-                    self.operating = False
-                    
-                    done_in = max(0, done_in-(self.env.now-start))
-
-                    repair_in = self.env.now
-                    with self.manuf_line.repairmen.request(priority=1) as req:
-                        yield req
-                        repair_end = self.env.now
-                        yield self.env.timeout(self.MTTR) # Time to repair
-                        self.broken = False
-                        self.real_repair_time.append(float(repair_end - repair_in + float(self.MTTR)))
-                    
-                        if self.manuf_line.dev_mode:
-                            print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} repaired while operating")
-
-                    if self.operator:
-                        self.operator.busy = False 
-
-            # When work is done on the current product
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} produced {self.current_product}")
+                except simpy.Interrupt:
+                    done_in -= (self.env.now-start)
+                    yield self.repair_event
+            self.operating = False
             
+            # Unload to buffer
+            entry_wait = self.env.now
+            while len(self.buffer_out.items) >= self.buffer_out.capacity:
+                try:
+                    yield self.env.timeout(1)                    
+                except simpy.Interrupt:
+                    yield self.repair_event
+            
+            yield self.buffer_out.put(self.current_product)
             self.ref_produced.append(self.current_product)
             self.current_product = None
+
+            self.waiting_time[1] += (self.env.now-entry_wait)
             self.finished_times.append(self.env.now-entry0)
             self.parts_done += 1
             self.parts_done_shift += 1
+
+            if self.manuf_line.dev_mode:
+                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} produced {self.current_product}")
 
 
 class Robot:
