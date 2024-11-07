@@ -1085,7 +1085,7 @@ class PRODynamicsApp:
 
             if st.session_state.configuration_static["Search Speed"] == "Fast":
                 N_episodes = 10000
-                xml_file = 'assets\inputs\L76 Dual Passive MBOM.xml'
+                xml_file = 'assets/inputs/L76 Dual Passive MBOM.xml'
                 max_cycle_time = target_CT/2 +5 
                 best_solution, ressource_list, operators_list, session_rewards = schedule_tasks(xml_file, max_cycle_time, tolerance)
 
