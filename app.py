@@ -919,39 +919,36 @@ class PRODynamicsApp:
             )
             # Display the Plotly figure
             st.plotly_chart(fig, use_container_width=True)
-
-
-        col_operator_work, col_central_storage = st.columns(2)
         
         # Operator Plot
-        with col_operator_work:
-            fig = go.Figure()
+        fig = go.Figure()
 
-            # Add bar traces for each utilization type
-            op_WCs = []
-            for op in manuf_line.manual_operators:
-                op_WCs.append(op.wc)
-            fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
+        # Add bar traces for each utilization type
+        op_WCs = []
+        for op in manuf_line.manual_operators:
+            op_WCs.append(op.wc)
+        fig.add_trace(go.Bar(x=[op.id for op in manuf_line.manual_operators], y=op_WCs, name="Cumulated WC", marker_color="green"))
 
-            # Update layout
-            fig.update_layout(
-                title="Operator Work Content",
-                xaxis_title="Operator",
-                yaxis_title="Cumulated Work Content (s)",
-                barmode="stack",  # Stack bars on top of each other
-                legend=dict(
-                    orientation="h",  # Horizontal legend
-                    xanchor="center",  # Anchor legend to the right
-                    x=0.5  # Adjust horizontal position of the legend
-                ),
-                margin=dict(l=0, r=0, t=30, b=30)
-            )
-            # Display the Plotly figure
-            st.plotly_chart(fig, use_container_width=True)
+        # Update layout
+        fig.update_layout(
+            title="Operator Work Content",
+            xaxis_title="Operator",
+            yaxis_title="Cumulated Work Content (s)",
+            barmode="stack",  # Stack bars on top of each other
+            legend=dict(
+                orientation="h",  # Horizontal legend
+                xanchor="center",  # Anchor legend to the right
+                x=0.5  # Adjust horizontal position of the legend
+            ),
+            margin=dict(l=0, r=0, t=30, b=30)
+        )
+        # Display the Plotly figure
+        st.plotly_chart(fig, use_container_width=True)
         
         # Central storage plot
         if st.session_state.configuration["central_storage_enable"]:
-            with col_central_storage:
+            col_cs_detail, col_cs_evolution = st.columns([0.3, 0.7])
+            with col_cs_detail:
 
                 all_references = manuf_line.central_storage.all_allowed_references
 
@@ -989,17 +986,33 @@ class PRODynamicsApp:
                     xaxis_title="Blocks",
                     yaxis_title="Number of items",
                     barmode="stack",  # Stack bars on top of each other
-                    legend=dict(
-                        orientation="h",  # Horizontal legend
-                        xanchor="center",  # Anchor legend to the right
-                        x=0.5  # Adjust horizontal position of the legend
-                    ),
                     margin=dict(l=0, r=0, t=30, b=30)
                 )
 
                 # Display the Plotly figure
                 st.plotly_chart(fig, use_container_width=True)
        
+            with col_cs_evolution:
+                fig3 = go.Figure()
+                for ref in manuf_line.cs_track:
+                    cs_in = [t[1] for t in manuf_line.cs_track[ref]]
+                    times = [t[0] for t in manuf_line.cs_track[ref]]
+                    fig3.add_trace(go.Scatter(x=times, y=cs_in, mode='lines', name=ref, opacity=0.3))
+                
+                cs_total = [sum([manuf_line.cs_track[ref][i][1] for ref in manuf_line.cs_track]) for i in range(len(times))]
+                fig3.add_trace(go.Scatter(x=times, y=cs_total, mode='lines', name='Total')) 
+
+                # Update layout
+                fig3.update_layout(
+                    title='Evolution of Central Storage',
+                    xaxis_title='Time',
+                    yaxis_title='Number of items',
+                    margin=dict(l=0, r=0, t=30, b=20)
+                )
+
+                # Display the Plotly figure
+                st.plotly_chart(fig3, use_container_width=True)
+
     def assembly_section(self):
 
         self.placeholder = st.empty()
