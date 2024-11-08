@@ -1,3 +1,4 @@
+from __future__ import annotations
 from copy import deepcopy	
 import yaml
 import simpy
@@ -497,7 +498,7 @@ class ManufLine:
 
                 machine.parts_done_shift = 0
 
-    def break_down(self, machine):
+    def break_down(self, machine:Machine):
         """
         Break the machine every now and then.
 
@@ -974,13 +975,9 @@ class Machine:
         return adjusted_time
 
     def machine_process(self):
-        bias_shape = 2  # shape parameter
-        bias_scale = 1  # scale parameter
-        
         while True: 
-            # FHS special case when a machine may have two processes, check of the other process is operating
-            other_process_operating = False if self.same_machine is None else self.same_machine.operating
-        
+            # bias_shape = 2  # shape parameter
+            # bias_scale = 1  # scale parameter
             # if any([m.ct != 0 for m in self.manuf_line.list_machines]):
             #     if self.op_fatigue:
             #         deterministic_time = self.fatigue_model(self.env.now/(self.manuf_line.num_cycles+1), self.ct)
@@ -1005,12 +1002,13 @@ class Machine:
                 self.operator.busy = False 
 
             # Load from buffer
-            while len(self.buffer_in.items)==0:
+            self.current_product = None
+            while self.current_product is None:
                 try:
-                    yield self.env.timeout(1)                    
+                    with self.buffer_in.get() as load_request:
+                        self.current_product = yield load_request                   
                 except simpy.Interrupt:
                     yield self.repair_event
-            self.current_product = yield self.buffer_in.get()
             self.waiting_time[0] += (self.env.now-entry0)
             if self.manuf_line.dev_mode:
                 print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} loaded {self.current_product}")
@@ -1045,7 +1043,7 @@ class Machine:
                 self.wc.append(self.env.now-entry_time)
 
             # Other process ongoing
-            if other_process_operating:
+            if self.same_machine is not None:
                 entry_op = self.env.now
                 while self.same_machine.operating:
                     try:
@@ -1066,18 +1064,17 @@ class Machine:
                     done_in -= (self.env.now-start)
                     yield self.repair_event
             self.operating = False
-            
+
             # Unload to buffer
             entry_wait = self.env.now
-            while len(self.buffer_out.items) >= self.buffer_out.capacity:
+            while self.current_product is not None:
                 try:
-                    yield self.env.timeout(1)                    
+                    with self.buffer_out.put(self.current_product) as unload_request:
+                        yield unload_request
+                        self.ref_produced.append(self.current_product)
+                        self.current_product = None                   
                 except simpy.Interrupt:
                     yield self.repair_event
-            
-            yield self.buffer_out.put(self.current_product)
-            self.ref_produced.append(self.current_product)
-            self.current_product = None
 
             self.waiting_time[1] += (self.env.now-entry_wait)
             self.finished_times.append(self.env.now-entry0)
