@@ -843,8 +843,8 @@ class Machine:
         self.mt = 0
         self.ID = machine_id
         self.Name = machine_name
-        self.env = env
-        self.manuf_line = manuf_line
+        self.env:simpy.Environment = env
+        self.manuf_line:ManufLine = manuf_line
         self.entry_times = []  # List to store entry times of parts
         self.exit_times = []   # List to store exit times of parts
         self.finished_times = []
@@ -903,7 +903,7 @@ class Machine:
         self.MTTR = mttr
         self.assigned_tasks = assigned_tasks
         
-        self.operator = None  # Assign the operator to the machine
+        self.operator:Operator = None  # Assign the operator to the machine
     
         self.loaded = 0
         self.last = last
@@ -912,11 +912,13 @@ class Machine:
         self.broken = False
         self.breakdowns = breakdowns
         self.real_repair_time = []
-        self.repair_event = None
         self.hazard_delays = 1 if hazard_delays else 0
         self.op_fatigue = config["fatigue_model"]["enabled"]
 
         self.fill_central_storage = fill_central_storage
+
+        self.repair_event:simpy.Event = None
+
 
     def time_to_failure(self):
         """Return time until next failure for a machine."""
@@ -1001,22 +1003,7 @@ class Machine:
             self.operating = False
             if self.operator:
                 self.operator.busy = False 
-                       
-            # Operator
-            if self.operator:
-                entry_time = self.env.now
-                while self.operator.busy:
-                    try:
-                        yield self.env.timeout(1)
-                    except simpy.Interrupt:
-                        yield self.repair_event
-                
-                self.operator.busy = True
-                yield self.env.timeout(self.manual_time)
-                self.operator.wc+=self.manual_time
-                self.wc.append(self.env.now-entry_time)
-                self.operator.busy = False 
-            
+
             # Load from buffer
             while len(self.buffer_in.items)==0:
                 try:
@@ -1028,12 +1015,44 @@ class Machine:
             if self.manuf_line.dev_mode:
                 print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} loaded {self.current_product}")
             
-            # Do not process if there is already a process ongoing
-            # entry_op = self.env.now
+            # Operator
+            if self.operator:
+                done = False
+                while not done:
+                    entry_time = self.env.now
+
+                    # Wait for the operator to be free
+                    while self.operator.busy:
+                        try:
+                            yield self.env.timeout(1)
+                        except simpy.Interrupt:
+                            yield self.repair_event
+                            continue
+                    self.operator.busy = True
+
+                    # Manual time
+                    try:
+                        yield self.env.timeout(self.manual_time)
+                    except simpy.Interrupt:
+                        # Free the operator and start it all again
+                        self.operator.busy = False
+                        yield self.repair_event
+                        continue
+                    done = True
+                
+                self.operator.busy = False
+                self.operator.wc += self.manual_time
+                self.wc.append(self.env.now-entry_time)
+
+            # Other process ongoing
             if other_process_operating:
+                entry_op = self.env.now
                 while self.same_machine.operating:
-                    yield self.env.timeout(1)
-            # self.waiting_time = [self.waiting_time[0] , self.waiting_time[1] + self.env.now-entry_op]
+                    try:
+                        yield self.env.timeout(1)
+                    except simpy.Interrupt:
+                        yield self.repair_event
+                self.waiting_time[1] += (self.env.now-entry_op)
 
             # Operate
             done_in = float(self.manuf_line.references_config[self.current_product][self.manuf_line.list_machines.index(self)+3])
@@ -1073,7 +1092,7 @@ class Robot:
     """
     Transport Robot between machines
     """
-    def __init__(self, id, manuf_line, env, maxlimit=1):
+    def __init__(self, id, manuf_line:ManufLine, env:simpy.Environment, maxlimit=1):
         # self.assigned_machines = assigned_machines
         self.ID = id
         self.busy = False

@@ -1305,6 +1305,9 @@ class PRODynamicsApp:
             "enable_random_seed": True,
             "enable_breakdowns": False,
             "breakdown_dist_distribution": "Weibull Distribution",
+            "enable_pdp": False,
+            "repeat_pdp": False,
+            'pdp_change_time': 600,
             "central_storage_enable": False,
             "central_storage_ttr": {'front': 100, "back": 100},
             }
