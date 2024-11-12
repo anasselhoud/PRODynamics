@@ -609,6 +609,10 @@ class ManufLine:
                 yield self.env.timeout(self.pdp_change_time)
                 if self.dev_mode:
                     print(f"Time {round(self.env.now)} :", f"Tools changed")
+            
+            else:
+                while len(self.supermarket_in.items) > 0:
+                    yield self.env.timeout(1)
 
             # Add the quantity all at once     
             for _ in range(quantity):
