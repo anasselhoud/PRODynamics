@@ -309,6 +309,7 @@ class ManufLine:
         # Run the environment
         if self.dev_mode:
             print("Starting the sim now.")
+
         self.env.run(until=self.sim_time)
         #print(f"Current simulation time at the end: {self.env.now}")
 
@@ -368,6 +369,33 @@ class ManufLine:
         self.references_config = references_config
         self.machine_config_data = line_data
 
+        # Duplicate machines in "line_data" and "references_config"
+        machine_config_data_updated = []
+        references_config_updated = {ref: self.references_config[ref][:3] for ref in self.references_config.keys()}
+        n_duplicated = 0
+        for i, machine_config in enumerate(self.machine_config_data):
+            # Add the first occurence of each machine
+            machine_config[8] += n_duplicated
+            machine_config_data_updated.append(machine_config)
+            
+            for ref in references_config_updated.keys():
+                references_config_updated[ref].append(self.references_config[ref][3+i])
+
+            # Duplicate the machine if "duplicate" value > 1 just by updating the name
+            for j in range(machine_config[14]-1):
+                n_duplicated += 1
+                machine_config_updated = deepcopy(machine_config)
+                machine_config_updated[0] += f"_{j+1}"
+                machine_config_updated[8] += j+1
+                machine_config_data_updated.append(machine_config_updated)
+
+                for ref in self.references_config.keys():
+                    references_config_updated[ref].append(self.references_config[ref][3+i])
+        
+        self.machine_config_data = machine_config_data_updated
+        self.references_config = references_config_updated
+
+        # PDP
         self.pdp = pdp
         self.pdp_repeat = configuration['repeat_pdp']
         self.pdp_change_time = configuration['pdp_change_time']
@@ -659,7 +687,8 @@ class ManufLine:
         "10 : Operator ID",
         "11 : Manual Time",
         "12 : Identical Station,
-        "13 : Fill central storage] 
+        "13 : Fill central storage,
+        "14 : Duplicate] 
         """
         # Not understood
         if self.operators_assignement or self.tasks_assignement:
@@ -756,7 +785,6 @@ class ManufLine:
                 indexmachine = [m.ID for m in self.list_machines].index(str(list_machines_config[i][12]))
                 machine.same_machine = self.list_machines[indexmachine]
 
-            
             # Add Manual Operators to machine
             operator_id = list_machines_config[i][10]  # Assigned transporter number
             is_manual = False if list_machines_config[i][10] == 0 else True    # True if manual, else empty (robot)

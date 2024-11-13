@@ -473,6 +473,12 @@ class PRODynamicsApp:
             references_config = st.session_state.multi_ref_data.set_index('Machine').to_dict(orient='list')
             line_data = st.session_state.line_data.values.tolist()
 
+            # Check name consistency. Can't have an underscore '_' since it is used to duplicate machines
+            if st.session_state.line_data['Machine'].str.contains('_').any():
+                st.error(f"You used an underscore '_' to name a machine in 'Process Data > Production Line Data'. Please, remove it before running again.", icon="🚨")
+                self.all_prepared = False
+                return 
+
             # If PDP enabled
             pdp = None
             if st.session_state.configuration['enable_pdp']:
@@ -488,7 +494,7 @@ class PRODynamicsApp:
 
             self.manuf_line = ManufLine(env, tasks, config_file='config.yaml')
             self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[], pdp=pdp)
-            self.manuf_line.create_machines(line_data)
+            self.manuf_line.create_machines(self.manuf_line.machine_config_data)
 
             # Check robots data consistency  
             if st.session_state.configuration['enable_robots']:
@@ -695,7 +701,6 @@ class PRODynamicsApp:
             oee =manuf_line.takt_time/global_cycle_time
             st.metric(label="# OEE / TRS", value=f"{oee:.2%}")
 
-        machines_names = [m.ID for m in manuf_line.list_machines]
         idle_times = []
         machines_CT = []
         idle_times_sum = []
@@ -828,7 +833,6 @@ class PRODynamicsApp:
         with c3:
             fig_m, ax_m = plt.subplots()
             ax_m.set_ylabel('Percentage (%)')
-            # ax_m.set_title('Machine Utilization Rate')
             if st.session_state.configuration["dev_mode"]:
                 for op in manuf_line.manual_operators:
                     print("Operator WC = ", op.wc)
@@ -852,32 +856,28 @@ class PRODynamicsApp:
                 print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
                 print("Time of breakdown = ", [np.sum(m.real_repair_time) for m in manuf_line.list_machines])
                 print(manuf_line.central_storage)
+            
             breakdown_percentage = [100 * float(np.sum(m.real_repair_time)) / manuf_line.sim_time for m in manuf_line.list_machines]
             if st.session_state.configuration["dev_mode"]:
                 print('Breakdowns = ', breakdown_percentage)
-            waiting_time_percentage = [100 - available_percentage - breakdown_percentage for available_percentage, breakdown_percentage in zip(machine_available_percentage, breakdown_percentage)]
 
-            chart_data = {
-                "Machine": machines_names,
-                "Operating": machine_available_percentage,
-                "Breakdown": breakdown_percentage,
-                "Waiting": waiting_time_percentage,
-            }
+            # Handle duplicate machines
+            df = pd.DataFrame({
+                'name': [m.ID.split('_')[0] for m in manuf_line.list_machines],
+                'operating': machine_available_percentage,
+                'breaking': breakdown_percentage,
+                'starvation': [m.waiting_time[0] for m in manuf_line.list_machines],
+                'blockage': [m.waiting_time[1] for m in manuf_line.list_machines],
+            })
+            df['name'] = pd.Categorical(df['name'], categories=df['name'].unique(), ordered=True)
+            df = df.groupby('name', as_index=False).mean().round(1)
+            df['waiting'] = 100 - df['operating'] - df['breaking']
             
-            
-            colors = {
-            "Operating": "green",
-            "Breakdown": "red",
-            "Waiting": "orange"
-            }
-
-            # Convert to DataFrame
-            fig = go.Figure()
-
             # Add bar traces for each utilization type
-            fig.add_trace(go.Bar(x=chart_data["Machine"], y=chart_data["Operating"], name="Operating", marker_color="green"))
-            fig.add_trace(go.Bar(x=chart_data["Machine"], y=chart_data["Breakdown"], name="Breakdown", marker_color="red"))
-            fig.add_trace(go.Bar(x=chart_data["Machine"], y=chart_data["Waiting"], name="Waiting", marker_color="orange"))
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=df['name'], y=df["operating"], name="Operating", marker_color="green"))
+            fig.add_trace(go.Bar(x=df['name'], y=df["breaking"], name="Breakdown", marker_color="red"))
+            fig.add_trace(go.Bar(x=df['name'], y=df["waiting"], name="Waiting", marker_color="orange"))
 
             # Update layout
             fig.update_layout(
@@ -897,17 +897,10 @@ class PRODynamicsApp:
 
         # Plot of Machine Breakdowns
         with c4:
-            breakdown_values = [m.n_breakdowns for m in manuf_line.list_machines]
-            starvation_times = [m.waiting_time[0] for m in manuf_line.list_machines]
-            blockage_times = [m.waiting_time[1] for m in manuf_line.list_machines]
-            index = range(len(manuf_line.list_machines))
-
-            fig2 = go.Figure()
-
             # Create traces for starvation time and blockage time
-
-            fig2.add_trace(go.Bar(x=chart_data["Machine"], y=starvation_times, name='Starvation Time', marker_color="green"))
-            fig2.add_trace(go.Bar(x=chart_data["Machine"], y=blockage_times, name='Blockage Time', marker_color="red"))
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(x=df['name'], y=df['starvation'], name='Starvation Time', marker_color="green"))
+            fig2.add_trace(go.Bar(x=df['name'], y=df['blockage'], name='Blockage Time', marker_color="red"))
 
             fig2.update_layout(
                 title="Starvation and Blockage Time per Machine",
