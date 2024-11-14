@@ -52,6 +52,8 @@ class PRODynamicsApp:
                 'pdp_change_time': 600,
                 "central_storage_enable": False,
                 "central_storage_ttr": {'front': 100, "back": 100},
+                "supermarket_position": 0,
+                "shopstock_position": 0,
             }
 
         if "uploaded_file" not in st.session_state:
@@ -287,8 +289,16 @@ class PRODynamicsApp:
         with tab1:
             st.subheader("Production Line Data")
 
-            st.session_state.configuration["enable_robots"] = st.toggle('Enable robots', value=st.session_state.configuration["enable_robots"], key='toggle_robots')
+            col_enable, col_supermarket, col_shopstock = st.columns(3)
+            with col_enable:
+                st.session_state.configuration["enable_robots"] = st.toggle('Enable robots', value=st.session_state.configuration["enable_robots"], key='toggle_robots')
             
+            with col_supermarket:
+                st.session_state.configuration['supermarket_position'] = st.number_input("Supermarket position", value=st.session_state.configuration['supermarket_position'], format='%i', key='supermarket_position_input')
+            with col_shopstock:
+                st.session_state.configuration['shopstock_position'] = st.number_input("Shopstock position", value=st.session_state.configuration['shopstock_position'], format='%i', key='shopstock_position_input')
+
+
             if hasattr(st.session_state, 'line_data') and  isinstance(st.session_state.line_data, pd.DataFrame):
                 line_data_editor = st.data_editor(st.session_state.line_data, num_rows="dynamic", key="line_data_edit")
             

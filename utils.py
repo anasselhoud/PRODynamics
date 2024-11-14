@@ -131,6 +131,9 @@ class ManufLine:
         self.sim_times_track = []
         self.output_tracks = []
 
+        self.supermarket_position: int = 0
+        self.shopstock_position: int= 0
+
         self.refill_time_by_ref = {}
         self.expected_refill_time = None
 
@@ -374,11 +377,11 @@ class ManufLine:
         self.env = simpy.Environment()
 
         # Set up the supermarket with initial stock
-        self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=0, buffer_capacity=self.supermarket_capacity)
+        self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=self.supermarket_position, buffer_capacity=self.supermarket_capacity)
         for ref in self.references_config.keys():
             for _ in range(int(self.references_config[ref][1])):
                 self.supermarket.put(ref)
-        self.shopstock = Extremity(self.env, 'ShopStock', move_robot_time=0, buffer_capacity=self.shopstock_capacity)
+        self.shopstock = Extremity(self.env, 'ShopStock', move_robot_time=self.shopstock_position, buffer_capacity=self.shopstock_capacity)
 
         self.repairmen = simpy.PreemptiveResource(self.env, capacity=int(self.n_repairmen))
 
@@ -418,6 +421,9 @@ class ManufLine:
         available_strategies = ["Balanced Strategy", "Greedy Strategy"]
         self.robot_strategy = int(available_strategies.index(configuration["strategy"]))
 
+        self.supermarket_position = int(configuration["supermarket_position"])
+        self.shopstock_position = int(configuration["shopstock_position"])
+
         self.references_config = references_config
         self.machine_config_data = line_data
 
@@ -453,14 +459,14 @@ class ManufLine:
         self.pdp_change_time = configuration['pdp_change_time']
 
         # Set up the supermarket with initial stock
-        self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=0, buffer_capacity=self.supermarket_capacity)
+        self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=self.supermarket_position, buffer_capacity=self.supermarket_capacity)
         if pdp is None:
             for ref in self.references_config.keys():
                 for _ in range(int(self.references_config[ref][1])):
                     self.supermarket.put(ref)
 
         # Set up the shop stock
-        self.shopstock = Extremity(self.env, 'ShopStock', move_robot_time=0, buffer_capacity=self.shopstock_capacity)
+        self.shopstock = Extremity(self.env, 'ShopStock', move_robot_time=self.shopstock_position, buffer_capacity=self.shopstock_capacity)
 
         # Store refill time for each reference
         for ref in self.references_config.keys():
