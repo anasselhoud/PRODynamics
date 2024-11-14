@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List
 from copy import deepcopy	
 import yaml
 import simpy
@@ -14,12 +15,61 @@ import time
 import itertools
 
 
+class Entity:
+    def __init__(self, env, ID: str, move_robot_time: int) -> None:
+        self.env: simpy.Environment = env
+        self.ID: str = ID
+        self.move_robot_time: int = move_robot_time
+        self.loaded: int = 0
+        self.fill_central_storage: bool = False
+        self.broken: bool = False
+        self.next_machines: List[Entity] = []
+
+    def put(self, item):
+        pass
+
+    def get(self):
+        pass
+
+    def empty(self, side) -> bool:
+        """Return if the buffer at the specified side is empty. Side must be 'input' or 'output'."""
+        pass
+    
+    def full(self, side) -> bool:
+        """Return if the buffer at the specified side is full. Side must be 'input' or 'output'."""
+        pass
+
+
+class Extremity(Entity):
+    def __init__(self, env, ID: str, move_robot_time: int, buffer_capacity: float) -> None:
+        super().__init__(env, ID, move_robot_time)
+        self.buffer: simpy.Store = simpy.Store(self.env, capacity=buffer_capacity)
+
+    def put(self, item):
+        return self.buffer.put(item)
+
+    def get(self):
+        return self.buffer.get()
+    
+    def empty(self, side) -> bool:
+        if self.ID == 'Supermarket' and side == 'output':
+            return self.buffer.items == []
+        elif self.ID == 'ShopStock' and side == 'input':
+            return self.buffer.items == []
+        else:
+            raise Exception(f".empty('{side}') method cannot be performed on Extremity {self.ID}.")
+        
+    def full(self, side) -> bool:
+        if self.ID == 'Supermarket' and side == 'output':
+            return len(self.buffer.items) >= self.buffer.capacity
+        elif self.ID == 'ShopStock' and side == 'input':
+            return len(self.buffer.items) >= self.buffer.capacity
+        else:
+            raise Exception(f".full('{side}') method cannot be performed on Extremity {self.ID}.")
+
+
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
-
-        """
-
-         """
         try:
             with open(config_file, 'r') as stream:
                 config = yaml.safe_load(stream)
@@ -40,7 +90,8 @@ class ManufLine:
         self.n_repairmen = 3
         self.repairmen = simpy.PreemptiveResource(env, capacity=self.n_repairmen)
         self.first_machine = None # Nonsense. To change.
-        self.stock_capacity = float(config["supermarket"]["capacity"])
+        self.supermarket_capacity = float(config["supermarket"]["capacity"])
+        self.shopstock_capacity = float(self.config["shopstock"]["capacity"])
         self.safety_stock = 0
         self.refill_time = None
         self.reset_shift_dec = False
@@ -50,8 +101,8 @@ class ManufLine:
         self.references_config = None
 
         # Set up the supermarket with no stock
-        self.supermarket_in = simpy.Store(self.env, capacity=self.stock_capacity)
-        self.shop_stock_out = simpy.Store(self.env, capacity=float(self.config["shopstock"]["capacity"]))
+        self.supermarket: Extremity = None
+        self.shopstock: Extremity = None
 
         self.pdp = None
         self.pdp_repeat = False
@@ -125,7 +176,7 @@ class ManufLine:
                 machines_state = self.machines_states
                 machines_ct = self.machines_CT
                 tracksim = False
-                cycle_time = self.sim_time/len(self.shop_stock_out.items)
+                cycle_time = self.sim_time/len(self.shopstock.buffer.items)
                 if tracksim:
                     if self.dev_mode:
                         print("Printed track sim")
@@ -159,8 +210,8 @@ class ManufLine:
                 waiting_times = [machine.waiting_time for machine in self.list_machines]
                 breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
                 mean_ct = [self.sim_time/machine.parts_done for machine in self.list_machines]
-                parts_done = len(self.shop_stock_out.items)
-                cycle_time = self.sim_time/len(self.shop_stock_out.items)
+                parts_done = len(self.shopstock.buffer.items)
+                cycle_time = self.sim_time/len(self.shopstock.buffer.items)
                 if self.dev_mode:
                     print("buffer tracks  = ", [len(machine.buffer_tracks) for machine in self.list_machines])
                 writer.writerow([experiment_number, idle_times, waiting_times, breakdowns, mean_ct, parts_done, cycle_time])
@@ -170,8 +221,8 @@ class ManufLine:
             waiting_times = [machine.waiting_time for machine in self.list_machines]
             parts_done_per_machine = [machine.parts_done for machine in self.list_machines]
             breakdowns =  [machine.n_breakdowns for machine in self.list_machines]
-            if len(self.shop_stock_out.items) != 0:
-                cycle_time = self.sim_time/len(self.shop_stock_out.items)
+            if len(self.shopstock.buffer.items) != 0:
+                cycle_time = self.sim_time/len(self.shopstock.buffer.items)
             else:
                 cycle_time = 100000000000
 
@@ -199,10 +250,10 @@ class ManufLine:
 
         while True:
             yield self.env.timeout(self.sim_time/1000)
-            self.output_tracks.append((self.env.now, len(self.shop_stock_out.items)))
+            self.output_tracks.append((self.env.now, len(self.shopstock.buffer.items)))
             
             for i, ref in enumerate(self.references_config.keys()):
-                self.output_tracks_per_ref[i].append((self.env.now, self.shop_stock_out.items.count(ref)))
+                self.output_tracks_per_ref[i].append((self.env.now, self.shopstock.buffer.items.count(ref)))
 
             for i, m in enumerate(self.list_machines):
                 self.machines_output[i].append((self.env.now, m.parts_done))
@@ -284,10 +335,12 @@ class ManufLine:
 
             # Insert the supermarket as the first entity of the robot if any related machine is the first 
             if any([self.list_machines[j-1].first for j in self.robots_list[i].order]):
-                self.robots_list[i].entities_order.insert(0, self.supermarket_in)
+                self.robots_list[i].entities_order.insert(0, self.supermarket)
 
             self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process())
             # self.robots_list[i].process = self.env.process(self.robots_list[i].robot_process_unique())
+
+        self.supermarket.next_machines = [m for m in self.list_machines if m.first]
 
         #TODO: fix problem of reset shift with multi references
         if self.dev_mode:
@@ -321,12 +374,11 @@ class ManufLine:
         self.env = simpy.Environment()
 
         # Set up the supermarket with initial stock
-        self.supermarket_in = simpy.Store(self.env, capacity=self.stock_capacity)
+        self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=0, buffer_capacity=self.supermarket_capacity)
         for ref in self.references_config.keys():
             for _ in range(int(self.references_config[ref][1])):
-                self.supermarket_in.put(ref)
-
-        self.shop_stock_out = simpy.Store(self.env, capacity=float(self.config["shopstock"]["capacity"]))
+                self.supermarket.put(ref)
+        self.shopstock = Extremity(self.env, 'ShopStock', move_robot_time=0, buffer_capacity=self.shopstock_capacity)
 
         self.repairmen = simpy.PreemptiveResource(self.env, capacity=int(self.n_repairmen))
 
@@ -353,7 +405,7 @@ class ManufLine:
         self.breakdowns_switch = configuration.get("enable_breakdowns", False)
         self.randomseed = configuration.get("enable_random_seed", False)
 
-        self.stock_capacity = float(configuration["stock_capacity"]) if pdp is None else float('inf')
+        self.supermarket_capacity = float(configuration["stock_capacity"]) if pdp is None else float('inf')
         self.reset_shift_dec = bool(configuration["reset_shift"])
         self.dev_mode = bool(configuration["dev_mode"])        
         self.safety_stock = float(configuration["safety_stock"])
@@ -401,17 +453,14 @@ class ManufLine:
         self.pdp_change_time = configuration['pdp_change_time']
 
         # Set up the supermarket with initial stock
-        self.supermarket_in = simpy.Store(self.env, capacity=self.stock_capacity)
-        if self.dev_mode:
-            print("supermarket ", self.supermarket_in.capacity)
-
+        self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=0, buffer_capacity=self.supermarket_capacity)
         if pdp is None:
             for ref in self.references_config.keys():
                 for _ in range(int(self.references_config[ref][1])):
-                    self.supermarket_in.put(ref)
+                    self.supermarket.put(ref)
 
         # Set up the shop stock
-        self.shop_stock_out = simpy.Store(self.env, capacity=float(self.config["shopstock"]["capacity"]))
+        self.shopstock = Extremity(self.env, 'ShopStock', move_robot_time=0, buffer_capacity=self.shopstock_capacity)
 
         # Store refill time for each reference
         for ref in self.references_config.keys():
@@ -482,7 +531,7 @@ class ManufLine:
 
         Note: This function assumes the existence of certain variables and objects such as `self.env`,
         `self.num_cycles`, `self.list_machines`, `self.robot`, `machine.buffer_out`, `machine.buffer_in`,
-        `machine.first`, `machine.last`, `machine.parts_done_shift`, and `self.shop_stock_out`.
+        `machine.first`, `machine.last`, `machine.parts_done_shift`, and `self.shopstock`.
 
         Yields:
             The function is a generator and yields a timeout of 8 hours.
@@ -522,7 +571,7 @@ class ManufLine:
 
                             # For last machines linked to the shop stock -> add the product to the shop stock
                             if machine.last:
-                                self.shop_stock_out.put(product)
+                                self.shopstock.put(product)
 
                 machine.parts_done_shift = 0
 
@@ -603,7 +652,7 @@ class ManufLine:
             yield self.env.timeout(refill_time)
             
             for _ in range(amount):
-                yield self.supermarket_in.put(ref) 
+                yield self.supermarket.put(ref) 
             self.supermarket_n_refills += 1
             if self.dev_mode:
                 print(f"Time {round(self.env.now)} :", f"SUPERMARKET refilled with {amount} {ref}")         
@@ -628,7 +677,7 @@ class ManufLine:
                 # Wait until the previous batch has been completely produced (in shop stock)
                 if self.dev_mode:
                     print(f"Time {round(self.env.now)} :", f"Waiting for batch {previous_qty} {previous_ref} to be complete to change tools for {ref}")
-                while len(self.shop_stock_out.items) < previous_qty or self.shop_stock_out.items[-previous_qty:] != [previous_ref]*previous_qty:
+                while len(self.shopstock.buffer.items) < previous_qty or self.shopstock.buffer.items[-previous_qty:] != [previous_ref]*previous_qty:
                     yield self.env.timeout(1)
                 
                 # Wait some time for tools change
@@ -639,12 +688,12 @@ class ManufLine:
                     print(f"Time {round(self.env.now)} :", f"Tools changed")
             
             else:
-                while len(self.supermarket_in.items) > 0:
+                while len(self.supermarket.buffer.items) > 0:
                     yield self.env.timeout(1)
 
             # Add the quantity all at once     
             for _ in range(quantity):
-                yield self.supermarket_in.put(ref)
+                yield self.supermarket.put(ref)
             if self.dev_mode:
                 print(f"Time {round(self.env.now)} :", f"SUPERMARKET refilled with {quantity} {ref}")         
 
@@ -807,13 +856,13 @@ class ManufLine:
     
             # Add supermarket and shop stock for first and last machines
             if machine.first:
-                machine.previous_machine = self.supermarket_in
-                machine.previous_machines.append(self.supermarket_in)
+                machine.previous_machine = self.supermarket
+                machine.previous_machines.append(self.supermarket)
         
 
             if machine.last:
-                machine.next_machine = self.shop_stock_out
-                machine.next_machines.append(self.shop_stock_out)
+                machine.next_machine = self.shopstock
+                machine.next_machines.append(self.shopstock)
             try:
                 # If there is a robot, store the time required to move
                 if len(self.robots_list) > 0:
@@ -871,13 +920,12 @@ class ManufLine:
         pass
 
 
-class Machine:
+class Machine(Entity):
     def __init__(self, manuf_line, env, machine_id, machine_name, config,  assigned_tasks = None, robot=None, operator=None, previous_machine = None, first = False, last=False, breakdowns=True, mttf=3600*24*7, mttr=3600, buffer_capacity=100, initial_buffer=0, hazard_delays=False, has_robot=False, fill_central_storage=False):
-        self.mt = 0
-        self.ID = machine_id
+        super().__init__(env, machine_id, move_robot_time=0)
+        self.manuf_line: ManufLine = manuf_line
+        self.mt = 0 
         self.Name = machine_name
-        self.env:simpy.Environment = env
-        self.manuf_line:ManufLine = manuf_line
         self.entry_times = []  # List to store entry times of parts
         self.exit_times = []   # List to store exit times of parts
         self.finished_times = []
@@ -891,7 +939,6 @@ class Machine:
         self.config = config
 
         self.buffer_btn = None
-        self.buffer_capacity = buffer_capacity
         self.initial_buffer = initial_buffer
         self.process = None
         self.next_machine = None
@@ -899,19 +946,17 @@ class Machine:
         self.previous_machine = None
         self.operating_state = []
 
-        self.next_machines = []
         self.previous_machines = []
         self.waiting_time = [0, 0] #Stavation # Blockage
         self.waiting_time_rl = 0 #real time waiting time
         self.operating = False
-        self.move_robot_time = 0
         self.same_machine = None
         self.ref_produced = []
         self.current_product = None
 
-        # Define input & output buffers. Warning ! When the buffer is asked to begin with initial items -> it's filled with the 1st reference to come.
-        self.buffer_in = simpy.Store(env, capacity=float(buffer_capacity))
-        self.buffer_out = simpy.Store(env, capacity=float(buffer_capacity))
+        # Initialize buffers. Warning ! Filled with the 1st reference to come.
+        self.buffer_in: simpy.Store = simpy.Store(self.env, buffer_capacity)
+        self.buffer_out: simpy.Store = simpy.Store(self.env, buffer_capacity)
 
         if manuf_line.pdp is None:
             refilled_times = [refill_time_value if isinstance(refill_time_value, float) else int(random.uniform(refill_time_value[0], refill_time_value[1])) for refill_time_value in self.manuf_line.refill_time_by_ref.values()]
@@ -926,10 +971,10 @@ class Machine:
         # When NO robot, directly connect first machine to supermarket and last machine to shop stock 
         if self.manuf_line.robots_list == [] or not self.has_robot:
             if first:
-                self.buffer_in = manuf_line.supermarket_in
+                self.buffer_in = manuf_line.supermarket.buffer
             
             if last:
-                self.buffer_out = manuf_line.shop_stock_out          
+                self.buffer_out = manuf_line.shopstock.buffer      
 
         
         self.MTTF = mttf # Mean time to failure in seconds
@@ -938,7 +983,6 @@ class Machine:
         
         self.operator:Operator = None  # Assign the operator to the machine
     
-        self.loaded = 0
         self.last = last
         self.first = first
         self.prio = 1
@@ -952,6 +996,37 @@ class Machine:
 
         self.repair_event:simpy.Event = None
 
+    def put(self, item, buffer='in'):
+        if buffer=='in':
+            return  self.buffer_in.put(item)
+        elif buffer=='out':
+            return self.buffer_out.put(item)
+        else:
+            raise Exception(f'Tried to put {item} in buffer {buffer} of entity {self.ID} but does not exist.')
+
+    def get(self, buffer='out'):
+        if buffer=='in':
+            return self.buffer_in.get()
+        elif buffer=='out':
+            return self.buffer_out.get()
+        else:
+            raise Exception(f'Tried to get from buffer {buffer} of entity {self.ID} but does not exist.')
+        
+    def empty(self, side) -> bool:
+        if side == 'input':
+            return self.buffer_in.items == []
+        elif side == 'output':
+            return self.buffer_out.items == []
+        else:
+            raise Exception(f".empty('{side}') method cannot be performed on Machine {self.ID}.")
+        
+    def full(self, side) -> bool:
+        if side == 'input':
+            return len(self.buffer_in.items) >= self.buffer_in.capacity
+        elif side == 'output':
+            return len(self.buffer_out.items) >= self.buffer_out.capacity        
+        else:
+            raise Exception(f".full('{side}') method cannot be performed on Machine {self.ID}.")
 
     def time_to_failure(self):
         """Return time until next failure for a machine."""
@@ -1133,7 +1208,7 @@ class Robot:
         self.waiting_time = 0
         self.in_transport_times = []
         self.process = None
-        self.entities_order = None
+        self.entities_order: List[Entity] = None
         self.loadunload_time = 50
             
     def transport(self, from_entity, to_entity, to_central_storage=False, from_central_storage=False):
@@ -1150,291 +1225,100 @@ class Robot:
         Returns:
         None 
         """
-    
+
         # Skip transport if the robot is already busy
         if self.busy:
             if self.manuf_line.dev_mode:
                 print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} already busy")
-            yield self.env.timeout(1)
             return
         
+        # Update origin / destination with the central storage
+        origin = self.manuf_line.central_storage if from_central_storage else from_entity
+        destination = self.manuf_line.central_storage if to_central_storage else to_entity
+        
+        # Start
         self.busy = True
         entry = self.env.now
+        if self.manuf_line.dev_mode:
+            print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin.ID} to {destination.ID}")
+    
+        # Get the product from origin OR central storage
+        if from_central_storage:
+            product = origin.get_by_destination(to_entity)['name']
+        else:
+            product = yield origin.get()
+        self.waiting_time += self.env.now-entry
+        if self.manuf_line.dev_mode:
+            print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin.ID}")
+        
+        # Move robot 
+        yield self.env.timeout(abs(destination.move_robot_time - origin.move_robot_time) + self.loadunload_time)
+        
+        # Put the product in destination OR central storage
+        entry_2 = self.env.now
+        if to_central_storage:
+            destination.put(ref_data={'name': product, 'route': (from_entity, to_entity), 'status': 'OK'}) # TODO : Status OK so far.
+        else:
+            yield destination.put(product)
+        
+        self.waiting_time += self.env.now-entry_2
+        self.manuf_line.track_sim((origin.ID, destination.ID, self.env.now))
+        destination.loaded += 1
+        if self.manuf_line.dev_mode:
+            print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination.ID}')
 
-        # Transport between two machines
-        if isinstance(from_entity, Machine) and isinstance(to_entity, Machine) and not to_central_storage and not from_central_storage:
-            origin_name, destination_name = from_entity.ID, to_entity.ID
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin_name} to {destination_name}")
-       
-            # Start by waiting for an available input resource from origin
-            while len(from_entity.buffer_out.items) == 0:
-                yield self.env.timeout(1)
-
-                # Cancel transport if origin machine breaks down 
-                if from_entity.broken:
-                    if self.manuf_line.dev_mode:
-                        print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} transport cancelled because {origin_name} broke down")
-                    self.busy = False
-                    yield self.env.timeout(1)
-                    return
-            
-            # Get the product
-            product = yield from_entity.buffer_out.get()
-            self.waiting_time += self.env.now-entry
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin_name}")
-            
-            # Move robot 
-            yield self.env.timeout(abs(to_entity.move_robot_time - from_entity.move_robot_time)+self.loadunload_time)
-            
-            # Wait for a spot in destination
-            entry_2 = self.env.now
-            yield to_entity.buffer_in.put(product)
-            to_entity.loaded += 1
-            self.waiting_time += self.env.now-entry_2
-            self.manuf_line.track_sim((origin_name, destination_name, self.env.now))
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination_name}')
-
-        # Transport from supermarket to a machine
-        elif isinstance(from_entity, simpy.Store) and isinstance(to_entity, Machine) and not to_central_storage and not from_central_storage:
-            origin_name, destination_name = "SUPERMARKET", to_entity.ID
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin_name} to {destination_name}")
-
-            # Get the product
-            product = yield from_entity.get()
-            self.waiting_time += self.env.now-entry
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin_name}")
-
-            # Move robot 
-            yield self.env.timeout(abs(to_entity.move_robot_time)+self.loadunload_time)
-            
-            # Wait for a spot in destination
-            entry_2 = self.env.now
-            yield to_entity.buffer_in.put(product) 
-            to_entity.loaded += 1
-            self.waiting_time += self.env.now-entry_2
-            self.manuf_line.track_sim((origin_name, destination_name, self.env.now))
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination_name}')
-
-        # Transport from a machine to the central storage
-        elif isinstance(from_entity, Machine) and isinstance(to_entity, Machine) and to_central_storage and not from_central_storage:
-            origin_name, destination_name = from_entity.ID, to_entity.ID
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin_name} to {destination_name}")
-           
-            # Start by waiting for an available input resource from origin
-            while len(from_entity.buffer_out.items) == 0:
-                yield self.env.timeout(1)
-
-                # Skip transport if origin machine breaks down
-                if from_entity.broken:
-                    if self.manuf_line.dev_mode:
-                        print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} transport cancelled because {origin_name} broke down")
-                    self.busy = False
-                    yield self.env.timeout(1)
-                    return
-
-            # Get the product
-            product = yield from_entity.buffer_out.get()
-            self.waiting_time += self.env.now-entry
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin_name}")
-
-            # Move robot
-            yield self.env.timeout(abs(max(self.manuf_line.central_storage.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
-            
-            # Wait for a spot in destination
-            entry_2 = self.env.now
-            self.manuf_line.central_storage.put(ref_data={'name': product, 'route': (from_entity, to_entity), 'status': 'OK'}) # TODO : Status OK so far.
-            self.waiting_time += self.env.now-entry_2 
-            self.manuf_line.track_sim((origin_name, destination_name, self.env.now))
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination_name}')
-
-            # Specific tracking
+        # Specific tracking for the central storage
+        if from_central_storage or to_central_storage:
             now = self.env.now
             for ref in self.manuf_line.cs_track:
                 self.manuf_line.cs_track[ref].append([now, self.manuf_line.cs_track[ref][-1][1]])
                 if ref == product:
-                    self.manuf_line.cs_track[ref][-1][1] += 1
+                    if from_central_storage:
+                        self.manuf_line.cs_track[ref][-1][1] -= 1
+                    elif to_central_storage:
+                        self.manuf_line.cs_track[ref][-1][1] += 1
 
-        # Transport from the central storage to a machine
-        elif isinstance(from_entity, Machine) and isinstance(to_entity, Machine) and not to_central_storage and from_central_storage:
-            origin_name, destination_name = from_entity.ID, to_entity.ID
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin_name} to {destination_name}")
-
-            # # Wait the time to go to the central storage
-            # yield self.env.timeout(abs(max(self.manuf_line.central_storage.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
-
-            # Get the product
-            product = self.manuf_line.central_storage.get_by_destination(to_entity)
-            self.waiting_time += self.env.now-entry
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin_name}")
-
-            # Move robot 
-            yield self.env.timeout(abs(to_entity.move_robot_time - max(self.manuf_line.central_storage.times_to_reach))+self.loadunload_time)
-    
-            # Wait for a spot in destination
-            entry_2 = self.env.now
-            yield to_entity.buffer_in.put(product['name'])
-            to_entity.loaded += 1
-            self.waiting_time += self.env.now-entry_2
-            self.manuf_line.track_sim((origin_name, destination_name, self.env.now))
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination_name}')
-
-            # Specific tracking
-            now = self.env.now
-            for ref in self.manuf_line.cs_track:
-                self.manuf_line.cs_track[ref].append([now, self.manuf_line.cs_track[ref][-1][1]])
-                if ref == product['name']:
-                    self.manuf_line.cs_track[ref][-1][1] -= 1
-            
-        # Transport from a machine to shop stock 
-        elif isinstance(from_entity, Machine) and  isinstance(to_entity, simpy.Store) and not to_central_storage and not from_central_storage:
-            origin_name, destination_name = from_entity.ID, "SHOP STOCK"
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin_name} to {destination_name}")
-
-            # Start by waiting for an available input resource from origin
-            while len(from_entity.buffer_out.items) == 0:
-                yield self.env.timeout(1)
-
-                # Cancel transport if origin machine breaks down 
-                if from_entity.broken:
-                    if self.manuf_line.dev_mode:
-                        print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} transport cancelled because {origin_name} broke down")
-                    self.busy = False
-                    yield self.env.timeout(1)
-                    return
-
-            # Get the product
-            product = yield from_entity.buffer_out.get()
-            self.waiting_time += self.env.now-entry
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin_name}")
-
-            # Move robot 
-            yield self.env.timeout(abs(from_entity.move_robot_time)+self.loadunload_time)
-
-            # Wait for a spot in destination
-            entry_2 = self.env.now
-            yield to_entity.put(product)
-            self.waiting_time += self.env.now-entry_2
-            self.manuf_line.track_sim((origin_name, destination_name, self.env.now))
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination_name}')
-
-        # Transport from the central storage to shop stock
-        elif isinstance(from_entity, Machine) and isinstance(to_entity, simpy.Store) and not to_central_storage and from_central_storage:
-            origin_name, destination_name = from_entity.ID, "SHOP STOCK"
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} scheduled from {origin_name} to {destination_name}")
-
-            # # Wait the time to go to the central storage
-            # yield self.env.timeout(abs(max(self.manuf_line.central_storage.times_to_reach) - from_entity.move_robot_time)+self.loadunload_time)
-
-            # Get the product
-            product = self.manuf_line.central_storage.get_by_destination(to_entity)
-            self.waiting_time += self.env.now-entry
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} got {product} from {origin_name}")
-
-            # Move robot
-            yield self.env.timeout(max(self.manuf_line.central_storage.times_to_reach)+self.loadunload_time)
-            
-            # Wait for a spot in destination
-            entry_2 = self.env.now
-            yield to_entity.put(product['name']) # TODO : Status OK so far.
-            self.waiting_time += self.env.now-entry_2
-            self.manuf_line.track_sim((origin_name, destination_name, self.env.now))
-            if self.manuf_line.dev_mode:
-                print(f"Time {round(self.manuf_line.env.now)} :", f'{self.ID} put {product} in {destination_name}')
-
-            # Specififc tracking
-            now = self.env.now
-            for ref in self.manuf_line.cs_track:
-                self.manuf_line.cs_track[ref].append([now, self.manuf_line.cs_track[ref][-1][1]])
-                if ref == product['name']:
-                    self.manuf_line.cs_track[ref][-1][1] -= 1
-
+        # Free the robot and timeout for other robots to process
         yield self.env.timeout(1)
         self.busy = False 
 
-    def which_machine_to_feed(self, current_machine, ref_to_pass=None):
+    def which_machine_to_feed(self, current_machine:Entity, ref_to_pass=None) -> Entity:
         """
-        Select the best machine to feed based on a given strategy.
-        
-        TODO: Upgrade to python 3.10 to use match case 
+        Select the best entity to feed based on the robot strategy.
 
         Parameters:
         - ref_to_pass : when using the function in a recursive way, needs to store what was the product reference at hand from the first origin machine.
                         None is the most common usecase, meaning there was no machine skipping before.
-
-        Return:
-        Machine
-        """
         
-        # Feed from the supermarket
-        if not isinstance(current_machine, Machine):
-            # Update exepected refill time
-            if self.manuf_line.pdp is None:
-                self.manuf_line.expected_refill_time = [abs(i-self.manuf_line.env.now) for i in self.manuf_line.expected_refill_time]
-            
-            first_machines = [m for m in self.manuf_line.list_machines if m.first]
+        TODO: Upgrade to python 3.10 to use match case 
+        """
 
-            # Balanced-like strategy : try to equally feed machines that are in parallel 
-            if self.manuf_line.robot_strategy == 0:
-                # Select the machine that has been the less loaded so far
-                loads_on_machines = [m.loaded if not m.broken else float('inf') for m in first_machines]
-                next_machine = first_machines[loads_on_machines.index(min(loads_on_machines))]  
+        # Balanced strategy : evenly loads parallel machines -> .loaded attribute
+        if self.manuf_line.robot_strategy == 0:
+            machines_stats = [m.loaded if not m.broken else float('inf') for m in current_machine.next_machines]
 
-            # Greedy-like strategy : focus on the machine that has the most space in input
-            elif self.manuf_line.robot_strategy == 1:
-                # Select the machine that has the fewest items in its input buffer
-                buffers_level = [len(m.buffer_in.items) if not m.broken else float('inf') for m in first_machines]
-                next_machine = first_machines[buffers_level.index(min(buffers_level))]
+        # Greedy-like strategy : focuses on the machine that has the most space -> buffer level
+        elif self.manuf_line.robot_strategy == 1:
+            machines_stats = [len(m.buffer_in.items) if isinstance(m, Machine) else len(m.buffer.items) for m in current_machine.next_machines]
 
-            # Skip the next machine if it takes no time to process the next product in the supermarket buffer
-            if self.manuf_line.supermarket_in.items != [] and float(self.manuf_line.references_config[self.manuf_line.supermarket_in.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                return self.which_machine_to_feed(next_machine, ref_to_pass=self.manuf_line.supermarket_in.items[0])
-                
-            # # Skip the next machine if it takes no time to process the next product coming to the supermarket 
-            # next_refilled_ref = list(self.manuf_line.references_config.keys())[np.argmin(self.manuf_line.expected_refill_time)]
-            # if self.manuf_line.supermarket_in.items == [] and float(self.manuf_line.references_config[next_refilled_ref][self.manuf_line.list_machines.index(next_machine)+3])==0 :
-            #     return self.which_machine_to_feed(next_machine, ref_to_pass=next_refilled_ref)
-                
-            return next_machine
+        # Retrieve the next machine by minimizing the stat at hand depending on the strategy        
+        next_machine = current_machine.next_machines[machines_stats.index(min(machines_stats))]
 
-        # Feed from a machine
-        else:
-            # Balanced-like strategy : try to equally feed machines that are in parallel 
-            if self.manuf_line.robot_strategy == 0:
-                # Select the machine that has been the less loaded so far
-                loads_on_machines = [m.loaded if isinstance(m, Machine) and not m.broken and not m.operating else float('inf') for m in current_machine.next_machines]
-                next_machine = current_machine.next_machines[loads_on_machines.index(min(loads_on_machines))]
+        # May skip the next machine if takes no time to process
+        if isinstance(next_machine, Machine):
+            # Retrieve the product at hand
+            if ref_to_pass is not None:
+                product = ref_to_pass
+            elif not current_machine.empty('output'):
+                product = current_machine.buffer.items[0] if current_machine.ID == 'Supermarket' else current_machine.buffer_out.items[0]
+            else:
+                product = None
 
-            # Greedy-like strategy : focus on the machine that has the most space in input
-            elif self.manuf_line.robot_strategy == 1:
-                buffers_level = [len(m.buffer_in.items) if isinstance(m, Machine) else len(m.items) for m in current_machine.next_machines]
-                next_machine = current_machine.next_machines[buffers_level.index(min(buffers_level))]        
-
-            # Skip the next machine if it takes no time to process the product at hand (either a product that already skipped a previous machine, or the next product in the buffer)
-            if isinstance(next_machine, Machine) :
-                if ref_to_pass is not None and float(self.manuf_line.references_config[ref_to_pass][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                    return self.which_machine_to_feed(next_machine, ref_to_pass=ref_to_pass)
-                
-                elif ref_to_pass is None and current_machine.buffer_out.items != [] and float(self.manuf_line.references_config[current_machine.buffer_out.items[0]][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
-                    return self.which_machine_to_feed(next_machine, ref_to_pass=current_machine.buffer_out.items[0])
-                
-            return next_machine
+            # Check operating time of next_machine for the product at hand
+            if (product is not None) and float(self.manuf_line.references_config[product][self.manuf_line.list_machines.index(next_machine)+3]) == 0:
+                return self.which_machine_to_feed(next_machine, ref_to_pass=product)
+        
+        return next_machine
 
     def robot_process_local(self, from_entity, to_entity, transport_time=10):
         """Wait to tansport from an entity to another."""
@@ -1448,71 +1332,35 @@ class Robot:
         None
         """
         while True:
-            try:
-                # entities_order = [input_entity, machine1, machine2, machine3, output_entity]
-                for i in range(len(self.entities_order)):
-                    from_entity = self.entities_order[i]
-                    to_entity = self.which_machine_to_feed(from_entity)
+            # entities_order = [input_entity, machine1, machine2, machine3, output_entity]
+            for i in range(len(self.entities_order)):
+                # Handle shift reset
+                if self.manuf_line.reset_shift_bool:
+                    self.manuf_line.reset_shift_bool = False
+                    if self.manuf_line.dev_mode:
+                        print("Reseting Robot Process.")
+                    break
 
-                    # "Shall we unload this machine ?"
-                    
-                    # Handle shift reset
-                    if self.manuf_line.reset_shift_bool:
-                        self.manuf_line.reset_shift_bool = False
-                        if self.manuf_line.dev_mode:
-                            print("Reseting Robot Process.")
-                        break
-                    
-                    # Supermarket -> Machine
-                    if isinstance(from_entity, simpy.Store):
-                        # Available product in supermarket + available space in destination machine
-                        if len(from_entity.items) > 0 and len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity:
-                            yield from self.transport(from_entity, to_entity)
-                        
-                        # elif len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity and len(from_entity.items) == 0:
-                        #   yield from self.transport(from_entity, to_entity)
+                # Define the route
+                origin = self.entities_order[i]
+                destination = self.which_machine_to_feed(origin)
+                
+                # Available product in origin buffer + Available space in destination buffer
+                if not origin.empty('output') and not destination.full('input'):
+                    yield from self.transport(origin, destination)
 
-                    elif isinstance(from_entity, Machine):
-                        # Machine -> Machine
-                        if isinstance(to_entity, Machine):
-                            # Available product in origin machine + available space in destination machine
-                            if len(from_entity.buffer_out.items) > 0 and len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity:
-                                yield from self.transport(from_entity, to_entity)
+                # Full origin buffer (machine) + Full destination buffer + Available space in CentralStorage
+                elif origin.full('output') and destination.full('input') and (self.manuf_line.central_storage is not None) and origin.fill_central_storage and (self.manuf_line.central_storage.available_spot(ref_name=origin.buffer_out.items[0])):
+                    yield from self.transport(origin, destination, to_central_storage=True)
 
-                            # # Under production in orgin machine + vailable space in destination machine
-                            # elif (not from_entity.broken and from_entity.operating) and len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity:
-                            #     yield from self.transport(from_entity, to_entity)
+                # Broken origin + Empty destination buffer + Available product in CentralStorage
+                elif origin.broken and destination.empty('input') and (self.manuf_line.central_storage is not None) and self.manuf_line.central_storage.available_ref_by_route(origin, destination):
+                    yield from self.transport(origin, destination, from_central_storage=True)
 
-                            # Full buffer in origin machine + full buffer in destination machine + space in central storage
-                            elif (len(to_entity.buffer_in.items) == to_entity.buffer_in.capacity) and (len(from_entity.buffer_out.items) >= from_entity.buffer_out.capacity) and (self.manuf_line.central_storage is not None) and from_entity.fill_central_storage and (self.manuf_line.central_storage.available_spot(ref_name=from_entity.buffer_out.items[0])):
-                                yield from self.transport(from_entity, to_entity, to_central_storage=True)
-
-                            # Broken origin machine + available space in destination machine + available product in the central storage
-                            elif from_entity.broken and len(to_entity.buffer_in.items) < to_entity.buffer_in.capacity and self.manuf_line.central_storage is not None and self.manuf_line.central_storage.available_ref_by_route(from_entity, to_entity):
-                                yield from self.transport(from_entity, to_entity, from_central_storage=True)
-
-                        # Machine -> Shop stock
-                        elif isinstance(to_entity, simpy.Store):
-                            # Available product in origin machine + available space in shop stock:
-                            if len(from_entity.buffer_out.items) > 0 and len(to_entity.items) < to_entity.capacity:
-                                yield from self.transport(from_entity, to_entity)
-
-                            # # Under production in orgin machine + available space in shop stock
-                            # elif (not from_entity.broken and from_entity.operating) and len(to_entity.items) < to_entity.capacity:
-                            #     yield from self.transport(from_entity, to_entity)
-                        
-                        else:
-                            raise Exception(f"Type of {to_entity} is not handled by the code.")
-                    else:
-                        raise Exception(f"Type of {from_entity} is not handled by the code.")
-
-            except simpy.Interrupt:
-                if self.manuf_line.dev_mode:
-                    print(f"Resetting process of robot {self.ID}")
+                # TODO : Another case by waiting if under production in input machine/supermarket ? 
 
             # Pause for other robots to process.
-            finally:
-                yield self.env.timeout(1)
+            yield self.env.timeout(1)
 
     # Unused (#Commented in "run" of ManufLine)
     def robot_process_unique(self):
@@ -1788,7 +1636,7 @@ class Operator:
         self.assigned_machines.remove(machine)
 
 
-class CentralStorage:
+class CentralStorage(Entity):
     def __init__(self, env, manuf_line, central_storage_config, times_to_reach={}, strategy='stack') -> None:
         """Hold two storages : back and front, each having several blocks allowing one or many references.
 
@@ -1818,8 +1666,7 @@ class CentralStorage:
                 - status           
 
         """
-        self.ID = 'CENTRAL STORAGE'
-        self.env = env
+        super().__init__(env, ID='CentralStorage', move_robot_time=max(list(times_to_reach.values())))
         self.manuf_line = manuf_line
         self.strategy = strategy
         self.times_to_reach = list(times_to_reach.values())
@@ -2101,14 +1948,14 @@ def draw_buffers(app, assembly_line):
     machine_names = []
 
     # Draw supermarket of the whole line
-    if len(assembly_line.supermarket_in) < assembly_line.supermarket_in.capacity * 0.3:
+    if len(assembly_line.supermarket) < assembly_line.supermarket.buffer.capacity * 0.3:
         app.supermarket_btn.configure(fg_color="red")
-    elif len(assembly_line.supermarket_in) < assembly_line.supermarket_in.capacity * 0.5:
+    elif len(assembly_line.supermarket) < assembly_line.supermarket.buffer.capacity * 0.5:
         app.supermarket_btn.configure(fg_color="orange")
     else:
         app.supermarket_btn.configure(fg_color="green")
-    app.supermarket_capacity.configure(text=f"Capacity = {assembly_line.supermarket_in.capacity}")
-    app.supermarket_level.configure(text=f"Level = {len(assembly_line.supermarket_in)}")
+    app.supermarket_capacity.configure(text=f"Capacity = {assembly_line.supermarket.buffer.capacity}")
+    app.supermarket_level.configure(text=f"Level = {len(assembly_line.supermarket)}")
     app.refill_label.configure(text="N. of Refills = %d" % int(assembly_line.supermarket_n_refills))
 
     only_one = False

@@ -680,21 +680,21 @@ class PRODynamicsApp:
         with col[0]:
             if st.session_state.configuration["dev_mode"]:
                 print("last machine level = ",manuf_line.list_machines[-1].last )
-            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shopstock.buffer.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Simulated Production", value=format_time(manuf_line.sim_time))
 
         with col[1]:
-            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shopstock.buffer.items)
             delta_target = (float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"])
             st.metric(label="# Global Cycle Time", value=str(int(global_cycle_time))  +" s", delta=f"{delta_target:.2%}")
         
         with col[2]:
-            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shopstock.buffer.items)
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
         
         with col[3]:
-            global_cycle_time= manuf_line.sim_time/len(manuf_line.shop_stock_out.items)
+            global_cycle_time= manuf_line.sim_time/len(manuf_line.shopstock.buffer.items)
             st.metric(label="# Efficiency Rate", value=int(global_cycle_time), delta=str((float(st.session_state.configuration["takt_time"])-global_cycle_time)/float(st.session_state.configuration["takt_time"]))+" %")
 
         with col[4]:
@@ -805,7 +805,7 @@ class PRODynamicsApp:
         with c13:
             items_per_reference = []
             for item in list(manuf_line.references_config.keys()):
-                items_per_reference.append(manuf_line.shop_stock_out.items.count(item))
+                items_per_reference.append(manuf_line.shopstock.buffer.items.count(item))
 
             # Convert the dictionary to lists for Plotly
             reference_names = list(manuf_line.references_config.keys())
