@@ -1313,6 +1313,8 @@ class PRODynamicsApp:
             'pdp_change_time': 600,
             "central_storage_enable": False,
             "central_storage_ttr": {'front': 100, "back": 100},
+            "supermarket_position": 0,
+            "shopstock_position": 0,
             }
             
 

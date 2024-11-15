@@ -747,6 +747,7 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
     transport_order = list(range(1, len(all_stations) + 1))
     transporter_id = [1] * len(all_stations)
     fill_central_storage = [False] * len(all_stations)
+    duplicate = [1] * len(all_stations)
     
     # Identical station logic for machines
     identical_station = []
@@ -796,7 +797,8 @@ def prepare_detailed_line_sim(machines_CT, EOL_stations_CT, manu_op_assignments)
         'Operator ID': operator_list,
         'Manual Time': manual_time_list,
         'Identical Station': identical_station,
-        'Fill central storage':fill_central_storage
+        'Fill central storage':fill_central_storage,
+        'Duplicate': duplicate
     })
 
     # Combine machine and EOL cycle times
