@@ -78,6 +78,7 @@ class Extremity(Entity):
 
 class ManufLine:
     def __init__(self, env, tasks, operators_assignement=None, tasks_assignement=None, config_file=None):
+
         try:
             with open(config_file, 'r') as stream:
                 config = yaml.safe_load(stream)
@@ -632,6 +633,7 @@ class ManufLine:
 
                 if self.dev_mode:
                     print(f"/!\ Time {round(self.env.now)} :", f"{machine.ID} repaired after {round(repair_time)}")       
+
 
     def monitor_waiting_time(self, machine):
         while True:
@@ -1199,7 +1201,6 @@ class Machine(Entity):
 
             if self.manuf_line.dev_mode:
                 print(f"Time {round(self.manuf_line.env.now)} :", f"{self.ID} produced {self.current_product}")
-
 
 class Robot:
     """
