@@ -492,7 +492,7 @@ class PRODynamicsApp:
             # If PDP enabled
             pdp = None
             if st.session_state.configuration['enable_pdp']:
-                pdp = list(st.session_state.pdp_batch_details.to_records(index=False))
+                pdp = list(st.session_state.pdp_batch_details.to_records(index=False, column_dtypes={"Quantity": "int32"}))
 
                 # Check data consistency
                 available_refs = list(references_config.keys())
@@ -501,7 +501,12 @@ class PRODynamicsApp:
                     st.error(f"You enabled the PDP in 'Process Data > Product Reference Data' but some names of references are not consistent in the 2 tables. Please, fix it before running again.", icon="🚨")
                     self.all_prepared = False
                     return 
-
+                
+                if any([pdp[i-1][0]==pdp[i][0] for i in range(1, len(pdp))]):
+                    st.error(f"You enabled the PDP in 'Process Data > Product Reference Data' but you cannot add the same reference one after the other. Please, merge these rows before running again.", icon="🚨")
+                    self.all_prepared = False
+                    return 
+                
             self.manuf_line = ManufLine(env, tasks, config_file='config.yaml')
             self.manuf_line.save_global_settings(configuration, references_config, line_data, buffer_sizes=[], pdp=pdp)
             self.manuf_line.create_machines(self.manuf_line.machine_config_data)
