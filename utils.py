@@ -16,7 +16,7 @@ class ManufLine:
 
         """
 
-         """
+        """
         try:
             with open(config_file, 'r') as stream:
                 config = yaml.safe_load(stream)
@@ -501,8 +501,9 @@ class ManufLine:
                         print("Machine " + machine.ID + " - Broken at = " + str(self.env.now) + " after time : " + str(time_to_break))
                     machine.n_breakdowns += 1
                     machine.process.interrupt()
+
                 yield self.env.timeout(10)
-    
+
     def monitor_waiting_time(self, machine):
         while True:
             if not machine.operating:
@@ -1116,7 +1117,6 @@ class Machine:
 
                         self.current_product = None
                         yield self.env.timeout(0) 
-
 
 class Robot:
     """
