@@ -41,14 +41,22 @@ class Entity:
 
 
 class Extremity(Entity):
-    def __init__(self, env, ID: str, move_robot_time: int, buffer_capacity: float) -> None:
+    def __init__(self, env: simpy.Environment, ID: str, move_robot_time: int, buffer_capacity: float) -> None:
         super().__init__(env, ID, move_robot_time)
         self.buffer: simpy.Store = simpy.Store(self.env, capacity=buffer_capacity)
+        self.event_put_shopstock = env.event() if self.ID=='ShopStock' else None
+        self.event_empty_supermarket = env.event() if self.ID=='Supermarket' else None
 
     def put(self, item):
+        if self.ID=='ShopStock':
+            self.event_put_shopstock.succeed()
+            self.event_put_shopstock = self.env.event()
         return self.buffer.put(item)
 
     def get(self):
+        if self.ID=='Supermarket' and len(self.buffer.items)==1:
+            self.event_empty_supermarket.succeed()
+            self.event_empty_supermarket = self.env.event()
         return self.buffer.get()
     
     def empty(self, side) -> bool:
@@ -78,7 +86,7 @@ class ManufLine:
             with open(config_file, 'r') as stream:
                 config = yaml.safe_load(stream)
 
-        self.env = env # Why is the SimPy environment a parameter since it's only used in there ? 
+        self.env: simpy.Environment = env # Why is the SimPy environment a parameter since it's only used in there ? 
         self.randomseed = False
         self.parts_done = 0
         self.config = config
@@ -139,6 +147,8 @@ class ManufLine:
 
         self.central_storage = None
         self.cs_track = {}
+
+        self.event_complete = self.env.event()
 
     def get_index_of_item(self, list_of_lists, item):
         for index, sublist in enumerate(list_of_lists):
@@ -366,7 +376,7 @@ class ManufLine:
         if self.dev_mode:
             print("Starting the sim now.")
 
-        self.env.run(until=self.sim_time)
+        self.env.run(until=self.env.timeout(self.sim_time) | self.event_complete)
         #print(f"Current simulation time at the end: {self.env.now}")
 
     def reset(self):
@@ -375,6 +385,7 @@ class ManufLine:
         a new simulation without interupting the code. 
         """
         self.env = simpy.Environment()
+        self.event_complete = self.env.event()
 
         # Set up the supermarket with initial stock
         self.supermarket = Extremity(self.env, 'Supermarket', move_robot_time=self.supermarket_position, buffer_capacity=self.supermarket_capacity)
@@ -674,39 +685,31 @@ class ManufLine:
         For each pair, add the quantity of the reference at hand to the supermarket.
         When moving to the next pair, waits a given time if the new reference is different than the previous one. 
         """
-        previous_ref = self.pdp[0][0]
-        previous_qty = self.pdp[0][1]
+        to_produce = itertools.cycle(self.pdp) if self.pdp_repeat else iter(self.pdp)
 
-        to_produce = itertools.cycle(self.pdp) if self.pdp_repeat else self.pdp
+        # Iterate 
         for ref, quantity in to_produce:
-            if ref != previous_ref:
-                # Wait until the previous batch has been completely produced (in shop stock)
-                if self.dev_mode:
-                    print(f"Time {round(self.env.now)} :", f"Waiting for batch {previous_qty} {previous_ref} to be complete to change tools for {ref}")
-                while len(self.shopstock.buffer.items) < previous_qty or self.shopstock.buffer.items[-previous_qty:] != [previous_ref]*previous_qty:
-                    yield self.env.timeout(1)
-                
-                # Wait some time for tools change
-                if self.dev_mode:
-                    print(f"Time {round(self.env.now)} :", f"Tools being changed from {previous_ref} to {ref}")
-                yield self.env.timeout(self.pdp_change_time)
-                if self.dev_mode:
-                    print(f"Time {round(self.env.now)} :", f"Tools changed")
-            
-            else:
-                while len(self.supermarket.buffer.items) > 0:
-                    yield self.env.timeout(1)
-
-            # Add the quantity all at once     
+            # Fill with the new batch
             for _ in range(quantity):
                 yield self.supermarket.put(ref)
             if self.dev_mode:
                 print(f"Time {round(self.env.now)} :", f"SUPERMARKET refilled with {quantity} {ref}")         
 
-            # Update the previous reference    
-            previous_ref = ref
-            previous_qty = quantity
-            yield self.env.timeout(1)                
+            # Wait for the batch to be completely produced before moving to the next one
+            batch_done = False
+            while not batch_done:
+                yield self.shopstock.event_put_shopstock
+                batch_done = (len(self.shopstock.buffer.items) >= quantity) and (self.shopstock.buffer.items[-quantity:] == [ref]*quantity)
+
+            # Wait some time for tools change
+            if self.dev_mode:
+                print(f"Time {round(self.env.now)} :", f"Tools for {ref} are being changed")
+            yield self.env.timeout(self.pdp_change_time)
+            if self.dev_mode:
+                print(f"Time {round(self.env.now)} :", f"Tools changed")
+        
+        self.event_complete.succeed()
+        self.sim_time = self.env.now
 
     def repairmen_process(self):
         while True:
